@@ -1,5 +1,11 @@
 # Connecter Mews Studio Galleries à votre Google Drive
 
+> ✅ **Déjà installé en production** (31/08/2026) : compte de service
+> `mews-235@mews-studio-galleries.iam.gserviceaccount.com`, dossiers
+> partagés « 3 Mews Galleries » (avec « test 1 » et « test 2 »),
+> sauvegarde automatique sur le dépôt GitHub privé
+> `Meliezer26/mews-studio-backup`. Ce document sert de référence.
+
 Deux options — **recommandée : le compte de service** (une seule fois,
 aucune re-connexion, connexion automatique) ; alternative : OAuth
 classique (bouton « Se connecter avec Google », à re-cliquer environ
@@ -125,14 +131,18 @@ La galerie se resynchronise automatiquement toutes les 5 minutes (ou via le bout
 ## Notes
 
 - **Accès demandés** :
-  - *Compte de service* : le robot accède uniquement aux dossiers que vous lui partagez (en « Éditeur »). Aucun accès au reste de votre Drive.
+  - *Compte de service* : le robot accède uniquement aux dossiers que vous lui partagez (en « Éditeur »). Aucun accès au reste de votre Drive. ⚠️ Limite Google : un compte de service ne peut **pas écrire** de fichiers dans les dossiers (pas de quota de stockage) — l'ajout de photos se fait donc **directement sur drive.google.com**, puis « Synchroniser avec Drive » dans l'espace photographe. La sauvegarde des données, elle, part sur GitHub (voir plus bas).
   - *OAuth* : `drive.readonly` (lire), `drive.file` (déposer dans les dossiers choisis) et `drive` (accès complet, utilisé uniquement pour poser puis révoquer les **liens de téléchargement temporaires** — voir ci-dessous).
 - **Téléchargements directs (bande passante gratuite)** : quand un client télécharge une photo, l'application crée un lien public temporaire valable **1 heure** (permission « toute personne disposant du lien », révoquée automatiquement ensuite) et le client reçoit le fichier **directement depuis les serveurs de Google**. Le serveur d'hébergement ne transmet jamais les fichiers lourds : des dossiers de 8–15 Go ne consomment pas sa bande passante.
 - **Déconnexion** (OAuth uniquement) : bouton **Déconnecter** dans l'onglet Google Drive, ou révoquez l'accès depuis https://myaccount.google.com/permissions. *(Compte de service : supprimez la clé dans la console Google et/ou retirez le partage des dossiers.)*
 - **Production** : voir **[DEPLOIEMENT-RENDER.md](DEPLOIEMENT-RENDER.md)** — mise en ligne pas-à-pas sur Render (gratuit, HTTPS). En résumé : remplacez `BASE_URL` par votre domaine, ajoutez l'URI de redirection correspondant dans la console Google.
-- **Sauvegarde automatique** : dès que Google Drive est connecté, vos données (galeries, réglages, comptes clients) sont copiées toutes les 5 minutes dans votre Drive (fichier `mews-studio-data.json`). En OAuth, la variable `GOOGLE_REFRESH_TOKEN` (clé de secours visible dans l'onglet Google Drive de l'espace photographe) permet la restauration automatique si le disque de l'hébergeur est réinitialisé. En compte de service, la restauration est automatique grâce à la clé JSON.
+- **Sauvegarde automatique** : les données (galeries, réglages, comptes clients) sont copiées à chaque modification, toutes les 5 minutes et à chaque démarrage :
+  - **GitHub (recommandé, utilisé en production)** : dépôt privé dédié + variables `GITHUB_BACKUP_TOKEN` (jeton avec permission Contents: Read and write) et `GITHUB_BACKUP_REPO` (« propriétaire/dépôt »). Fonctionne dans tous les modes, y compris compte de service.
+  - **Google Drive** (OAuth uniquement) : fichier `mews-studio-data.json` dans un dossier partagé ; la variable `GOOGLE_REFRESH_TOKEN` permet la restauration automatique après une perte du disque.
+  - La restauration est automatique au démarrage si le disque de l'hébergeur a été réinitialisé.
 - **Photo Drive ≠ photo locale** : quand une galerie est liée à un dossier Drive, ce sont bien les fichiers de ce dossier qui sont affichés. Quand vous importez via l'interface, les photos sont déposées dans ce même dossier Drive.
 - **Formats sans aperçu (RAW…)** : pas de vignette affichée (cartouche « Aperçu non disponible ») pour éviter de transfuser des fichiers énormes — le client utilise le bouton Télécharger (lien Google direct).
+- ⚠️ **Ne laissez pas la clé JSON du compte de service dans un dossier partagé** avec le robot (elle serait téléchargeable) : gardez-la uniquement dans les variables d'environnement de l'hébergeur.
 
 ## Notifications e-mail (SMTP)
 

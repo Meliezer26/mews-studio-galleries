@@ -1,10 +1,19 @@
 # 🚀 Mettre « Mews Studio Galleries » en ligne — guide Render (gratuit)
 
-> Objectif : une **adresse fixe et durable** pour vos galeries
-> (ex. `https://mews-galleries.onrender.com`), avec HTTPS automatique.
-> Plus de tunnel temporaire, plus de lien cassé sur mewstudio.com.
+> ✅ **INSTALLATION RÉALISÉE le 31/08/2026** — le site est en production :
 >
-> **Tout se fait en clics, sans ligne de commande.** Comptez 30 à 45 minutes.
+> | Élément | Valeur |
+> |---|---|
+> | Adresse publique | **https://mews-galleries.onrender.com** |
+> | Code source | dépôt GitHub `Meliezer26/mews-studio-galleries` (public) |
+> | Sauvegarde des données | dépôt GitHub **privé** `Meliezer26/mews-studio-backup` (fichier `mews-studio-data.json`) |
+> | Google Drive | compte de service `mews-235@mews-studio-galleries.iam.gserviceaccount.com`, dossiers partagés « 3 Mews Galleries » (« test 1 », « test 2 ») |
+> | Menu mewstudio.com | « ESPACE » et « galeries privées » → `…onrender.com/connexion` (publiés) |
+> | Coût mensuel | **0 €** (plan gratuit Render) |
+
+> Ce document décrit la marche à suivre pour refaire l'installation ou
+> la comprendre ; il sert aussi de référence pour l'avenir (domaine
+> personnalisé, migration, mise à jour).
 
 ---
 
@@ -123,6 +132,8 @@ Dans le tableau de bord Render : votre service → **Environment** →
 | `GOOGLE_CLIENT_ID` | créé à l'étape 5 (option OAuth alternative) | non |
 | `GOOGLE_CLIENT_SECRET` | créé à l'étape 5 (option OAuth alternative) | non |
 | `GOOGLE_REFRESH_TOKEN` | clé de secours (option OAuth uniquement) | option OAuth |
+| `GITHUB_BACKUP_TOKEN` | jeton GitHub (Contents: Read and write) pour la sauvegarde automatique | ✅ recommandé |
+| `GITHUB_BACKUP_REPO` | `proprietaire/nom-du-depot-prive` (ex. `Meliezer26/mews-studio-backup`) | ✅ recommandé |
 | `EMBED_MODE` | laisser vide (0) — vous utilisez un lien, pas une iframe | non |
 
 Après chaque ajout, Render redéploie automatiquement (~1 min).
@@ -182,6 +193,37 @@ L'option A n'a pas cette contrainte.
 
 ---
 
+## Étape 5 bis — Sauvegarde automatique sur GitHub (5 minutes)
+
+Les données (galeries, réglages, comptes clients) vivent sur le disque
+**éphémère** de Render : il faut les sauvegarder ailleurs. Destination
+recommandée : un dépôt GitHub **privé** dédié.
+
+1. Créez le dépôt privé : https://github.com/new → nom
+   `mews-studio-backup` → **Private** → Create repository.
+2. Créez le jeton : https://github.com/settings/personal-access-tokens/new
+   → Token name `mews-backup` → Expiration `No expiration` →
+   Repository access `Only select repositories` → `mews-studio-backup` →
+   Permissions → Repository permissions → **Contents : Read and write** →
+   Generate token (copiez-le).
+   *(Écran « classic » possible : https://github.com/settings/tokens/new →
+   cochez `repo`.)*
+3. Variables Render :
+   - `GITHUB_BACKUP_TOKEN` = le jeton (`github_pat_…` ou `ghp_…`)
+   - `GITHUB_BACKUP_REPO` = `Meliezer26/mews-studio-backup`
+
+L'application écrit alors `mews-studio-data.json` dans ce dépôt : au
+démarrage, toutes les 5 minutes, ~20 s après chaque modification, et
+via le bouton « 💾 Sauvegarder maintenant » de l'espace photographe.
+En cas de perte du disque (redéploiement, mise en veille), la
+restauration est **automatique** au démarrage suivant.
+
+> ℹ️ Pourquoi pas Google Drive ? Un compte de service Google n'a pas de
+> quota de stockage : il peut lire vos dossiers mais pas y écrire de
+> fichiers. La sauvegarde Drive reste disponible en mode OAuth classique.
+
+---
+
 ## Étape 6 — Repointer les liens du menu Showit
 
 Vos deux liens de menu (« ESPACE » et « galeries privées ») pointent vers
@@ -237,7 +279,7 @@ le plan Hobby, le dépassement étant facturé 0,15 $/Go.
 
 **Que se passe-t-il à chaque mise à jour du site ?** Render redéploie
 depuis GitHub : le disque est remis à zéro, puis l'application restaure
-automatiquement ses données depuis la sauvegarde Drive (étape 5).
+automatiquement ses données depuis la sauvegarde GitHub (étape 5 bis).
 
 **Où sont mes photos ?** Toujours dans votre Google Drive — l'application
 ne stocke aucune photo sur l'hébergeur (en mode Drive). La galerie démo
