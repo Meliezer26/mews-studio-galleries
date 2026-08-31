@@ -360,10 +360,14 @@
       return;
     }
 
-    vis.forEach(function (p) {
+    vis.forEach(function (p, idx) {
       var tile = document.createElement('figure');
       tile.className = 'g-item' + (state.selected.has(p.id) ? ' selected' : '');
       tile.dataset.id = p.id;
+
+      /* Hauteur de mosaïque fixée dès la création : survit à chaque re-render */
+      var base = 300 + ((idx * 97) % 3) * 110; // 300, 410, 520 px
+      tile.style.gridRowEnd = 'span ' + Math.round(base / 8);
 
       var img = document.createElement('img');
       img.src = photoUrl(p, 'thumb');
