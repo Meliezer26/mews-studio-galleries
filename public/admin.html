@@ -221,7 +221,7 @@
         <p class="mt-8">Compte : <b id="drive-account" style="color:var(--ink)">—</b></p>
         <details class="mt-8" id="drive-backup-box" hidden>
           <summary style="cursor:pointer">💾 Sauvegarde automatique sur Drive</summary>
-          <p class="mt-8 small muted">Vos données (galeries, réglages, comptes clients) sont copiées automatiquement dans votre Drive (fichier <code>mews-studio-data.json</code>, dans le dossier que vous partagez avec le robot). Dernière sauvegarde : <b id="backup-last">—</b>.</p>
+          <p class="mt-8 small muted">Vos données (galeries, réglages, comptes clients) sont copiées automatiquement dans un fichier <code>mews-studio-data.json</code> — emplacement : <b id="backup-store">—</b>. Dernière sauvegarde : <b id="backup-last">—</b>.</p>
           <p class="mt-8"><button class="btn btn--ghost" id="btn-backup-now" type="button">💾 Sauvegarder maintenant</button></p>
           <p class="mt-8 small muted" id="backup-sa-note" hidden>Sauvegarde et liens de téléchargement temporaires actifs automatiquement via le compte de service. Rien d'autre à faire.</p>
           <div id="backup-key-row">
@@ -442,6 +442,7 @@
       </div>
       <button class="modal-close" data-close="m-photos">✕</button>
     </div>
+    <p class="mt-8 small muted hidden" id="pm-sa-note" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--panel)">ℹ️ Connexion Google en mode « compte de service » : le robot peut lire le dossier mais pas y déposer de fichiers. Ajoutez vos photos **directement dans le dossier sur drive.google.com**, puis cliquez « Synchroniser avec Drive ».</p>
     <label class="drop-zone" id="pm-drop">
       <input type="file" id="pm-file" accept="image/*" multiple hidden>
       <b style="color:var(--ink-2)">⤴ Cliquez pour ajouter des photos</b><br>

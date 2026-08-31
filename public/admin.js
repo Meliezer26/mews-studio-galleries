@@ -159,6 +159,7 @@
   function refreshBanners() {
     window.api('/api/admin/status')
       .then(function (s) {
+        window._saMode = !!s.serviceAccount;
         $('drive-banner').classList.toggle('hidden', !s.demoMode);
         $('global-dl-banner').classList.toggle('hidden', s.globalDownloadsEnabled !== false);
       })
@@ -389,6 +390,10 @@
     $('pm-title').textContent = 'Photos — ' + g.name;
     $('pm-sub').textContent = g.mode === 'drive' ? 'Dossier Drive lié : ' + g.folderName : 'Stockage local';
     $('pm-sync').style.display = g.mode === 'drive' ? '' : 'none';
+    // Mode compte de service : le robot ne peut pas déposer de fichiers.
+    var saMode = !!window._saMode;
+    $('pm-drop').classList.toggle('hidden', saMode);
+    $('pm-sa-note').classList.toggle('hidden', !saMode);
     openModal('m-photos');
     loadPhotosGrid(g.id);
   }
@@ -524,8 +529,9 @@
         $('drive-banner').classList.toggle('hidden', !s.demoMode);
         if (s.driveConnected) {
           $('drive-account').textContent = s.driveEmail || s.driveName || 'compte Google';
-          $('drive-backup-box').hidden = !(s.serviceAccount || s.backupKey);
+          $('drive-backup-box').hidden = !(s.backupEnabled || s.serviceAccount);
           $('backup-last').textContent = s.lastBackupAt ? new Date(s.lastBackupAt).toLocaleString('fr-FR') : '—';
+          $('backup-store').textContent = s.backupStore === 'github' ? 'dépôt GitHub privé' : (s.backupStore === 'drive' ? 'votre Google Drive' : '—');
           $('backup-key-row').hidden = !!s.serviceAccount;
           $('backup-sa-note').hidden = !s.serviceAccount;
           if (s.backupKey) $('backup-key').value = s.backupKey;

@@ -37,8 +37,25 @@ const UNLOCK_MAX_AGE = 30 * 24 * 3600 * 1000;
 const SYNC_TTL = 5 * 60 * 1000; // re-synchronisation Drive auto après 5 min
 
 store.ensureDirs();
-demo.seed();
-backup.init(); // restaure depuis Google Drive si besoin, puis sauvegarde toutes les 5 min
+/* Ordre important : restaurer d'abord (si le disque a été réinitialisé),
+ * puis seulement amorcer la démo. Sinon la démo recréée masquerait la
+ * restauration des vraies galeries. */
+(async () => {
+  try {
+    const r = await backup.restoreIfNeeded();
+    if (r.restored) {
+      console.log('[backup] Données restaurées (sauvegarde du ' + (r.savedAt || '?') + ') : ' + r.reason);
+    } else {
+      console.log('[backup] Restauration non nécessaire ou impossible : ' + r.reason);
+    }
+  } catch (err) {
+    console.warn('[backup] Erreur de restauration :', err.message);
+  }
+  demo.seed();
+  backup.cleanupExpiredGrants().catch(() => {});
+  backup.startPeriodicBackup();
+  backup.now(); // sauvegarde immédiate au démarrage
+})();
 
 const app = express();
 app.disable('x-powered-by');
@@ -792,8 +809,9 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
       configured: mailer.isConfigured(),
       lastNotify: store.config().lastNotify || null,
     },
-    // Sauvegarde automatique sur Google Drive (voir lib/backup.js)
-    backupEnabled: drive.isServiceAccount() || (drive.isConfigured() && !!(store.tokens() && store.tokens().refresh_token)),
+    // Sauvegarde automatique (voir lib/backup.js)
+    backupEnabled: backup.backupStore() !== null,
+    backupStore: backup.backupStore(),
     backupKey: drive.isServiceAccount() ? null : ((store.tokens() && store.tokens().refresh_token) || null),
     lastBackupAt: backup.lastBackupAt(),
   });
