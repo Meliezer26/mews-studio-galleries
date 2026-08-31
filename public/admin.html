@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Espace photographe — Mews Studio Galleries</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23d9a441'/%3E%3Cpath d='M14 46l9-22 7 14 6-10 14 18z' fill='%23171106'/%3E%3Ccircle cx='45' cy='22' r='4' fill='%23f4efe6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  /* ---------- Espace photographe ---------- */
+  .a-shell { display: none; min-height: 100vh; }
+  .a-shell.on { display: grid; grid-template-columns: 250px 1fr; }
+  .a-side {
+    background: var(--bg-2); border-right: 1px solid var(--line);
+    padding: 26px 18px; display: flex; flex-direction: column; gap: 8px;
+    position: sticky; top: 0; height: 100vh;
+  }
+  .a-nav { display: grid; gap: 4px; margin-top: 26px; }
+  .a-nav button {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    background: none; border: none; color: var(--muted); font-size: 0.94rem; font-weight: 500;
+    padding: 11px 14px; border-radius: 11px; transition: all 0.2s;
+  }
+  .a-nav button:hover { color: var(--ink); background: var(--panel); }
+  .a-nav button.active { color: var(--accent-2); background: var(--accent-soft); }
+  .a-side-foot { margin-top: auto; display: grid; gap: 6px; }
+  .a-side-foot a { color: var(--muted); font-size: 0.85rem; padding: 8px 14px; border-radius: 9px; }
+  .a-side-foot a:hover { color: var(--ink-2); }
+
+  .a-main { padding: 38px 42px 80px; min-width: 0; }
+  .a-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 30px; }
+  .a-head h1 { font-size: 1.9rem; }
+  .a-head p { color: var(--muted); font-size: 0.92rem; }
+
+  /* Filtres de la liste des galeries */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .fchip {
+    padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line-2);
+    background: transparent; color: var(--muted); font-size: 0.85rem; font-weight: 600;
+    transition: all 0.2s; cursor: pointer;
+  }
+  .fchip:hover { color: var(--ink-2); border-color: var(--accent); }
+  .fchip.active { background: var(--accent); border-color: var(--accent); color: #171106; }
+  .fchip .count { opacity: 0.7; font-size: 0.75rem; margin-left: 4px; }
+
+  /* Vue Clients */
+  .client-gallery { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+  .client-gallery h3 { font-size: 1.15rem; margin-bottom: 14px; }
+  .client-gallery h3 .muted { font-size: 0.8rem; font-weight: 400; }
+  .client-row { border-top: 1px solid var(--line); padding: 12px 0; }
+  .client-row-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .client-row-head b { font-size: 0.98rem; }
+  .client-albums { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .client-album { font-size: 0.8rem; background: var(--bg); border: 1px solid var(--line-2); color: var(--ink-2); padding: 4px 12px; border-radius: 999px; }
+
+  /* Carte galerie */
+  .g-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+  .g-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; transition: border-color .25s, transform .25s; }
+  .g-card:hover { border-color: var(--line-2); transform: translateY(-2px); }
+  .g-card-cover { position: relative; aspect-ratio: 16 / 9; background: var(--bg-2); }
+  .g-card-cover img { width: 100%; height: 100%; object-fit: cover; }
+  .g-card-cover .placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 0.85rem; }
+  .g-card-body { padding: 18px 20px 20px; }
+  .g-card-body h3 { font-size: 1.15rem; margin-bottom: 4px; }
+  .g-card-body .client { font-size: 0.84rem; color: var(--muted); margin-bottom: 12px; }
+  .g-card-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .g-card-actions { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 14px; }
+  .g-link {
+    display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--line-2);
+    border-radius: 9px; padding: 8px 12px; font-size: 0.82rem; color: var(--accent-2);
+    margin-bottom: 12px; overflow: hidden;
+  }
+  .g-link span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+
+  /* Grille photos dans la modale */
+  .pm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  .pm-item { position: relative; aspect-ratio: 1; border-radius: 9px; overflow: hidden; background: var(--bg-2); }
+  .pm-item img { width: 100%; height: 100%; object-fit: cover; }
+  .pm-del {
+    position: absolute; inset: 0; display: grid; place-items: center; border: none;
+    background: rgba(12, 10, 8, 0.62); color: #f0a497; font-size: 1.1rem; opacity: 0; transition: opacity .2s;
+  }
+  .pm-item:hover .pm-del { opacity: 1; }
+
+  .drop-zone {
+    border: 1.5px dashed var(--line-2); border-radius: 14px; padding: 30px 20px; text-align: center;
+    color: var(--muted); font-size: 0.9rem; transition: all .2s; cursor: pointer; margin-bottom: 22px;
+  }
+  .drop-zone:hover, .drop-zone.over { border-color: var(--accent); color: var(--accent-2); background: var(--accent-soft); }
+
+  .drive-box { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 28px; background: var(--panel); margin-bottom: 20px; }
+  .drive-box h3 { font-size: 1.25rem; margin-bottom: 8px; }
+  .drive-box p { color: var(--muted); font-size: 0.94rem; max-width: 620px; }
+  .folders { display: grid; gap: 8px; max-height: 380px; overflow: auto; margin-top: 16px; }
+  .folder-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 0.9rem; color: var(--ink-2); }
+
+  .settings-box { max-width: 480px; }
+
+  /* Login */
+  .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  .login-card { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius-lg); padding: 40px 36px; text-align: center; }
+  .login-card .brand { justify-content: center; margin-bottom: 8px; }
+  .login-card h1 { font-size: 1.35rem; margin: 18px 0 6px; }
+  .login-card .sub { color: var(--muted); font-size: 0.92rem; margin-bottom: 26px; }
+
+  @media (max-width: 860px) {
+    .a-shell.on { grid-template-columns: 1fr; }
+    .a-side { position: static; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; padding: 14px 16px; }
+    .a-nav { flex-direction: row; margin-top: 0; flex-wrap: wrap; }
+    .a-nav button { width: auto; }
+    .a-side-foot { flex-direction: row; margin-top: 0; }
+    .a-main { padding: 26px 18px 80px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ Connexion ============ -->
+<div class="login-wrap" id="login">
+  <form class="login-card" id="login-form">
+    <a class="brand" href="/">
+      <span class="brand-mark"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><path d="M14 46l9-22 7 14 6-10 14 18z" fill="#171106"/><circle cx="45" cy="22" r="4" fill="#f4efe6"/></svg></span>
+      <span><span class="brand-name">Mews Studio</span><span class="brand-sub">Galleries</span></span>
+    </a>
+    <h1>Espace photographe</h1>
+    <p class="sub">Connectez-vous pour gérer vos galeries.</p>
+    <div class="field">
+      <input class="input" type="password" id="login-pass" placeholder="Mot de passe" autocomplete="current-password" style="text-align:center">
+    </div>
+    <button class="btn btn--gold" type="submit" style="width:100%">Se connecter</button>
+    <div class="lock-error" id="login-error" style="margin-top:12px"></div>
+  </form>
+</div>
+
+<!-- ============ Application ============ -->
+<div class="a-shell" id="shell">
+  <aside class="a-side">
+    <a class="brand" href="/">
+      <span class="brand-mark"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><path d="M14 46l9-22 7 14 6-10 14 18z" fill="#171106"/><circle cx="45" cy="22" r="4" fill="#f4efe6"/></svg></span>
+      <span><span class="brand-name">Mews Studio</span><span class="brand-sub">Galleries</span></span>
+    </a>
+    <nav class="a-nav" id="a-nav">
+      <button data-view="galleries" class="active">▦ Galeries</button>
+      <button data-view="clients">👥 Clients</button>
+      <button data-view="drive">☁ Google Drive</button>
+      <button data-view="settings">⚙ Réglages</button>
+    </nav>
+    <div class="a-side-foot">
+      <a href="/" target="_blank">Voir le site ↗</a>
+      <a href="/g/demo" target="_blank">Galerie démo ↗</a>
+      <button id="btn-logout" style="background:none;border:none;color:var(--muted);text-align:left;padding:8px 14px;font-size:.85rem;cursor:pointer">Déconnexion</button>
+    </div>
+  </aside>
+
+  <main class="a-main">
+    <!-- ===== Vue Galeries ===== -->
+    <section data-view-pane="galleries">
+      <div class="a-head">
+        <div>
+          <h1>Vos galeries</h1>
+          <p>Créez, partagez et surveillez vos livraisons clients.</p>
+        </div>
+        <button class="btn btn--gold" id="btn-new-gallery">+ Nouvelle galerie</button>
+      </div>
+      <div class="filters" id="g-filter">
+        <button class="fchip active" data-filter="all">Toutes <span class="count" id="fc-all">0</span></button>
+        <button class="fchip" data-filter="dl">Téléchargement actif <span class="count" id="fc-dl">0</span></button>
+        <button class="fchip" data-filter="nodl">Sans téléchargement <span class="count" id="fc-nodl">0</span></button>
+      </div>
+      <div class="alert alert--err hidden" id="global-dl-banner">
+        <b>Téléchargements coupés partout :</b> le bouton « Autoriser le téléchargement de toutes les photos » est décoché dans les Réglages. Aucune galerie ne peut être téléchargée en ce moment.
+      </div>
+      <div class="alert alert--info hidden" id="drive-banner">
+        <b>Astuce :</b> connectez Google Drive pour lier vos galeries à vos dossiers de photos. Sans Drive, les galeries fonctionnent avec des photos importées directement.
+      </div>
+      <div class="g-cards" id="g-cards"></div>
+      <div class="empty hidden" id="no-galleries">
+        <b>Aucune galerie pour l'instant</b>
+        <span>Cliquez sur « Nouvelle galerie » pour créer votre première livraison.</span>
+      </div>
+    </section>
+
+    <!-- ===== Vue Clients ===== -->
+    <section data-view-pane="clients" style="display:none">
+      <div class="a-head">
+        <div>
+          <h1>Clients</h1>
+          <p>Les profils de vos clients, leurs sélections et l'avancement de leurs albums en cours.</p>
+        </div>
+      </div>
+      <div id="clients-list"></div>
+    </section>
+
+    <!-- ===== Vue Drive ===== -->
+    <section data-view-pane="drive" style="display:none">
+      <div class="a-head">
+        <div>
+          <h1>Google Drive</h1>
+          <p>Vos photos restent chez vous : les galeries lisent directement vos dossiers.</p>
+        </div>
+      </div>
+
+      <div class="drive-box hidden" id="drive-unconfigured">
+        <h3>Connexion à configurer</h3>
+        <p class="mt-8">Pour connecter votre Google Drive, créez un identifiant OAuth dans la console Google Cloud, puis renseignez <code>GOOGLE_CLIENT_ID</code> et <code>GOOGLE_CLIENT_SECRET</code> dans le fichier <code>.env</code> du serveur. La procédure complète est dans <code>SETUP.md</code>.</p>
+        <p class="mt-16 small muted">En attendant, l'application fonctionne en mode démo : vous pouvez importer des photos directement depuis votre ordinateur.</p>
+      </div>
+
+      <div class="drive-box hidden" id="drive-disconnected">
+        <h3>Connecter votre compte Google</h3>
+        <p class="mt-8">Autorisez Mews Studio Galleries à lire les dossiers que vous choisirez. Vous pourrez révoquer cet accès à tout moment.</p>
+        <div class="form-actions">
+          <button class="btn btn--gold" id="btn-connect-drive">Se connecter avec Google</button>
+        </div>
+      </div>
+
+      <div class="drive-box hidden" id="drive-connected">
+        <h3><span style="color:var(--ok)">✓</span> Google Drive connecté</h3>
+        <p class="mt-8">Compte : <b id="drive-account" style="color:var(--ink)">—</b></p>
+        <details class="mt-8" id="drive-backup-box" hidden>
+          <summary style="cursor:pointer">💾 Sauvegarde automatique sur Drive</summary>
+          <p class="mt-8 small muted">Vos données (galeries, réglages, comptes clients) sont copiées automatiquement toutes les 5 minutes dans votre Drive, dans le fichier <code>mews-studio-data.json</code>. Dernière sauvegarde : <b id="backup-last">—</b>.</p>
+          <p class="mt-8 small muted" id="backup-sa-note" hidden>Sauvegarde et liens de téléchargement temporaires actifs automatiquement via le compte de service. Rien d'autre à faire.</p>
+          <div id="backup-key-row">
+            <p class="mt-8 small muted">Clé de secours — à coller dans la variable <code>GOOGLE_REFRESH_TOKEN</code> de votre hébergeur pour pouvoir restaurer après un redéploiement :</p>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <input id="backup-key" readonly style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)" />
+              <button class="btn btn--ghost" id="btn-copy-key" type="button">Copier</button>
+            </div>
+          </div>
+        </details>
+        <p class="mt-8 small muted">Vos dossiers Drive :</p>
+        <div class="folders" id="drive-folders"><div class="spinner"></div></div>
+        <div class="form-actions">
+          <button class="btn btn--ghost" id="btn-refresh-folders">↻ Rafraîchir</button>
+          <button class="btn btn--danger" id="btn-disconnect-drive">Déconnecter</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Vue Réglages ===== -->
+    <section data-view-pane="settings" style="display:none">
+      <div class="a-head">
+        <div>
+          <h1>Réglages</h1>
+          <p>Compte administrateur et informations.</p>
+        </div>
+      </div>
+      <div class="settings-box">
+        <h3 class="display-3" style="margin-bottom:18px">Téléchargements</h3>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="set-global-dl" checked> Autoriser le téléchargement de toutes les photos</label>
+          <div class="field-hint">Interrupteur global : décochez pour couper immédiatement le téléchargement sur <b>toutes vos galeries</b>, quel que soit leur réglage individuel.</div>
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="set-default-dl" checked> Autoriser le téléchargement par défaut sur les nouvelles galeries</label>
+          <div class="field-hint">Quand l'interrupteur global est actif, ce réglage s'applique aux galeries créées ensuite (modifiable galerie par galerie).</div>
+        </div>
+        <button class="btn btn--gold" id="btn-save-defaults" style="margin-bottom:40px">Enregistrer</button>
+
+        <h3 class="display-3" style="margin-bottom:18px">Notifications e-mail (SMTP)</h3>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="set-notify-enabled"> M'envoyer un e-mail à chaque sélection reçue</label>
+          <div class="field-hint">En complément de l'e-mail envoyé par le client : le serveur vous notifie automatiquement avec le détail des albums.</div>
+        </div>
+        <div class="field">
+          <label>Serveur SMTP (hôte)</label>
+          <input class="input" id="set-smtp-host" placeholder="smtp.gmail.com">
+        </div>
+        <div class="field">
+          <label>Port</label>
+          <input class="input" id="set-smtp-port" placeholder="587">
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="set-smtp-secure"> Connexion SSL directe (port 465)</label>
+          <div class="field-hint">Laissez décoché pour STARTTLS (port 587, le plus courant).</div>
+        </div>
+        <div class="field">
+          <label>Utilisateur</label>
+          <input class="input" id="set-smtp-user" placeholder="ex : vous@gmail.com">
+        </div>
+        <div class="field">
+          <label>Mot de passe (ou mot de passe d'application)</label>
+          <input class="input" type="password" id="set-smtp-pass" placeholder="Laissez vide pour conserver l'actuel" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Expéditeur</label>
+          <input class="input" id="set-smtp-from" placeholder="Mews Studio &lt;galeries@mewstudio.com&gt;">
+        </div>
+        <div class="field">
+          <label>Destinataire des notifications</label>
+          <input class="input" id="set-smtp-to" placeholder="vous@exemple.fr">
+          <div class="field-hint">Vide = votre adresse e-mail de réception des sélections.</div>
+        </div>
+        <div class="flex gap-12 wrap">
+          <button class="btn btn--gold" id="btn-save-notify">Enregistrer</button>
+          <button class="btn btn--ghost" id="btn-test-email">✉ Envoyer un e-mail de test</button>
+        </div>
+        <div class="field-hint" id="notify-status" style="margin-top:12px"></div>
+
+        <h3 class="display-3" style="margin:40px 0 18px">E-mail de réception des sélections</h3>
+        <div class="field">
+          <label>Votre adresse e-mail</label>
+          <input class="input" type="email" id="set-email" placeholder="mewstudiofrance@gmail.com">
+          <div class="field-hint">Quand un client clique sur « Envoyer ma sélection », son application mail s'ouvre avec cette adresse en destinataire.</div>
+        </div>
+        <button class="btn btn--gold" id="btn-save-email">Enregistrer</button>
+
+        <h3 class="display-3" style="margin:40px 0 18px">Mot de passe</h3>
+        <div class="field">
+          <label>Mot de passe actuel</label>
+          <input class="input" type="password" id="set-current" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Nouveau mot de passe</label>
+          <input class="input" type="password" id="set-next" autocomplete="off">
+        </div>
+        <div class="field-hint" style="margin-bottom:16px">6 caractères minimum. Ce mot de passe protège tout votre espace photographe.</div>
+        <button class="btn btn--gold" id="btn-save-password">Enregistrer</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ Modale : nouvelle galerie ============ -->
+<div class="modal-backdrop hidden" id="m-new">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Nouvelle galerie</h3>
+      <button class="modal-close" data-close="m-new">✕</button>
+    </div>
+    <div class="field">
+      <label>Nom de la galerie *</label>
+      <input class="input" id="ng-name" placeholder="Mariage — Louise &amp; Antoine">
+    </div>
+    <div class="field">
+      <label>Prénoms des clients</label>
+      <input class="input" id="ng-client" placeholder="Louise &amp; Antoine">
+    </div>
+    <div class="field">
+      <label>Lien de la galerie</label>
+      <div class="flex gap-8 center">
+        <span class="small muted">/g/</span>
+        <input class="input" id="ng-slug" placeholder="louise-antoine" style="flex:1">
+      </div>
+      <div class="field-hint">Laissez vide pour générer un lien automatique.</div>
+    </div>
+    <div class="field">
+      <label>Mot de passe client *</label>
+      <input class="input" id="ng-password" placeholder="Au moins 4 caractères">
+    </div>
+    <div class="field">
+      <label class="check"><input type="checkbox" id="ng-dl" checked> Autoriser le téléchargement des photos</label>
+      <div class="field-hint">Si décoché, vos clients voient les photos mais ne peuvent pas les télécharger.</div>
+    </div>
+    <div class="field">
+      <label class="check"><input type="checkbox" id="ng-albums"> Activer la sélection d'albums (200 / 150 / 100 photos)</label>
+      <div class="field-hint">Vos clients pourront cocher leurs albums et vous envoyer leurs sélections par e-mail.</div>
+    </div>
+    <div class="field">
+      <label class="check"><input type="checkbox" id="ng-wm"> Afficher un watermark sur les photos</label>
+      <div class="mt-8 hidden" id="ng-wm-field">
+        <input class="input" id="ng-wm-text" placeholder="Texte du watermark (ex : Mews Studio)">
+        <div class="field-hint">Affiché au centre gauche de chaque photo (les téléchargements restent sans watermark).</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Source des photos</label>
+      <select class="select" id="ng-mode">
+        <option value="drive">Dossier Google Drive (recommandé)</option>
+        <option value="demo">Importer depuis mon ordinateur</option>
+      </select>
+    </div>
+    <div class="field hidden" id="ng-folder-field">
+      <label>Dossier Google Drive</label>
+      <select class="select" id="ng-folder"></select>
+      <div class="field-hint">La galerie affichera toutes les images de ce dossier.</div>
+    </div>
+    <div class="field">
+      <label>Date d'expiration (facultatif)</label>
+      <input class="input" type="date" id="ng-expiry">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn--gold" id="btn-create-gallery">Créer la galerie</button>
+      <button class="btn btn--ghost" data-close="m-new">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Modale : modifier une galerie ============ -->
+<div class="modal-backdrop hidden" id="m-edit">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Modifier la galerie</h3>
+      <button class="modal-close" data-close="m-edit">✕</button>
+    </div>
+    <div class="field">
+      <label>Nom de la galerie *</label>
+      <input class="input" id="eg-name">
+    </div>
+    <div class="field">
+      <label>Prénoms des clients</label>
+      <input class="input" id="eg-client">
+    </div>
+    <div class="field">
+      <label>Nouveau mot de passe client (laisser vide pour conserver)</label>
+      <input class="input" id="eg-password" placeholder="Au moins 4 caractères" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Date d'expiration</label>
+      <input class="input" type="date" id="eg-expiry">
+    </div>
+    <div class="field">
+      <label class="check"><input type="checkbox" id="eg-dl" checked> Autoriser le téléchargement des photos</label>
+    </div>
+    <div class="field">
+      <label class="check"><input type="checkbox" id="eg-albums"> Activer la sélection d'albums (200 / 150 / 100 photos)</label>
+    </div>
+    <div class="field">
+      <label class="check"><input type="checkbox" id="eg-wm"> Afficher un watermark sur les photos</label>
+      <div class="mt-8 hidden" id="eg-wm-field">
+        <input class="input" id="eg-wm-text" placeholder="Texte du watermark">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn--gold" id="btn-save-gallery">Enregistrer</button>
+      <button class="btn btn--ghost" data-close="m-edit">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Modale : photos d'une galerie ============ -->
+<div class="modal-backdrop hidden" id="m-photos">
+  <div class="modal modal--wide">
+    <div class="modal-head">
+      <div>
+        <h3 id="pm-title">Photos</h3>
+        <p class="small muted" id="pm-sub">—</p>
+      </div>
+      <button class="modal-close" data-close="m-photos">✕</button>
+    </div>
+    <label class="drop-zone" id="pm-drop">
+      <input type="file" id="pm-file" accept="image/*" multiple hidden>
+      <b style="color:var(--ink-2)">⤴ Cliquez pour ajouter des photos</b><br>
+      <span class="small">ou glissez-déposez vos images ici — elles seront ajoutées au dossier lié</span>
+    </label>
+    <div class="flex gap-8 wrap" style="margin-bottom:18px">
+      <button class="btn btn--soft btn--sm" id="pm-sync">↻ Synchroniser avec Drive</button>
+      <span class="small muted center" id="pm-count" style="display:inline-flex;align-items:center">—</span>
+    </div>
+    <div class="pm-grid" id="pm-grid"></div>
+
+    <div class="hidden mt-40" id="pm-sel-wrap">
+      <h3 class="display-3" style="margin-bottom:14px">Sélections d'albums envoyées par les clients</h3>
+      <div id="pm-sel"></div>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script src="/admin.js"></script>
+</body>
+</html>

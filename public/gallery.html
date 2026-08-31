@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Galerie privée — Mews Studio Galleries</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23d9a441'/%3E%3Cpath d='M14 46l9-22 7 14 6-10 14 18z' fill='%23171106'/%3E%3Ccircle cx='45' cy='22' r='4' fill='%23f4efe6'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  /* ---------- Galerie client ---------- */
+  .g-page { min-height: 100vh; display: flex; flex-direction: column; }
+  .g-top {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(20, 18, 15, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .g-top-inner { display: flex; align-items: center; gap: 16px; padding: 14px 24px; max-width: 1500px; margin: 0 auto; }
+  .g-meta { flex: 1; min-width: 0; }
+  .g-meta h1 { font-size: 1.15rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .g-meta p { font-size: 0.8rem; color: var(--muted); }
+  .g-tools { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 15px; border-radius: 999px;
+    border: 1px solid var(--line-2); background: transparent; color: var(--ink-2);
+    font-size: 0.85rem; font-weight: 600; transition: all 0.2s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent-2); }
+  .chip.active { background: var(--accent); border-color: var(--accent); color: #171106; }
+  .chip .count { font-size: 0.75rem; opacity: 0.75; }
+
+  /* Grille */
+  .g-grid {
+    display: grid; gap: 10px; padding: 18px 24px 80px;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    grid-auto-rows: 8px;
+  }
+  .g-item { position: relative; border-radius: 10px; overflow: hidden; cursor: zoom-in; background: var(--panel); }
+  .g-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s ease, opacity 0.3s; }
+  .g-item:hover img { transform: scale(1.035); }
+  .g-item .g-actions {
+    position: absolute; right: 10px; top: 10px; display: flex; gap: 7px;
+    opacity: 0; transform: translateY(-4px); transition: all 0.22s;
+  }
+  .g-item:hover .g-actions, .g-item.selected .g-actions { opacity: 1; transform: none; }
+  .g-ico {
+    width: 36px; height: 36px; border-radius: 50%; border: none; display: grid; place-items: center;
+    background: rgba(20, 18, 15, 0.82); color: var(--ink); backdrop-filter: blur(4px);
+    font-size: 1rem; transition: all 0.2s;
+  }
+  .g-ico:hover { background: var(--accent); color: #171106; }
+  .g-ico.faved { background: rgba(224, 108, 90, 0.9); color: #fff; }
+  .g-sel {
+    position: absolute; left: 10px; top: 10px; width: 26px; height: 26px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.85); display: none; place-items: center;
+    background: rgba(20, 18, 15, 0.5); color: #171106; font-size: 0.8rem; font-weight: 700;
+  }
+  .g-grid.selecting .g-sel { display: grid; }
+  .g-grid.selecting .g-item img { opacity: 0.55; }
+  .g-grid.selecting .g-item.selected img { opacity: 1; }
+  .g-grid.selecting .g-item.selected .g-sel { background: var(--accent); border-color: var(--accent); }
+  .g-grid.selecting .g-actions { display: none; }
+  .g-num { position: absolute; left: 10px; bottom: 10px; font-size: 0.72rem; color: rgba(244,239,230,0.9); background: rgba(20,18,15,0.6); padding: 2px 9px; border-radius: 999px; display: none; }
+  .g-grid.selecting .g-num { display: inline-block; }
+  .g-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    background: rgba(26, 23, 19, 0.96); backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line-2); padding: 12px 24px;
+    display: none; align-items: center; justify-content: space-between; gap: 14px;
+  }
+  .g-bar.visible { display: flex; }
+  .g-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* Écran verrou */
+  .lock-wrap { flex: 1; display: grid; place-items: center; padding: 40px 20px; }
+  .lock-card {
+    width: 100%; max-width: 430px; text-align: center; background: var(--panel);
+    border: 1px solid var(--line-2); border-radius: var(--radius-lg); padding: 44px 38px;
+    box-shadow: var(--shadow);
+  }
+  .lock-icon { width: 64px; height: 64px; margin: 0 auto 22px; border-radius: 20px; background: var(--accent-soft); border: 1px solid rgba(217,164,65,0.4); display: grid; place-items: center; color: var(--accent-2); }
+  .lock-card h1 { font-size: 1.6rem; margin-bottom: 8px; }
+  .lock-card .sub { color: var(--muted); font-size: 0.94rem; margin-bottom: 26px; }
+  .lock-error { min-height: 22px; font-size: 0.85rem; color: #f0a497; margin-top: 12px; }
+
+  /* Écran expiré / introuvable */
+  .dead-wrap { flex: 1; display: grid; place-items: center; text-align: center; padding: 40px 20px; }
+  .dead-card h1 { font-size: 1.7rem; margin-bottom: 10px; }
+  .dead-card p { color: var(--muted); max-width: 420px; margin: 0 auto 26px; }
+
+  /* Visionneuse */
+  .lb {
+    position: fixed; inset: 0; z-index: 200; background: rgba(12, 10, 8, 0.96);
+    display: none; flex-direction: column;
+  }
+  .lb.open { display: flex; }
+  .lb-top { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; gap: 12px; }
+  .lb-count { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.06em; }
+  .lb-close { background: none; border: 1px solid var(--line-2); color: var(--ink); width: 40px; height: 40px; border-radius: 50%; font-size: 1.1rem; }
+  .lb-stage { flex: 1; position: relative; display: grid; place-items: center; min-height: 0; padding: 0 60px 20px; }
+  .lb-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 20px 70px rgba(0,0,0,0.6); }
+  .lb-nav {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+    width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line-2);
+    background: rgba(26, 23, 19, 0.7); color: var(--ink); font-size: 1.2rem;
+    display: grid; place-items: center; transition: all 0.2s;
+  }
+  .lb-nav:hover { background: var(--accent); color: #171106; border-color: var(--accent); }
+  .lb-prev { left: 16px; } .lb-next { right: 16px; }
+  .lb-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px 22px; flex-wrap: wrap; }
+  .lb-name { font-size: 0.88rem; color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-actions { display: flex; gap: 10px; }
+
+  @media (max-width: 720px) {
+    .g-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); padding: 14px 14px 90px; gap: 8px; }
+    .g-actions { opacity: 1 !important; transform: none !important; }
+    .lb-stage { padding: 0 14px 14px; }
+    .lb-nav { width: 38px; height: 38px; }
+    .g-top-inner { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="g-page">
+  <div class="g-top hidden" id="top">
+    <div class="g-top-inner">
+      <a class="brand" href="/" style="flex:none">
+        <span class="brand-mark"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><path d="M14 46l9-22 7 14 6-10 14 18z" fill="#171106"/><circle cx="45" cy="22" r="4" fill="#f4efe6"/></svg></span>
+      </a>
+      <div class="g-meta">
+        <h1 id="g-name">Galerie</h1>
+        <p id="g-sub">Chargement…</p>
+      </div>
+      <div class="g-tools">
+        <button class="chip hidden" id="btn-albums">▣ Albums <span class="count" id="alb-total">0</span></button>
+        <button class="chip" id="btn-favs">♥ <span class="count" id="fav-count">0</span></button>
+        <button class="chip" id="btn-select">Sélectionner</button>
+        <button class="chip" id="btn-dl-all">⤓ Tout télécharger</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lock-wrap" id="lock">
+    <div class="lock-card">
+      <div class="lock-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="10" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7a4 4 0 118 0v3" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="15" r="1.6" fill="currentColor"/></svg></div>
+      <h1 id="lock-name">Galerie privée</h1>
+      <p class="sub" id="lock-sub">Cette galerie est protégée. Entrez le mot de passe communiqué par votre photographe.</p>
+      <form id="lock-form">
+        <div class="field">
+          <input class="input" type="password" id="lock-pass" placeholder="Mot de passe" autocomplete="off" style="text-align:center">
+        </div>
+        <button class="btn btn--gold" type="submit" style="width:100%">Déverrouiller la galerie</button>
+      </form>
+      <div class="lock-error" id="lock-error"></div>
+    </div>
+  </div>
+
+  <div class="dead-wrap hidden" id="dead">
+    <div class="dead-card">
+      <h1 id="dead-title">Galerie fermée</h1>
+      <p id="dead-text">Cette galerie n'est plus disponible.</p>
+      <a class="btn btn--ghost" href="/">Retour à l'accueil</a>
+    </div>
+  </div>
+
+  <div class="spinner hidden" id="loading"></div>
+
+  <div class="albums-panel hidden" id="albums-panel">
+    <div class="albums-head">
+      <div>
+        <h2>Sélection d'albums</h2>
+        <p class="sub">Cochez le ou les albums que vous souhaitez commander, puis cliquez sur les photos pour remplir l'album actif (repéré par son cadre doré).</p>
+      </div>
+      <div class="ident">
+        <form id="ident-form" class="ident-form">
+          <input class="input" id="cl-name" placeholder="Votre prénom" autocomplete="off">
+          <input class="input" id="cl-pin" type="password" placeholder="Code personnel (4 caractères min.)" autocomplete="off">
+          <button class="btn btn--gold btn--sm" type="submit">S'identifier</button>
+          <div class="field-hint">Première visite ? Votre profil se crée automatiquement. Vos albums sont alors sauvegardés et retrouvables depuis n'importe quel appareil.</div>
+          <div class="lock-error" id="cl-error"></div>
+        </form>
+        <div class="ident-logged hidden" id="ident-logged">
+          <span class="badge badge--gold"><span class="dot"></span> Connecté·e : <b id="cl-name-out"></b></span>
+          <button class="btn btn--ghost btn--sm" id="btn-cl-history">Mon historique (<span id="cl-hist-count">0</span>)</button>
+          <button class="btn btn--ghost btn--sm" id="btn-cl-logout">Se déconnecter</button>
+          <div class="field-hint">Vos albums sont sauvegardés automatiquement au fil de vos choix.</div>
+        </div>
+      </div>
+    </div>
+    <div class="albums-send">
+      <input class="input" id="alb-client-name" placeholder="Votre nom">
+      <button class="btn btn--ghost btn--sm" id="btn-copy-selection">Copier le récap</button>
+      <button class="btn btn--gold btn--sm" id="btn-send-selection">✉ Envoyer ma sélection</button>
+    </div>
+    <div class="albums-cards" id="albums-cards"></div>
+    <div class="history hidden" id="cl-history">
+      <h3>Mon historique</h3>
+      <p class="sub">Retrouvez vos sélections d'albums précédentes : reconsultez-les, rechargez-les dans vos albums ou renvoyez-les par e-mail.</p>
+      <div id="cl-history-list"></div>
+    </div>
+  </div>
+
+  <div class="g-grid hidden" id="grid"></div>
+
+  <div class="g-bar" id="bar">
+    <span style="font-size:0.92rem;color:var(--ink-2)"><b id="bar-count" style="color:var(--accent-2)">0</b> photo(s) sélectionnée(s)</span>
+    <div class="g-bar-actions">
+      <button class="btn btn--gold btn--sm" id="btn-dl-sel">⤓ Télécharger</button>
+      <button class="btn btn--ghost btn--sm" id="btn-clear">Tout désélectionner</button>
+    </div>
+  </div>
+</div>
+
+<!-- Visionneuse -->
+<div class="lb" id="lb">
+  <div class="lb-top">
+    <span class="lb-count" id="lb-count"></span>
+    <button class="lb-close" id="lb-close" aria-label="Fermer">✕</button>
+  </div>
+  <div class="lb-stage">
+    <button class="lb-nav lb-prev" id="lb-prev" aria-label="Précédente">‹</button>
+    <img id="lb-img" src="" alt="">
+    <div class="wm" id="lb-wm"></div>
+    <button class="lb-nav lb-next" id="lb-next" aria-label="Suivante">›</button>
+  </div>
+  <div class="lb-bottom">
+    <span class="lb-name" id="lb-name"></span>
+    <div class="lb-actions">
+      <button class="btn btn--ghost btn--sm" id="lb-fav">♥ Favori</button>
+      <button class="btn btn--gold btn--sm" id="lb-dl">⤓ Télécharger en HD</button>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+<script src="/gallery.js"></script>
+</body>
+</html>

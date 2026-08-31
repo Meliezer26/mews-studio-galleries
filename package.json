@@ -1,0 +1,17 @@
+{
+  "name": "mews-studio-galleries",
+  "version": "1.0.0",
+  "description": "Mews Studio Galleries — galeries privées clients connectées à Google Drive",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^9.0.6"
+  }
+}

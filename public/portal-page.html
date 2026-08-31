@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accéder à ma galerie — Mews Studio</title>
+<!--
+  Page portail à coller dans un bloc "Embed Code" de Showit (contenu de la balise <body>)
+  ou à héberger à part. Le client colle le lien reçu et rejoint sa galerie.
+  Remplacez galeries.monstudio.fr par votre adresse.
+-->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh; display: grid; place-items: center; padding: 24px;
+    background: #14120f; color: #f4efe6;
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  .card { max-width: 520px; width: 100%; text-align: center; padding: 40px 32px;
+    background: #1d1a16; border: 1px solid rgba(217,164,65,.35); border-radius: 22px; }
+  .mark { width: 46px; height: 46px; margin: 0 auto 18px; border-radius: 13px;
+    background: linear-gradient(140deg,#d9a441,#b57f2a); display: grid; place-items: center; }
+  h1 { font-size: 26px; font-weight: 500; margin-bottom: 8px; }
+  p { color: #a39a8c; font-size: 15px; margin-bottom: 24px; }
+  input {
+    width: 100%; padding: 14px 16px; border-radius: 10px; font-size: 15px;
+    border: 1px solid rgba(244,239,230,.25); background: #14120f; color: #f4efe6;
+    margin-bottom: 16px; outline: none; font-family: inherit;
+  }
+  input:focus { border-color: #d9a441; }
+  button {
+    width: 100%; padding: 14px; border: 0; border-radius: 999px; cursor: pointer;
+    background: #d9a441; color: #171106; font-size: 15px; font-weight: 600; font-family: inherit;
+  }
+  button:hover { background: #f0c46a; }
+  .hint { font-size: 12px; color: #6b6257; margin-top: 14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="mark">
+      <svg width="22" height="22" viewBox="0 0 64 64" fill="none"><path d="M14 46l9-22 7 14 6-10 14 18z" fill="#171106"/><circle cx="45" cy="22" r="4" fill="#f4efe6"/></svg>
+    </div>
+    <h1>Accéder à ma galerie</h1>
+    <p>Collez le lien reçu de votre photographe, puis ouvrez votre galerie.</p>
+    <form id="form">
+      <input id="link" type="text" placeholder="https://galeries.monstudio.fr/g/…" autocomplete="off">
+      <button type="submit">Ouvrir ma galerie</button>
+    </form>
+    <p class="hint">Votre lien est privé : ne le partagez qu'avec vos proches.</p>
+  </div>
+  <script>
+    document.getElementById('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = document.getElementById('link').value.trim();
+      if (!v) return;
+      location.href = /^https?:\/\//i.test(v) ? v : 'https://' + v;
+    });
+  </script>
+</body>
+</html>

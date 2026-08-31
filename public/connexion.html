@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Espace clients — Mews Studio Galleries</title>
+<meta name="description" content="Accédez à votre galerie privée Mews Studio avec votre mot de passe.">
+<!--
+  Page de connexion client. Le visiteur tape le mot de passe de sa galerie :
+  le serveur identifie la galerie correspondante, la déverrouille et redirige
+  automatiquement vers celle-ci (ou propose un choix si plusieurs galeries
+  partagent le même mot de passe).
+-->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #14120f; --card: #1d1a16; --gold: #d9a441; --gold-soft: rgba(217,164,65,.14);
+    --text: #f4efe6; --muted: #a39a8c; --line: rgba(244,239,230,.16);
+  }
+  body {
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 28px 18px;
+    background: var(--bg); color: var(--text);
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  .top { position: absolute; top: 22px; left: 24px; }
+  .top a { color: var(--muted); text-decoration: none; font-size: 14px; }
+  .top a:hover { color: var(--gold); }
+  .card {
+    width: 100%; max-width: 440px; text-align: center; padding: 44px 34px 38px;
+    background: var(--card); border: 1px solid rgba(217,164,65,.32); border-radius: 22px;
+  }
+  .mark {
+    width: 52px; height: 52px; margin: 0 auto 20px; border-radius: 15px;
+    background: linear-gradient(140deg, #e8b85a, #b57f2a);
+    display: grid; place-items: center;
+  }
+  .mark svg { display: block; }
+  .kicker {
+    font-size: 11px; letter-spacing: .28em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 10px; font-family: Georgia, serif;
+  }
+  h1 { font-size: 27px; font-weight: 500; letter-spacing: .01em; margin-bottom: 10px; }
+  .sub { color: var(--muted); font-size: 15px; line-height: 1.55; margin-bottom: 26px; }
+  form { display: flex; flex-direction: column; gap: 14px; }
+  label { text-align: left; font-size: 13px; color: var(--muted); letter-spacing: .04em; }
+  input {
+    width: 100%; padding: 14px 16px; border-radius: 12px; font-size: 16px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    outline: none; font-family: inherit; letter-spacing: .12em;
+  }
+  input:focus { border-color: var(--gold); }
+  button {
+    padding: 14px; border: 0; border-radius: 999px; cursor: pointer;
+    background: var(--gold); color: #171106; font-size: 15px; font-weight: 600;
+    font-family: inherit; letter-spacing: .02em; transition: background .15s ease;
+  }
+  button:hover { background: #f0c46a; }
+  button:disabled { opacity: .55; cursor: wait; }
+  .error {
+    display: none; margin-top: 14px; padding: 11px 14px; border-radius: 10px;
+    background: rgba(224, 92, 76, .13); border: 1px solid rgba(224, 92, 76, .45);
+    color: #f0a69b; font-size: 14px;
+  }
+  .choice { display: none; margin-top: 22px; text-align: left; }
+  .choice h2 { font-size: 17px; font-weight: 500; margin-bottom: 12px; color: var(--gold); }
+  .choice a {
+    display: block; padding: 13px 16px; margin-bottom: 10px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    text-decoration: none; font-size: 15px; transition: border-color .15s ease;
+  }
+  .choice a:hover { border-color: var(--gold); }
+  .foot { margin-top: 26px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .foot a { color: var(--gold); text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="top"><a href="/">← Mews Studio</a></div>
+  <div class="card">
+    <div class="mark">
+      <svg width="26" height="26" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <path d="M14 46l9-22 7 14 6-10 14 18z" fill="#171106"/>
+        <circle cx="45" cy="22" r="4" fill="#f4efe6"/>
+      </svg>
+    </div>
+    <div class="kicker">Mews Studio</div>
+    <h1>Espace clients</h1>
+    <p class="sub">Entrez le mot de passe de votre galerie :<br>vous accéderez directement à vos photos.</p>
+    <form id="form" autocomplete="off">
+      <label for="pw">Mot de passe de la galerie</label>
+      <input id="pw" type="password" placeholder="••••••••" autofocus>
+      <button id="btn" type="submit">Accéder à ma galerie</button>
+    </form>
+    <div class="error" id="err" role="alert"></div>
+    <div class="choice" id="choice">
+      <h2>Plusieurs galeries correspondent</h2>
+      <div id="choice-list"></div>
+    </div>
+    <p class="foot">
+      Vous n'avez pas votre mot de passe ?<br>
+      <a href="mailto:mewstudiofrance@gmail.com">Contactez votre photographe</a>
+    </p>
+  </div>
+  <script>
+    (function () {
+      var form = document.getElementById('form');
+      var pw = document.getElementById('pw');
+      var btn = document.getElementById('btn');
+      var err = document.getElementById('err');
+      var choice = document.getElementById('choice');
+      var list = document.getElementById('choice-list');
+
+      function showError(msg) {
+        err.textContent = msg;
+        err.style.display = 'block';
+      }
+      function hideError() { err.style.display = 'none'; }
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        hideError();
+        choice.style.display = 'none';
+        var v = pw.value.trim();
+        if (!v) { showError('Veuillez saisir votre mot de passe.'); return; }
+        btn.disabled = true;
+        btn.textContent = 'Vérification…';
+        fetch('/api/connexion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: v })
+        }).then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+        }).then(function (res) {
+          if (!res.ok) {
+            showError(res.d.error || 'Mot de passe incorrect.');
+            btn.disabled = false;
+            btn.textContent = 'Accéder à ma galerie';
+            pw.select();
+            return;
+          }
+          if (res.d.multiple && res.d.galleries && res.d.galleries.length) {
+            // plusieurs galeries partagent ce mot de passe : laisser choisir
+            list.innerHTML = '';
+            res.d.galleries.forEach(function (g) {
+              var a = document.createElement('a');
+              a.href = '/g/' + encodeURIComponent(g.slug);
+              a.textContent = g.name || g.slug;
+              list.appendChild(a);
+            });
+            choice.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Accéder à ma galerie';
+            pw.value = '';
+            return;
+          }
+          if (res.d.redirect) {
+            window.location.href = res.d.redirect;
+          } else {
+            showError('Une erreur est survenue, réessayez.');
+            btn.disabled = false;
+            btn.textContent = 'Accéder à ma galerie';
+          }
+        }).catch(function () {
+          showError('Connexion impossible, réessayez dans un instant.');
+          btn.disabled = false;
+          btn.textContent = 'Accéder à ma galerie';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

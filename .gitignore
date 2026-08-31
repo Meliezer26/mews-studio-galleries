@@ -1,0 +1,12 @@
+# Dépendances
+node_modules/
+
+# Données d'exécution (mots de passe, jetons OAuth, comptes clients) — JAMAIS sur GitHub
+data/
+
+# Secrets
+.env
+
+# Divers
+*.log
+.DS_Store
