@@ -141,7 +141,7 @@ Ce qui a été fait dans votre compte Showit et publié sur mewstudio.com :
 | Élément | Avant | Après |
 |---|---|---|
 | Libellé du menu (section MINI MENU) | « prive » (sous « ESPACE ») | « **galeries privées** » (sous « ESPACE ») |
-| Lien de « galeries privées » | https://www.joomeo.com/login.php?as=guest | **https://tongue-taxes-keyboards-among.trycloudflare.com/connexion** *(adresse publique temporaire du serveur de galeries — voir ci-dessous)* |
+| Lien de « galeries privées » | https://www.joomeo.com/login.php?as=guest | **https://mews-galleries.onrender.com/connexion** *(adresse de production, voir ci-dessous)* |
 | Lien de « ESPACE » | *(pas cliquable / ancien lien)* | **même page de connexion** (ajouté le 31/08/2026 à votre demande) |
 | Ouverture | nouvel onglet (target=_blank conservé) | nouvel onglet |
 
@@ -150,10 +150,12 @@ il tape le mot de passe de sa galerie et est redirigé automatiquement vers sa
 galerie déverrouillée (plus de page d'accueil intermédiaire). Le back-end des
 galeries reste sur sa propre adresse, séparée du site Showit.
 
-> ℹ️ La première adresse temporaire (`payday-continuity-…trycloudflare.com`)
-> est devenue injoignable (tunnel Cloudflare arrêté) ; elle a été remplacée
-> par `tongue-taxes-keyboards-among.trycloudflare.com` le même jour, et les
-> deux liens du menu ont été re-pointés vers `/connexion` puis republiés.
+> ℹ️ Historique : une première adresse temporaire
+> (`payday-continuity-…trycloudflare.com`) puis une seconde
+> (`tongue-taxes-keyboards-among.trycloudflare.com`) ont été remplacées le
+> 31/08/2026 par l'adresse **de production** : le serveur est désormais
+> hébergé sur **Render** (plan gratuit) → `https://mews-galleries.onrender.com`
+> (déploiement : voir [DEPLOIEMENT-RENDER.md](DEPLOIEMENT-RENDER.md)).
 
 Vérifié en ligne sur mewstudio.com après publication : liens corrects (tous
 deux vers `…/connexion`), texte correct, ouverture dans un nouvel onglet,
@@ -164,14 +166,6 @@ demo).
 
 1. **Changez votre mot de passe Showit immédiatement** (celui que vous avez
    transmis) : compte Showit → Account Settings → Security.
-2. **Adresse temporaire défunte** : le tunnel gratuit
-   `…trycloudflare.com` est arrêté (l'environnement de prévisualisation a
-   été réinitialisé). Les liens du menu pointent encore vers cette adresse
-   morte : tant que le serveur n'est pas déployé, les liens renvoient une
-   erreur. **Solution durable** : suivez
-   **[DEPLOIEMENT-RENDER.md](DEPLOIEMENT-RENDER.md)** pour obtenir une
-   adresse fixe, puis remplacez l'URL des deux liens (même manipulation
-   que ci-dessous) par `<votre-adresse>/connexion` et republiez.
 
 ### Pour modifier le lien vous-même plus tard (2 minutes)
 
