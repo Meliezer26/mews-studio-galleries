@@ -221,7 +221,8 @@
         <p class="mt-8">Compte : <b id="drive-account" style="color:var(--ink)">—</b></p>
         <details class="mt-8" id="drive-backup-box" hidden>
           <summary style="cursor:pointer">💾 Sauvegarde automatique sur Drive</summary>
-          <p class="mt-8 small muted">Vos données (galeries, réglages, comptes clients) sont copiées automatiquement toutes les 5 minutes dans votre Drive, dans le fichier <code>mews-studio-data.json</code>. Dernière sauvegarde : <b id="backup-last">—</b>.</p>
+          <p class="mt-8 small muted">Vos données (galeries, réglages, comptes clients) sont copiées automatiquement dans votre Drive (fichier <code>mews-studio-data.json</code>, dans le dossier que vous partagez avec le robot). Dernière sauvegarde : <b id="backup-last">—</b>.</p>
+          <p class="mt-8"><button class="btn btn--ghost" id="btn-backup-now" type="button">💾 Sauvegarder maintenant</button></p>
           <p class="mt-8 small muted" id="backup-sa-note" hidden>Sauvegarde et liens de téléchargement temporaires actifs automatiquement via le compte de service. Rien d'autre à faire.</p>
           <div id="backup-key-row">
             <p class="mt-8 small muted">Clé de secours — à coller dans la variable <code>GOOGLE_REFRESH_TOKEN</code> de votre hébergeur pour pouvoir restaurer après un redéploiement :</p>

@@ -799,6 +799,12 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
   });
 });
 
+/* --- Sauvegarde Drive déclenchée à la demande ----------------- */
+app.post('/api/admin/backup-now', requireAdmin, async (req, res) => {
+  const r = await backup.now();
+  res.json(r);
+});
+
 /* --- Récapitulatif des profils clients ----------------------- */
 
 app.get('/api/admin/clients', requireAdmin, (req, res) => {

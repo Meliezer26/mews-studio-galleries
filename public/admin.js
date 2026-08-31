@@ -711,6 +711,18 @@
         .catch(function (err) { window.toast(err.message, 'err'); });
     });
     $('btn-refresh-folders').addEventListener('click', loadFolders);
+    $('btn-backup-now').addEventListener('click', function () {
+      window.api('/api/admin/backup-now', { method: 'POST' })
+        .then(function (r) {
+          if (r.ok) {
+            window.toast('Sauvegarde réussie ✓ (' + (r.folder || 'Drive') + ')', 'ok');
+            $('backup-last').textContent = new Date(r.at).toLocaleString('fr-FR');
+          } else {
+            window.toast('Sauvegarde impossible : ' + r.reason, 'err');
+          }
+        })
+        .catch(function (err) { window.toast(err.message, 'err'); });
+    });
     $('btn-copy-key').addEventListener('click', function () {
       window.copyText($('backup-key').value).then(function (ok) {
         window.toast(ok ? 'Clé copiée ✓' : 'Clé : ' + $('backup-key').value, ok ? 'ok' : 'err');
