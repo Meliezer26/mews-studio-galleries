@@ -342,6 +342,14 @@
         $('eg-wm').checked = !!(full.watermark && full.watermark.enabled);
         $('eg-wm-text').value = (full.watermark && full.watermark.text) || 'Mews Studio';
         $('eg-wm-field').classList.toggle('hidden', !$('eg-wm').checked);
+        if (full.mode === 'drive') {
+          $('eg-folder-field').classList.remove('hidden');
+          populateFolderSelect($('eg-folder'), full.folderId || null, function (hasFolders) {
+            $('eg-folder-field').classList.toggle('hidden', !hasFolders);
+          });
+        } else {
+          $('eg-folder-field').classList.add('hidden');
+        }
         state.editLoaded = true;
       })
       .catch(function (err) { window.toast(err.message, 'err'); });
@@ -349,8 +357,7 @@
     setTimeout(function () { $('eg-name').focus(); }, 60);
   }
 
-  function refreshFolderSelect() {
-    var sel = $('ng-folder');
+  function populateFolderSelect(sel, selectedId, cb) {
     sel.innerHTML = '<option value="">Chargement des dossiers…</option>';
     window.api('/api/admin/drive-folders')
       .then(function (data) {
@@ -360,18 +367,17 @@
           o.value = '';
           o.textContent = data.error || 'Aucun dossier trouvé dans ce Drive';
           sel.appendChild(o);
-          $('ng-mode').value = 'demo';
-          $('ng-folder-field').classList.add('hidden');
+          if (cb) cb(false);
           return;
         }
         data.folders.forEach(function (f) {
           var o = document.createElement('option');
           o.value = f.id;
           o.textContent = f.name;
+          if (selectedId && f.id === selectedId) o.selected = true;
           sel.appendChild(o);
         });
-        $('ng-mode').value = 'drive';
-        $('ng-folder-field').classList.remove('hidden');
+        if (cb) cb(true);
       })
       .catch(function () {
         sel.innerHTML = '';
@@ -379,9 +385,15 @@
         o.value = '';
         o.textContent = 'Google Drive non connecté';
         sel.appendChild(o);
-        $('ng-mode').value = 'demo';
-        $('ng-folder-field').classList.add('hidden');
+        if (cb) cb(false);
       });
+  }
+
+  function refreshFolderSelect() {
+    populateFolderSelect($('ng-folder'), null, function (hasFolders) {
+      $('ng-mode').value = hasFolders ? 'drive' : 'demo';
+      $('ng-folder-field').classList.toggle('hidden', !hasFolders);
+    });
   }
 
   /* --- Modale : photos ---------------------------------------- */
@@ -682,6 +694,10 @@
         watermarkText: $('eg-wm-text').value.trim() || 'Mews Studio',
         albumsEnabled: $('eg-albums').checked,
       };
+      if (!$('eg-folder-field').classList.contains('hidden')) {
+        payload.folderId = $('eg-folder').value;
+        payload.folderName = $('eg-folder').selectedOptions[0].textContent;
+      }
       window.api('/api/admin/galleries/' + id + '/update', { method: 'POST', body: payload })
         .then(function () {
           closeModal('m-edit');
@@ -706,7 +722,11 @@
     $('pm-sync').addEventListener('click', function () {
       var id = state.currentGalleryId;
       window.api('/api/admin/galleries/' + id + '/sync', { method: 'POST' })
-        .then(function (data) { window.toast('Synchronisé — ' + data.count + ' photo(s)', 'ok'); loadPhotosGrid(id); })
+        .then(function (data) {
+          loadPhotosGrid(id);
+          if (data.hint) window.toast(data.hint, 'err');
+          else window.toast('Synchronisé — ' + data.count + ' photo(s)', 'ok');
+        })
         .catch(function (err) { window.toast(err.message, 'err'); });
     });
 

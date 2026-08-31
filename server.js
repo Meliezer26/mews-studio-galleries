@@ -1002,6 +1002,13 @@ app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {
   if (body.downloadsEnabled !== undefined) {
     g.downloadsEnabled = !!body.downloadsEnabled;
   }
+  if (body.folderId !== undefined && body.folderId !== '') {
+    g.mode = 'drive';
+    g.folderId = String(body.folderId);
+    if (body.folderName !== undefined) g.folderName = String(body.folderName);
+    g.files = g.files || [];
+    g.syncedAt = 0; // force la re-synchronisation immédiate du nouveau dossier
+  }
   store.saveGalleries(all);
   res.json({ ok: true });
 });
@@ -1012,7 +1019,18 @@ app.post('/api/admin/galleries/:id/sync', requireAdmin, async (req, res) => {
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
   if (g.mode !== 'drive') return res.status(400).json({ error: 'La synchronisation concerne les galeries Drive.' });
   await syncGallery(g, true);
-  res.json({ ok: true, count: g.files.length });
+  let hint = null;
+  if (!g.files.length) {
+    try {
+      const subs = await drive.listSubfolders(g.folderId);
+      if (subs.length) {
+        hint = 'Ce dossier ne contient pas de photos directement, mais ' + subs.length +
+          ' sous-dossier(s) : « ' + subs.slice(0, 3).map((f) => f.name).join(' », « ') + ' ». ' +
+          'Liez plutôt la galerie à un sous-dossier contenant les photos (Modifier la galerie → Dossier Google Drive).';
+      }
+    } catch { /* pas de diagnostic */ }
+  }
+  res.json({ ok: true, count: g.files.length, hint });
 });
 
 app.post('/api/admin/galleries/:id/upload', requireAdmin, upload.array('photos', 30), async (req, res) => {
