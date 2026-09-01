@@ -31,11 +31,11 @@
     background: var(--card); border: 1px solid rgba(217,164,65,.32); border-radius: 22px;
   }
   .mark {
-    width: 52px; height: 52px; margin: 0 auto 20px; border-radius: 15px;
-    background: linear-gradient(140deg, #e8b85a, #b57f2a);
-    display: grid; place-items: center;
+    margin: 0 auto 20px; padding: 9px 16px; border-radius: 14px;
+    background: #fff; display: grid; place-items: center; width: max-content;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.4);
   }
-  .mark svg { display: block; }
+  .mark img { display: block; height: 38px; width: auto; }
   .kicker {
     font-size: 11px; letter-spacing: .28em; text-transform: uppercase;
     color: var(--gold); margin-bottom: 10px; font-family: Georgia, serif;
@@ -74,16 +74,12 @@
   .foot a { color: var(--gold); text-decoration: none; }
   .foot a:hover { text-decoration: underline; }
 </style>
+<link rel="icon" type="image/png" href="/favicon.png">
 </head>
 <body>
   <div class="top"><a href="/">← Mews Studio</a></div>
   <div class="card">
-    <div class="mark">
-      <svg width="26" height="26" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-        <path d="M14 46l9-22 7 14 6-10 14 18z" fill="#171106"/>
-        <circle cx="45" cy="22" r="4" fill="#f4efe6"/>
-      </svg>
-    </div>
+    <div class="mark"><img src="/logo.png" alt="Mews Studio"></div>
     <div class="kicker">Mews Studio</div>
     <h1>Espace clients</h1>
     <p class="sub">Entrez le mot de passe de votre galerie :<br>vous accéderez directement à vos photos.</p>

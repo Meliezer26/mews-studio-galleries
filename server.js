@@ -88,7 +88,16 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public'), { index: 'index.html' }));
+// Fichiers de l'interface (HTML/JS/CSS) : toujours revalidés, pour que les
+// téléphones ne servent pas d'anciennes versions après une mise à jour.
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: 'index.html',
+  setHeaders(res, filePath) {
+    if (/\.(html|js|css)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  },
+}));
 
 const upload = multer({
   storage: multer.memoryStorage(),

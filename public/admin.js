@@ -59,6 +59,20 @@
           $('btn-drive-connect').classList.add('hidden');
           $('btn-drive-disconnect').classList.add('hidden');
         }
+        // Miroir dans l'onglet Drive (encadré « Tri automatique »)
+        var miniState = $('drive-sort-mini-state');
+        if (miniState) {
+          if (s.connected && s.email) {
+            miniState.innerHTML = '✓ Connecté (<b>' + escapeHtml(s.email) + '</b>) — chaque sélection envoyée par un client crée automatiquement le dossier trié sur votre Drive.';
+            $('drive-sort-mini-connect').classList.add('hidden');
+          } else if (s.configured) {
+            miniState.innerHTML = '⚠️ Compte Google non connecté : les sélections ne sont pas triées automatiquement (elles arrivent toujours par e-mail).';
+            $('drive-sort-mini-connect').classList.remove('hidden');
+          } else {
+            miniState.innerHTML = '⚠️ Identifiants OAuth absents (finalisation en attente — voir SETUP.md).';
+            $('drive-sort-mini-connect').classList.add('hidden');
+          }
+        }
       })
       .catch(function () {
         $('drive-user-state').textContent = 'Statut indisponible.';
@@ -646,6 +660,7 @@
           if ($('btn-disconnect-drive')) $('btn-disconnect-drive').style.display = s.serviceAccount ? 'none' : '';
           loadFolders();
         }
+        refreshDriveUser(); // encadré « Tri automatique » (compte Google du photographe)
       })
       .catch(function (err) { window.toast(err.message, 'err'); });
   }
@@ -922,6 +937,11 @@
         .catch(function (err) { window.toast(err.message, 'err'); });
     });
     $('btn-drive-connect').addEventListener('click', function () {
+      window.api('/api/admin/drive-user/connect', { method: 'POST' })
+        .then(function (data) { window.open(data.url, '_blank', 'noopener'); })
+        .catch(function (err) { window.toast(err.message, 'err'); });
+    });
+    $('drive-sort-mini-connect').addEventListener('click', function () {
       window.api('/api/admin/drive-user/connect', { method: 'POST' })
         .then(function (data) { window.open(data.url, '_blank', 'noopener'); })
         .catch(function (err) { window.toast(err.message, 'err'); });

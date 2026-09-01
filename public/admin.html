@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Espace photographe — Mews Studio Galleries</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23d9a441'/%3E%3Cpath d='M14 46l9-22 7 14 6-10 14 18z' fill='%23171106'/%3E%3Ccircle cx='45' cy='22' r='4' fill='%23f4efe6'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="/styles.css">
 <style>
@@ -121,7 +121,7 @@
 <div class="login-wrap" id="login">
   <form class="login-card" id="login-form">
     <a class="brand" href="/">
-      <span class="brand-mark"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><path d="M14 46l9-22 7 14 6-10 14 18z" fill="#171106"/><circle cx="45" cy="22" r="4" fill="#f4efe6"/></svg></span>
+      <span class="brand-logo-wrap"><img class="brand-logo" src="/logo.png" alt="Mews Studio"></span>
       <span><span class="brand-name">Mews Studio</span><span class="brand-sub">Galleries</span></span>
     </a>
     <h1>Espace photographe</h1>
@@ -138,7 +138,7 @@
 <div class="a-shell" id="shell">
   <aside class="a-side">
     <a class="brand" href="/">
-      <span class="brand-mark"><svg width="20" height="20" viewBox="0 0 64 64" fill="none"><path d="M14 46l9-22 7 14 6-10 14 18z" fill="#171106"/><circle cx="45" cy="22" r="4" fill="#f4efe6"/></svg></span>
+      <span class="brand-logo-wrap"><img class="brand-logo" src="/logo.png" alt="Mews Studio"></span>
       <span><span class="brand-name">Mews Studio</span><span class="brand-sub">Galleries</span></span>
     </a>
     <nav class="a-nav" id="a-nav">
@@ -239,6 +239,15 @@
           <button class="btn btn--danger" id="btn-disconnect-drive">Déconnecter</button>
         </div>
       </div>
+
+      <div class="drive-box" id="drive-sort-mini">
+        <h3>🗂 Tri automatique des sélections</h3>
+        <p class="mt-8" id="drive-sort-mini-state">Vérification…</p>
+        <div class="form-actions">
+          <button class="btn btn--gold hidden" id="drive-sort-mini-connect" type="button">🔗 Connecter le compte Google</button>
+        </div>
+        <p class="mt-8 small muted">Quand un client envoie sa sélection, un dossier déjà trié (album 200 / 150 / 100) est créé sur votre Drive. Mode de tri, dossier racine et nettoyage : onglet ⚙ Réglages.</p>
+      </div>
     </section>
 
     <!-- ===== Vue Réglages ===== -->
@@ -260,6 +269,37 @@
           <div class="field-hint">Quand l'interrupteur global est actif, ce réglage s'applique aux galeries créées ensuite (modifiable galerie par galerie).</div>
         </div>
         <button class="btn btn--gold" id="btn-save-defaults" style="margin-bottom:40px">Enregistrer</button>
+
+        <h3 class="display-3" style="margin:40px 0 18px">Tri automatique des sélections sur Google Drive</h3>
+        <div class="field">
+          <label>Compte Google (votre compte, pas le robot)</label>
+          <div class="flex gap-12 wrap center">
+            <span class="badge badge--gold" id="drive-user-state">Vérification…</span>
+            <button class="btn btn--gold btn--sm" id="btn-drive-connect">Se connecter avec Google</button>
+            <button class="btn btn--ghost btn--sm hidden" id="btn-drive-disconnect">Déconnecter</button>
+          </div>
+          <div class="field-hint">Requis pour créer les dossiers triés : seul votre compte Google peut écrire dans le Drive (le robot n'a pas de quota).</div>
+        </div>
+        <div class="field">
+          <label>Mode de tri</label>
+          <select class="select" id="set-drive-mode">
+            <option value="off">Désactivé</option>
+            <option value="copy">Copies réelles (dossier prêt pour le labo)</option>
+            <option value="shortcut">Raccourcis (0 Go, moins compatible avec certains labos)</option>
+          </select>
+          <div class="field-hint">Avec un mode actif, chaque sélection envoyée par un client crée automatiquement le dossier trié sur votre Drive.</div>
+        </div>
+        <div class="field">
+          <label>Dossier racine des sélections triées</label>
+          <select class="select" id="set-drive-root"><option value="">(auto) « Mews Studio — Sélections triées »</option></select>
+          <div class="field-hint">Les dossiers « Sélection — … » seront créés à l'intérieur.</div>
+        </div>
+        <div class="field">
+          <label>Suppression automatique après (jours)</label>
+          <input class="input" id="set-drive-cleanup" type="number" min="0" max="365" placeholder="0 = conserver indéfiniment">
+          <div class="field-hint">Les dossiers triés plus anciens sont mis à la corbeille automatiquement (en mode copies réelles, chaque sélection consomme de l'espace Drive).</div>
+        </div>
+        <button class="btn btn--gold" id="btn-save-drive">Enregistrer</button>
 
         <h3 class="display-3" style="margin-bottom:18px">Notifications e-mail (SMTP)</h3>
         <div class="field">
@@ -300,37 +340,6 @@
           <button class="btn btn--ghost" id="btn-test-email">✉ Envoyer un e-mail de test</button>
         </div>
         <div class="field-hint" id="notify-status" style="margin-top:12px"></div>
-
-        <h3 class="display-3" style="margin:40px 0 18px">Tri automatique des sélections sur Google Drive</h3>
-        <div class="field">
-          <label>Compte Google (votre compte, pas le robot)</label>
-          <div class="flex gap-12 wrap center">
-            <span class="badge badge--gold" id="drive-user-state">Vérification…</span>
-            <button class="btn btn--gold btn--sm" id="btn-drive-connect">Se connecter avec Google</button>
-            <button class="btn btn--ghost btn--sm hidden" id="btn-drive-disconnect">Déconnecter</button>
-          </div>
-          <div class="field-hint">Requis pour créer les dossiers triés : seul votre compte Google peut écrire dans le Drive (le robot n'a pas de quota).</div>
-        </div>
-        <div class="field">
-          <label>Mode de tri</label>
-          <select class="select" id="set-drive-mode">
-            <option value="off">Désactivé</option>
-            <option value="copy">Copies réelles (dossier prêt pour le labo)</option>
-            <option value="shortcut">Raccourcis (0 Go, moins compatible avec certains labos)</option>
-          </select>
-          <div class="field-hint">Avec un mode actif, chaque sélection envoyée par un client crée automatiquement le dossier trié sur votre Drive.</div>
-        </div>
-        <div class="field">
-          <label>Dossier racine des sélections triées</label>
-          <select class="select" id="set-drive-root"><option value="">(auto) « Mews Studio — Sélections triées »</option></select>
-          <div class="field-hint">Les dossiers « Sélection — … » seront créés à l'intérieur.</div>
-        </div>
-        <div class="field">
-          <label>Suppression automatique après (jours)</label>
-          <input class="input" id="set-drive-cleanup" type="number" min="0" max="365" placeholder="0 = conserver indéfiniment">
-          <div class="field-hint">Les dossiers triés plus anciens sont mis à la corbeille automatiquement (en mode copies réelles, chaque sélection consomme de l'espace Drive).</div>
-        </div>
-        <button class="btn btn--gold" id="btn-save-drive">Enregistrer</button>
 
         <h3 class="display-3" style="margin:40px 0 18px">E-mail de réception des sélections</h3>
         <div class="field">
