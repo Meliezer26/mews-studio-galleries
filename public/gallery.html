@@ -33,7 +33,7 @@
   /* Grille */
   .g-grid {
     display: grid; gap: 10px; padding: 18px 24px 80px;
-    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
   }
   .g-item { position: relative; border-radius: 10px; overflow: hidden; cursor: zoom-in; background: var(--panel); aspect-ratio: 3 / 2; }
   .g-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.35s ease, opacity 0.3s; }
@@ -71,6 +71,27 @@
   .g-bar.visible { display: flex; }
   .g-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
+  /* Fenêtre d'aide à l'envoi de la sélection */
+  .send-modal {
+    position: fixed; inset: 0; z-index: 90; display: none;
+    place-items: center; padding: 20px;
+    background: rgba(10, 9, 7, 0.78); backdrop-filter: blur(6px);
+  }
+  .send-modal.open { display: grid; }
+  .send-box {
+    width: min(620px, 94vw); max-height: 88vh; overflow: auto;
+    background: var(--panel); border: 1px solid var(--line-2);
+    border-radius: 16px; padding: 24px;
+  }
+  .send-box h3 { font-size: 1.15rem; margin: 0 0 6px; }
+  .send-box .sub { margin: 0 0 14px; font-size: 0.88rem; color: var(--muted); }
+  .send-box textarea {
+    width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.04);
+    color: var(--ink); border: 1px solid var(--line-2); border-radius: 10px;
+    padding: 12px; font-size: 0.85rem; line-height: 1.5; resize: vertical; margin-bottom: 14px;
+  }
+  .send-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
   /* Écran verrou */
   .lock-wrap { flex: 1; display: grid; place-items: center; padding: 40px 20px; }
   .lock-card {
@@ -97,7 +118,7 @@
   .lb-top { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; gap: 12px; }
   .lb-count { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.06em; }
   .lb-close { background: none; border: 1px solid var(--line-2); color: var(--ink); width: 40px; height: 40px; border-radius: 50%; font-size: 1.1rem; }
-  .lb-stage { flex: 1; position: relative; display: grid; place-items: center; min-height: 0; padding: 0 60px 20px; }
+  .lb-stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; min-height: 0; padding: 0 60px 20px; }
   .lb-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 20px 70px rgba(0,0,0,0.6); }
   .lb-nav {
     position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
@@ -117,6 +138,8 @@
     .lb-stage { padding: 0 14px 14px; }
     .lb-nav { width: 38px; height: 38px; }
     .g-top-inner { flex-wrap: wrap; }
+    .albums-head { flex-wrap: wrap; }
+    .send-box { padding: 18px; }
   }
 </style>
 </head>
@@ -207,6 +230,20 @@
     <div class="g-bar-actions">
       <button class="btn btn--gold btn--sm" id="btn-dl-sel">⤓ Télécharger</button>
       <button class="btn btn--ghost btn--sm" id="btn-clear">Tout désélectionner</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre d'aide à l'envoi de la sélection -->
+<div class="send-modal" id="send-modal">
+  <div class="send-box">
+    <h3>Votre sélection est prête ✉</h3>
+    <p class="sub">J'ai demandé à votre application mail de s'ouvrir. Si rien ne s'ouvre sur cet ordinateur, copiez le récapitulatif ci-dessous et collez-le dans un nouvel e-mail adressé à <b id="send-email"></b> (Gmail, Orange, Outlook…).</p>
+    <textarea id="send-recap" rows="7" readonly></textarea>
+    <div class="send-actions">
+      <button class="btn btn--gold btn--sm" id="send-retry">✉ Réessayer avec mon application mail</button>
+      <button class="btn btn--ghost btn--sm" id="send-copy">Copier le récapitulatif</button>
+      <button class="btn btn--ghost btn--sm" id="send-close">Fermer</button>
     </div>
   </div>
 </div>

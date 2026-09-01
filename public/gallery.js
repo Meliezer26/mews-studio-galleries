@@ -446,8 +446,18 @@
   function toggleInAlbum(p) {
     var typeId = state.alb.active;
     if (!typeId) {
-      window.toast('Cochez d\u2019abord un album à remplir.', 'err');
-      return;
+      typeId = Object.keys(state.alb.checked)[0] || null;
+      if (!typeId) {
+        // Aucun album coché : on active automatiquement le premier
+        var first = state.albums.types[0];
+        if (!first) return;
+        state.alb.checked[first.id] = true;
+        state.alb.active = first.id;
+        typeId = first.id;
+        window.toast('Album « ' + first.label + ' » activé automatiquement — la photo y est ajoutée ✓', 'ok');
+      } else {
+        state.alb.active = typeId;
+      }
     }
     var list = state.alb.photos[typeId] || [];
     var idx = list.indexOf(p.id);
@@ -456,6 +466,7 @@
       list.splice(idx, 1);
       state.alb.photos[typeId] = list;
       saveAlbums();
+      renderAlbumsPanel();
       render();
       return;
     }
@@ -466,6 +477,7 @@
     list.push(p.id);
     state.alb.photos[typeId] = list;
     saveAlbums();
+    renderAlbumsPanel();
     render();
   }
 
@@ -596,12 +608,20 @@
       window.toast('L\u2019adresse e-mail du photographe n\u2019est pas encore configurée. Utilisez « Copier le récap ».', 'err');
       return;
     }
-    var a = document.createElement('a');
-    a.href = buildMailto();
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.toast('Votre application mail s\u2019ouvre avec la sélection ✓', 'ok');
+
+    // Ouverture de l'application mail + fenêtre de secours
+    state.mailtoUrl = buildMailto();
+    $('send-email').textContent = state.albums.email;
+    $('send-recap').value =
+      'À : ' + state.albums.email + '\n' +
+      'Objet : Sélection de photos — ' + (state.galleryMeta ? state.galleryMeta.name : 'galerie') + '\n\n' +
+      selectionText();
+    $('send-modal').classList.add('open');
+    openMailApp();
+  }
+
+  function openMailApp() {
+    try { window.location.href = state.mailtoUrl; } catch (e) { /* rien à faire */ }
   }
 
   function copySelection() {
@@ -718,6 +738,19 @@
     $('btn-send-selection').addEventListener('click', sendSelection);
     $('btn-copy-selection').addEventListener('click', copySelection);
 
+    /* Fenêtre d'aide à l'envoi */
+    $('send-retry').addEventListener('click', openMailApp);
+    $('send-copy').addEventListener('click', function () {
+      window.copyText($('send-recap').value).then(function (ok) {
+        window.toast(ok
+          ? 'Récapitulatif copié ✓ Collez-le dans un e-mail adressé à ' + (state.albums ? state.albums.email : 'votre photographe') + '.'
+          : 'Copie automatique impossible : sélectionnez le texte et copiez-le (Ctrl+C).', ok ? 'ok' : 'err');
+      });
+    });
+    $('send-close').addEventListener('click', function () {
+      $('send-modal').classList.remove('open');
+    });
+
     /* Identification client */
     $('ident-form').addEventListener('submit', identifyClient);
     $('btn-cl-history').addEventListener('click', function () {
@@ -739,6 +772,10 @@
     });
 
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && $('send-modal').classList.contains('open')) {
+        $('send-modal').classList.remove('open');
+        return;
+      }
       if (!$('lb').classList.contains('open')) return;
       if (e.key === 'Escape') closeLightbox();
       if (e.key === 'ArrowLeft') lbStep(-1);
