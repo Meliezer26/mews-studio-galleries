@@ -105,9 +105,7 @@
 
   function showLock(meta) {
     $('lock-name').textContent = meta.name;
-    $('lock-sub').textContent = meta.clientName
-      ? 'Bonjour ' + meta.clientName + ' ! Cette galerie privée vous est réservée. Entrez le mot de passe communiqué par votre photographe.'
-      : 'Cette galerie est protégée. Entrez le mot de passe communiqué par votre photographe.';
+    $('lock-sub').textContent = 'Bienvenue dans votre espace privé. Veuillez entrer votre mot de passe communiqué par Mews Studio.';
     show('lock');
     setTimeout(function () { $('lock-pass').focus(); }, 60);
   }
