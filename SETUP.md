@@ -144,6 +144,35 @@ La galerie se resynchronise automatiquement toutes les 5 minutes (ou via le bout
 - **Formats sans aperçu (RAW…)** : pas de vignette affichée (cartouche « Aperçu non disponible ») pour éviter de transfuser des fichiers énormes — le client utilise le bouton Télécharger (lien Google direct).
 - ⚠️ **Ne laissez pas la clé JSON du compte de service dans un dossier partagé** avec le robot (elle serait téléchargeable) : gardez-la uniquement dans les variables d'environnement de l'hébergeur.
 
+## Tri automatique sur Google Drive (dossiers déjà triés)
+
+Quand un client envoie sa sélection d'albums, le serveur peut **préparer automatiquement les dossiers triés** sur votre Drive :
+
+```
+Sélections
+└── Sélection — Mariage Léa & Tom
+    ├── Album 200 photos   ← copies des 200 sélectionnées
+    ├── Album 150 photos
+    └── Album 100 photos
+```
+
+- Les **originaux ne bougent pas** (la galerie reste intacte) : chaque photo choisie est **copiée** (ou reliée par **raccourci** — réglable) dans le bon sous-dossier.
+- Quand le client **renvoie** une sélection modifiée, le dossier est **mis à jour** (ajouts + retraits automatiques).
+- Nettoyage automatique possible après N jours (réglable, 0 = illimité).
+- Un e-mail de confirmation avec le lien du dossier vous est envoyé (si les notifications SMTP sont actives).
+
+### Prérequis : connexion OAuth de votre compte Google
+
+Le robot (compte de service) sait **lire** les dossiers mais pas **écrire** (pas de quota). Le tri est donc effectué avec **votre compte Google personnel** :
+
+1. Console Google Cloud (même projet que le compte de service) → **APIs & Services → Identifiants → Créer des identifiants → ID client OAuth**, type **Application Web**, URI de redirection : `https://mews-galleries.onrender.com/oauth2callback` (ou `BASE_URL` + `/oauth2callback`).
+2. Écran de consentement : **Externe**, ajoutez votre e-mail comme **utilisateur test**. Scopes : `.../auth/drive` (les autres scopes de l'application sont facultatifs pour le tri).
+3. Ajoutez `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET` aux variables d'environnement (Render → Environment) puis redéployez.
+4. Dans l'admin : **Réglages → Tri automatique → « Se connecter avec Google »** → autorisez une fois.
+5. Cochez la case, choisissez le mode (copies réelles ou raccourcis), enregistrez.
+
+⚠️ Application en statut « Test » : Google fait expirer l'autorisation après **7 jours** — il suffit de recliquer « Se connecter avec Google » (le badge de l'admin l'indique). Le jeton de renouvellement est inclus dans la sauvegarde GitHub (restauré automatiquement après un redéploiement).
+
 ## Notifications e-mail (SMTP)
 
 Quand un client envoie une sélection d'albums, le serveur peut vous notifier automatiquement par e-mail.

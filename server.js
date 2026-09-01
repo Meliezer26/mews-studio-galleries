@@ -168,6 +168,29 @@ function notifySelection(req, g, clientName, albums) {
     });
 }
 
+/** Tri automatique sur le Drive du photographe (jamais bloquant). */
+function maybeSortSelection(g, albums, clientName) {
+  const cfg = store.config();
+  if (!cfg.driveSort || !cfg.driveSort.enabled) return;
+  drive.sortSelectionToDrive(g, albums)
+    .then((r) => {
+      if (!r || r.skipped) {
+        if (r && r.reason) console.log('[drive-sort] ' + r.reason);
+        return;
+      }
+      console.log('[drive-sort] OK — ' + r.folderUrl);
+      if (mailer.isConfigured()) {
+        mailer.sendDriveSortNotification({
+          galleryName: g.name,
+          clientName: clientName || null,
+          folderUrl: r.folderUrl,
+          albums: r.albums,
+        }).catch((err) => console.error('[drive-sort] notification impossible :', err.message));
+      }
+    })
+    .catch((err) => console.error('[drive-sort] erreur : ' + String(err.message).slice(0, 160)));
+}
+
 function demoFilePath(gallery, rec) {
   if (rec.storage === 'demo') {
     const p = path.join(DEMO_PHOTOS_DIR, path.basename(rec.name));
@@ -365,6 +388,7 @@ app.post('/api/g/:slug/selection', async (req, res) => {
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   notifySelection(req, g, sel.name, albums);
+  maybeSortSelection(g, albums, sel.name);
   res.json({ ok: true });
 });
 
@@ -510,6 +534,7 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   notifySelection(req, g, client.name, albums);
+  maybeSortSelection(g, albums, client.name);
   res.json({ ok: true });
 });
 
@@ -634,11 +659,10 @@ app.get('/api/g/:slug/photo/:fid/download', async (req, res) => {
  * ============================================================ */
 
 app.get('/api/drive/connect', requireAdmin, (req, res) => {
-  if (drive.isServiceAccount()) {
-    return res.status(400).json({ error: 'Mode compte de service actif : la connexion est automatique, aucune connexion OAuth n’est nécessaire.' });
-  }
+  // Le compte de service lit les galeries ; la connexion OAuth du photographe
+  // sert EN PLUS au tri automatique (le robot ne peut pas écrire sur le Drive).
   if (!drive.isConfigured() || !drive.redirectUri()) {
-    return res.status(400).json({ error: 'Google OAuth non configuré (CLIENT_ID, CLIENT_SECRET et BASE_URL requis). Voir SETUP.md.' });
+    return res.status(400).json({ error: 'Google OAuth non configuré (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET et BASE_URL requis). Voir SETUP.md.' });
   }
   const state = sec.randomToken(16);
   res.setHeader('Set-Cookie', `mews_oauth_state=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`);
@@ -751,6 +775,17 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
     cfg.notifications = next;
     changed = true;
   }
+  if (body.driveSort !== undefined) {
+    const s = body.driveSort || {};
+    cfg.driveSort = {
+      enabled: !!s.enabled,
+      mode: s.mode === 'shortcut' ? 'shortcut' : 'copy',
+      parentFolderId: String(s.parentFolderId || '').trim() || null,
+      parentFolderName: String(s.parentFolderName || '').trim().slice(0, 200) || null,
+      cleanupDays: Math.max(0, Math.min(365, Number(s.cleanupDays) || 0)),
+    };
+    changed = true;
+  }
   if (changed) store.saveConfig(cfg);
   res.json({
     ok: true,
@@ -767,6 +802,13 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
       to: (cfg.notifications && cfg.notifications.to) || '',
       passSet: !!(cfg.notifications && cfg.notifications.pass),
       configured: mailer.isConfigured(),
+    },
+    driveSort: {
+      enabled: !!(cfg.driveSort && cfg.driveSort.enabled),
+      mode: (cfg.driveSort && cfg.driveSort.mode) || 'copy',
+      parentFolderId: (cfg.driveSort && cfg.driveSort.parentFolderId) || '',
+      parentFolderName: (cfg.driveSort && cfg.driveSort.parentFolderName) || '',
+      cleanupDays: (cfg.driveSort && cfg.driveSort.cleanupDays) || 0,
     },
   });
 });
@@ -792,6 +834,8 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
     driveEmail: acc ? acc.emailAddress : null,
     driveName: acc ? acc.displayName : null,
     serviceAccount: drive.isServiceAccount(),
+    oauthSortReady: drive.isOauthSortReady(),
+    driveSort: store.config().driveSort || null,
     galleriesCount: all.length,
     photosCount: all.reduce((n, g) => n + (g.files ? g.files.length : 0), 0),
     photographerEmail: store.config().photographerEmail || '',
@@ -1031,6 +1075,25 @@ app.post('/api/admin/galleries/:id/sync', requireAdmin, async (req, res) => {
     } catch { /* pas de diagnostic */ }
   }
   res.json({ ok: true, count: g.files.length, hint });
+});
+
+/* Tri automatique : applique (ou réapplique) une sélection sur le Drive */
+app.post('/api/admin/galleries/:id/apply-drive-sort', requireAdmin, async (req, res) => {
+  const all = store.galleries();
+  const g = all.find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
+  const selectionId = String((req.body || {}).selectionId || '').trim();
+  const sel = selectionId
+    ? (g.selections || []).find((s) => s.id === selectionId)
+    : (g.selections || [])[0];
+  if (!sel) return res.status(400).json({ error: 'Aucune sélection enregistrée pour cette galerie.' });
+  try {
+    const r = await drive.sortSelectionToDrive(g, sel.albums);
+    if (r && r.skipped) return res.json({ ok: false, reason: r.reason });
+    return res.json({ ok: true, ...r });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: String(err.message).slice(0, 200) });
+  }
 });
 
 app.post('/api/admin/galleries/:id/upload', requireAdmin, upload.array('photos', 30), async (req, res) => {

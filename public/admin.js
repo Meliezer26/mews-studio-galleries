@@ -32,6 +32,7 @@
           $('set-default-dl').checked = s.defaultDownloadsEnabled !== false;
           $('set-global-dl').checked = s.globalDownloadsEnabled !== false;
           fillNotifyForm(s.notifications || {});
+          fillSortForm(s);
         })
         .catch(function () {});
     }
@@ -503,6 +504,36 @@
         albumsWrap.appendChild(line);
       });
       card.appendChild(albumsWrap);
+
+      var sortBtn = document.createElement('button');
+      sortBtn.type = 'button';
+      sortBtn.className = 'btn btn--ghost btn--sm';
+      sortBtn.style.marginTop = '12px';
+      sortBtn.textContent = '▦ Préparer les dossiers Drive';
+      sortBtn.addEventListener('click', function () {
+        sortBtn.disabled = true;
+        sortBtn.textContent = 'Préparation en cours…';
+        window.api('/api/admin/galleries/' + g.id + '/apply-drive-sort', {
+          method: 'POST',
+          body: { selectionId: sel.id },
+        })
+          .then(function (r) {
+            if (r.ok) {
+              window.toast('Dossiers prêts : ' + r.folderUrl, 'ok');
+              sortBtn.textContent = '▦ Re-préparer (met le dossier à jour)';
+            } else {
+              window.toast(r.reason || r.error || 'Impossible de préparer les dossiers.', 'err');
+              sortBtn.textContent = '▦ Préparer les dossiers Drive';
+            }
+          })
+          .catch(function (err) {
+            window.toast(err.message, 'err');
+            sortBtn.textContent = '▦ Préparer les dossiers Drive';
+          })
+          .finally(function () { sortBtn.disabled = false; });
+      });
+      card.appendChild(sortBtn);
+
       wrap.appendChild(card);
     });
   }
@@ -800,6 +831,59 @@
           window.api('/api/admin/status').then(function (s) { renderNotifyStatus(s.notifications || {}); }).catch(function () {});
         });
     });
+    /* --- Tri automatique sur Drive ---------------------------- */
+    function fillSortForm(s) {
+      var ds = s.driveSort || {};
+      $('set-sort-enabled').checked = !!ds.enabled;
+      $('set-sort-mode').value = ds.mode === 'shortcut' ? 'shortcut' : 'copy';
+      $('set-sort-cleanup').value = ds.cleanupDays || '';
+      var badge = $('sort-oauth-badge');
+      if (s.oauthSortReady) {
+        badge.textContent = 'Connecté ✓';
+        badge.className = 'badge badge--gold';
+      } else {
+        badge.textContent = 'Non connecté';
+        badge.className = 'badge';
+      }
+      populateFolderSelect($('set-sort-parent'), '', function () {
+        var sel = $('set-sort-parent');
+        var rootOpt = document.createElement('option');
+        rootOpt.value = '';
+        rootOpt.textContent = '— Racine de mon Drive —';
+        sel.insertBefore(rootOpt, sel.firstChild);
+        sel.value = ds.parentFolderId || '';
+      });
+    }
+
+    $('btn-save-sort').addEventListener('click', function () {
+      var parentSel = $('set-sort-parent');
+      var name = parentSel.selectedOptions[0] ? parentSel.selectedOptions[0].textContent : '';
+      window.api('/api/admin/settings', {
+        method: 'POST',
+        body: {
+          driveSort: {
+            enabled: $('set-sort-enabled').checked,
+            mode: $('set-sort-mode').value,
+            parentFolderId: parentSel.value,
+            parentFolderName: parentSel.value ? name : null,
+            cleanupDays: Number($('set-sort-cleanup').value) || 0,
+          },
+        },
+      })
+        .then(function () { window.toast('Tri automatique enregistré ✓', 'ok'); })
+        .catch(function (err) { window.toast(err.message, 'err'); });
+    });
+
+    $('btn-oauth-connect').addEventListener('click', function () {
+      window.api('/api/drive/connect')
+        .then(function (data) {
+          if (!data.url) throw new Error('URL de connexion manquante.');
+          window.open(data.url, '_blank');
+          window.toast('Autorisez Google dans l\u2019onglet qui s\u2019ouvre, puis revenez ici et rechargez (F5).', 'ok');
+        })
+        .catch(function (err) { window.toast(err.message, 'err'); });
+    });
+
     $('btn-save-email').addEventListener('click', function () {
       window.api('/api/admin/settings', { method: 'POST', body: { photographerEmail: $('set-email').value.trim() } })
         .then(function (data) {
