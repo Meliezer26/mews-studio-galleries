@@ -105,7 +105,7 @@
 
   function showLock(meta) {
     $('lock-name').textContent = meta.name;
-    $('lock-sub').textContent = 'Bienvenue dans votre espace privé. Veuillez entrer votre mot de passe communiqué par Mews Studio.';
+    $('lock-sub').textContent = 'Bienvenue dans votre espace privé. Veuillez entrer votre mot de passe communiqué par Mew\'s Studio.';
     show('lock');
     setTimeout(function () { $('lock-pass').focus(); }, 60);
   }
