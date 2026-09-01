@@ -375,7 +375,7 @@
       if (state.watermark) {
         var wm = document.createElement('div');
         wm.className = 'wm';
-        wm.appendChild(watermarkSpans(3));
+        wm.appendChild(watermarkSpans(1));
         tile.appendChild(wm);
       }
 
@@ -389,22 +389,27 @@
       num.textContent = p.index + 1;
       tile.appendChild(num);
 
-      /* Badges albums */
+      /* Mode albums : bouton +/✓ et compteur décroissant de l'album actif */
       if (state.albumMode && state.albums) {
-        var badges = document.createElement('div');
-        badges.className = 'alb-badges';
-        tileAlbums(p.id).forEach(function (t) {
-          var bd = document.createElement('span');
-          bd.className = 'alb-badge';
-          bd.style.background = ALBUM_COLORS[t.id];
-          bd.textContent = t.id;
-          bd.title = t.label;
-          badges.appendChild(bd);
-        });
-        tile.appendChild(badges);
-        var activeType = state.alb.active;
-        if (activeType && albPhotos(activeType).indexOf(p.id) > -1) {
-          tile.classList.add('in-album');
+        var activeT = albumById(state.alb.active) || (state.albums.types[0] ? albumById(state.albums.types[0].id) : null);
+        if (activeT) {
+          var inAlb = albPhotos(activeT.id).indexOf(p.id) > -1;
+          if (inAlb) tile.classList.add('in-album');
+
+          var addBtn = document.createElement('button');
+          addBtn.type = 'button';
+          addBtn.className = 'alb-add' + (inAlb ? ' in' : '');
+          addBtn.textContent = inAlb ? '✓' : '＋';
+          addBtn.title = inAlb ? 'Retirer de l\u2019album « ' + activeT.label + ' »' : 'Ajouter à l\u2019album « ' + activeT.label + ' »';
+          addBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleInAlbum(p); });
+          tile.appendChild(addBtn);
+
+          var rest = activeT.capacity - albPhotos(activeT.id).length;
+          var num = document.createElement('span');
+          num.className = 'alb-badge-num' + (inAlb ? ' in' : '');
+          num.textContent = rest;
+          num.title = 'Album « ' + activeT.label + ' » : ' + rest + ' place(s) restante(s)';
+          tile.appendChild(num);
         }
       }
 
@@ -428,9 +433,7 @@
       tile.appendChild(actions);
 
       tile.addEventListener('click', function () {
-        if (state.albumMode && state.albums) {
-          toggleInAlbum(p);
-        } else if (state.selecting) {
+        if (state.selecting) {
           if (state.selected.has(p.id)) state.selected.delete(p.id); else state.selected.add(p.id);
           render();
         } else {
@@ -651,6 +654,21 @@
     $('lb-fav').textContent = state.favs.has(p.id) ? '♥ Retirer des favoris' : '♡ Ajouter aux favoris';
     $('lb-fav').classList.toggle('btn--danger', state.favs.has(p.id));
     $('lb-dl').style.display = state.downloads ? '' : 'none';
+
+    /* Bouton album dans la visionneuse (mode albums) */
+    var activeT = state.albumMode && state.albums
+      ? (albumById(state.alb.active) || (state.albums.types[0] ? albumById(state.albums.types[0].id) : null))
+      : null;
+    $('lb-alb').style.display = activeT ? '' : 'none';
+    if (activeT) {
+      var inAlb = albPhotos(activeT.id).indexOf(p.id) > -1;
+      var rest = activeT.capacity - albPhotos(activeT.id).length;
+      $('lb-alb').textContent = inAlb
+        ? '✓ Retirer de « ' + activeT.label + ' »'
+        : '＋ Ajouter à « ' + activeT.label + ' » (' + rest + ' place' + (rest > 1 ? 's' : '') + ' restante' + (rest > 1 ? 's' : '') + ')';
+      $('lb-alb').classList.toggle('btn--gold', !inAlb);
+      $('lb-alb').classList.toggle('btn--ghost', inAlb);
+    }
   }
   function closeLightbox() {
     $('lb').classList.remove('open');
@@ -770,6 +788,10 @@
       var p = state.lbList[state.lbIndex];
       if (p) triggerDownload(p);
     });
+    $('lb-alb').addEventListener('click', function () {
+      var p = state.lbList[state.lbIndex];
+      if (p) { toggleInAlbum(p); updateLightbox(); }
+    });
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && $('send-modal').classList.contains('open')) {
@@ -825,7 +847,7 @@
         }
         $('alb-client-name').value = state.alb.name || '';
         $('lb-wm').innerHTML = '';
-        if (state.watermark) $('lb-wm').appendChild(watermarkSpans(3));
+        if (state.watermark) $('lb-wm').appendChild(watermarkSpans(1));
         $('lb-wm').style.display = state.watermark ? '' : 'none';
 
         show(['top', 'grid']);
