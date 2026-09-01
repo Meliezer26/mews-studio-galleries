@@ -57,9 +57,16 @@ store.ensureDirs();
   // Ré-hydrate le jeton OAuth du compte utilisateur (disque éphémère).
   try {
     const t = store.tokens() || {};
-    if (!t.refresh_token) {
-      t.refresh_token = store.config().googleRefreshToken || process.env.GOOGLE_REFRESH_TOKEN || null;
+    const cfg = store.config();
+    if (!t.refresh_token && (cfg.googleRefreshToken || process.env.GOOGLE_REFRESH_TOKEN)) {
+      t.refresh_token = cfg.googleRefreshToken || process.env.GOOGLE_REFRESH_TOKEN;
       if (t.refresh_token) store.saveTokens(t);
+    }
+    // Le jeton ne doit plus rester dans config.json : la sauvegarde GitHub
+    // refuse tout contenu contenant un secret (détection automatique).
+    if (cfg.googleRefreshToken) {
+      delete cfg.googleRefreshToken;
+      store.saveConfig(cfg);
     }
   } catch (err) {
     console.warn('[oauth] Ré-hydratation impossible :', err.message);
@@ -737,10 +744,10 @@ app.get('/oauth2callback', async (req, res) => {
     delete t.oauthState;
     store.saveTokens(t);
     if (data.refresh_token) {
-      // Survie du jeton à la réinitialisation du disque (via sauvegarde GitHub).
-      const cfg = store.config();
-      cfg.googleRefreshToken = data.refresh_token;
-      store.saveConfig(cfg);
+      // IMPORTANT : le jeton de renouvellement n'est PAS copié dans config.json
+      // (la sauvegarde GitHub refuserait un contenu contenant un secret).
+      // Il survit au redémarrage via la variable d'environnement
+      // GOOGLE_REFRESH_TOKEN (voir le ré-hydratation au démarrage).
     }
     res.redirect('/admin#drive=ok');
   } catch (err) {
@@ -768,6 +775,9 @@ app.get('/api/admin/drive-user/status', requireAdmin, async (req, res) => {
     connected: drive.isUserConnected(),
     email: account ? account.emailAddress : null,
     serviceAccountMode: drive.isServiceAccount(),
+    // Admin uniquement (session protégée) : sert à reporter le jeton de
+    // renouvellement dans la variable GOOGLE_REFRESH_TOKEN de l'hébergeur.
+    refreshToken: (store.tokens() && store.tokens().refresh_token) || null,
   });
 });
 
