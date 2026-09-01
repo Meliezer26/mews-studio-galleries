@@ -75,10 +75,13 @@ store.ensureDirs();
   backup.cleanupExpiredGrants().catch(() => {});
   backup.startPeriodicBackup();
   backup.now(); // sauvegarde immédiate au démarrage
-  // Nettoyage des dossiers de sélections triés trop anciens (quotidien).
+  // Tâches quotidiennes : nettoyage des dossiers triés trop anciens +
+  // vérification que la connexion Google du photographe tient toujours
+  // (un jeton d'application « Testing » expire après 7 jours → alerte e-mail).
   driveSort.cleanupSelectionFolders().catch((err) => console.warn('[drive-sort]', err.message));
   setInterval(() => {
     driveSort.cleanupSelectionFolders().catch(() => {});
+    checkDriveUserHealth().catch(() => {});
   }, 24 * 3600 * 1000);
 })();
 
@@ -243,8 +246,39 @@ function scheduleDriveApply(galleryId, selId) {
       });
       store.saveGalleries(all);
       console.error('[drive-sort]', err.message);
+      // Connexion expirée ? On prévient le photographe par e-mail (1 alerte max / 6 h).
+      if (/GOOGLE_USER_NOT_CONNECTED|invalid_grant|401|refresh|expired/i.test(String(err.message))) {
+        warnDriveAuthFailure(err.message);
+      }
     }
   }).catch(() => {});
+}
+
+/* --- Santé de la connexion Google (tri automatique) ------------ */
+
+/** Une seule alerte e-mail par tranche de 6 heures, pour ne pas spammer. */
+function warnDriveAuthFailure(detail) {
+  const cfg = store.config();
+  if (cfg.lastDriveAuthWarningAt && Date.now() - cfg.lastDriveAuthWarningAt < 6 * 3600 * 1000) return;
+  if (!mailer.isConfigured()) return;
+  cfg.lastDriveAuthWarningAt = Date.now();
+  store.saveConfig(cfg);
+  mailer.sendDriveAuthWarning({ detail: String(detail || '').slice(0, 200) })
+    .catch((err) => console.error('[drive-sort][mail]', err.message));
+}
+
+/**
+ * Vérifie (en forçant un rafraîchissement) que le jeton du compte
+ * utilisateur est toujours valide. Sinon, prévient le photographe par e-mail.
+ */
+async function checkDriveUserHealth() {
+  if (!driveSort.isReady()) return;
+  try {
+    const ok = await drive.verifyUserConnection();
+    if (!ok) warnDriveAuthFailure('Google a refusé le renouvellement du jeton (application en mode « Testing » ou autorisation révoquée).');
+  } catch (err) {
+    warnDriveAuthFailure(err.message);
+  }
 }
 
 function demoFilePath(gallery, rec) {
