@@ -449,6 +449,8 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .sel-card summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .sel-card summary .muted { font-weight: 400; }
 .sel-albums { margin-top: 12px; display: grid; gap: 10px; }
+.sel-drive { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line-2); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sel-drive a { color: var(--accent-2); font-size: 0.85rem; font-weight: 600; word-break: break-all; }
 .sel-album { border-top: 1px dashed var(--line-2); padding-top: 10px; }
 .sel-album b { font-size: 0.9rem; }
 .sel-album .list { font-size: 0.82rem; color: var(--muted); margin-top: 4px; word-break: break-word; }

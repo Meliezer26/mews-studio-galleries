@@ -9,6 +9,16 @@
  */
 const fs = require('fs');
 const path = require('path');
+
+/* --- Chargement minimal de .env (AVANT les autres modules,
+ * car certains lisent process.env au moment du require) ----- */
+try {
+  for (const line of fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+} catch { /* pas de fichier .env */ }
+
 const express = require('express');
 const multer = require('multer');
 
@@ -18,15 +28,8 @@ const demo = require('./lib/demo');
 const sec = require('./lib/security');
 const mailer = require('./lib/mailer');
 const backup = require('./lib/backup');
+const driveSort = require('./lib/drive-sort');
 const { ALBUM_TYPES } = demo;
-
-/* --- Chargement minimal de .env ---------------------------- */
-try {
-  for (const line of fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
-    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
-  }
-} catch { /* pas de fichier .env */ }
 
 const PORT = process.env.PORT || 3000;
 const DEMO_PHOTOS_DIR = path.join(__dirname, 'public', 'demo-photos');
@@ -51,10 +54,25 @@ store.ensureDirs();
   } catch (err) {
     console.warn('[backup] Erreur de restauration :', err.message);
   }
+  // Ré-hydrate le jeton OAuth du compte utilisateur (disque éphémère).
+  try {
+    const t = store.tokens() || {};
+    if (!t.refresh_token) {
+      t.refresh_token = store.config().googleRefreshToken || process.env.GOOGLE_REFRESH_TOKEN || null;
+      if (t.refresh_token) store.saveTokens(t);
+    }
+  } catch (err) {
+    console.warn('[oauth] Ré-hydratation impossible :', err.message);
+  }
   demo.seed();
   backup.cleanupExpiredGrants().catch(() => {});
   backup.startPeriodicBackup();
   backup.now(); // sauvegarde immédiate au démarrage
+  // Nettoyage des dossiers de sélections triés trop anciens (quotidien).
+  driveSort.cleanupSelectionFolders().catch((err) => console.warn('[drive-sort]', err.message));
+  setInterval(() => {
+    driveSort.cleanupSelectionFolders().catch(() => {});
+  }, 24 * 3600 * 1000);
 })();
 
 const app = express();
@@ -168,27 +186,49 @@ function notifySelection(req, g, clientName, albums) {
     });
 }
 
-/** Tri automatique sur le Drive du photographe (jamais bloquant). */
-function maybeSortSelection(g, albums, clientName) {
-  const cfg = store.config();
-  if (!cfg.driveSort || !cfg.driveSort.enabled) return;
-  drive.sortSelectionToDrive(g, albums)
-    .then((r) => {
-      if (!r || r.skipped) {
-        if (r && r.reason) console.log('[drive-sort] ' + r.reason);
-        return;
-      }
-      console.log('[drive-sort] OK — ' + r.folderUrl);
+/* --- Tri automatique des sélections sur Drive ---------------- */
+
+/** Lance (en file d'attente) le tri Drive d'une sélection enregistrée. */
+function scheduleDriveApply(galleryId, selId) {
+  if (!driveSort.isReady()) return;
+  driveSort.enqueue(async () => {
+    const all = store.galleries();
+    const g = all.find((x) => x.id === galleryId);
+    if (!g) return;
+    const sel = (g.selections || []).find((s) => s.id === selId);
+    if (!sel) return;
+    driveSort.setStatus(sel, 'pending');
+    store.saveGalleries(all);
+    try {
+      const result = await driveSort.applySelection(g, sel);
+      driveSort.setStatus(sel, result.errors.length ? 'partial' : 'ok', {
+        driveFolderId: result.folderId,
+        driveFolderName: result.folderName,
+        driveFolderUrl: result.folderUrl,
+        driveMode: result.mode,
+        driveError: result.errors.length ? result.errors.map((e) => e.name + ' : ' + e.message).join(' ; ').slice(0, 400) : null,
+        driveAppliedAt: Date.now(),
+      });
+      store.saveGalleries(all);
       if (mailer.isConfigured()) {
-        mailer.sendDriveSortNotification({
+        mailer.sendDriveFolderNotification({
           galleryName: g.name,
-          clientName: clientName || null,
-          folderUrl: r.folderUrl,
-          albums: r.albums,
-        }).catch((err) => console.error('[drive-sort] notification impossible :', err.message));
+          folderName: result.folderName,
+          folderUrl: result.folderUrl,
+          mode: result.mode,
+          total: result.total,
+          subfolders: result.subfolders,
+        }).catch((err) => console.error('[drive-sort][mail]', err.message));
       }
-    })
-    .catch((err) => console.error('[drive-sort] erreur : ' + String(err.message).slice(0, 160)));
+    } catch (err) {
+      driveSort.setStatus(sel, 'error', {
+        driveError: String(err.message).slice(0, 200),
+        driveAppliedAt: Date.now(),
+      });
+      store.saveGalleries(all);
+      console.error('[drive-sort]', err.message);
+    }
+  }).catch(() => {});
 }
 
 function demoFilePath(gallery, rec) {
@@ -388,7 +428,7 @@ app.post('/api/g/:slug/selection', async (req, res) => {
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   notifySelection(req, g, sel.name, albums);
-  maybeSortSelection(g, albums, sel.name);
+  scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
   res.json({ ok: true });
 });
 
@@ -534,7 +574,7 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   notifySelection(req, g, client.name, albums);
-  maybeSortSelection(g, albums, client.name);
+  scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
   res.json({ ok: true });
 });
 
@@ -659,10 +699,11 @@ app.get('/api/g/:slug/photo/:fid/download', async (req, res) => {
  * ============================================================ */
 
 app.get('/api/drive/connect', requireAdmin, (req, res) => {
-  // Le compte de service lit les galeries ; la connexion OAuth du photographe
-  // sert EN PLUS au tri automatique (le robot ne peut pas écrire sur le Drive).
+  if (drive.isServiceAccount()) {
+    return res.status(400).json({ error: 'Mode compte de service actif : la connexion est automatique, aucune connexion OAuth n’est nécessaire.' });
+  }
   if (!drive.isConfigured() || !drive.redirectUri()) {
-    return res.status(400).json({ error: 'Google OAuth non configuré (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET et BASE_URL requis). Voir SETUP.md.' });
+    return res.status(400).json({ error: 'Google OAuth non configuré (CLIENT_ID, CLIENT_SECRET et BASE_URL requis). Voir SETUP.md.' });
   }
   const state = sec.randomToken(16);
   res.setHeader('Set-Cookie', `mews_oauth_state=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`);
@@ -697,6 +738,117 @@ app.get('/oauth2callback', async (req, res) => {
       </div></body></html>`);
   } catch (err) {
     res.status(500).send('<h2>La connexion a échoué.</h2><p>' + String(err.message).slice(0, 300) + '</p>');
+  }
+});
+
+/* ============================================================
+ *  OAuth compte utilisateur (Google) — nécessaire pour ÉCRIRE
+ *  dans le Drive : tri automatique des sélections d'albums.
+ *  (Le compte de service ne sait que lire : pas de quota.)
+ * ============================================================ */
+
+/** Retour du consentement Google : échange du code → jeton stocké. */
+app.get('/oauth2callback', async (req, res) => {
+  const code = String(req.query.code || '');
+  const state = String(req.query.state || '');
+  const t = store.tokens() || {};
+  if (!code) return res.redirect('/admin#drive=annule');
+  if (t.oauthState && state !== t.oauthState) {
+    return res.redirect('/admin#drive=err&m=' + encodeURIComponent('État OAuth invalide, réessayez.'));
+  }
+  try {
+    const data = await drive.exchangeCode(code);
+    t.access_token = data.access_token;
+    t.expiry = Date.now() + (data.expires_in || 3600) * 1000;
+    if (data.refresh_token) t.refresh_token = data.refresh_token;
+    delete t.oauthState;
+    store.saveTokens(t);
+    if (data.refresh_token) {
+      // Survie du jeton à la réinitialisation du disque (via sauvegarde GitHub).
+      const cfg = store.config();
+      cfg.googleRefreshToken = data.refresh_token;
+      store.saveConfig(cfg);
+    }
+    res.redirect('/admin#drive=ok');
+  } catch (err) {
+    res.redirect('/admin#drive=err&m=' + encodeURIComponent(String(err.message).slice(0, 120)));
+  }
+});
+
+/** Démarre la connexion OAuth du compte utilisateur (bouton admin). */
+app.post('/api/admin/drive-user/connect', requireAdmin, (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.status(400).json({ error: 'Identifiants OAuth Google absents (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).' });
+  }
+  const state = sec.randomToken(16);
+  const t = store.tokens() || {};
+  t.oauthState = state;
+  store.saveTokens(t);
+  res.json({ url: drive.authUrl(state) });
+});
+
+/** État de la connexion du compte utilisateur. */
+app.get('/api/admin/drive-user/status', requireAdmin, async (req, res) => {
+  const account = drive.isUserConnected() ? await drive.userDriveAccount() : null;
+  res.json({
+    configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    connected: drive.isUserConnected(),
+    email: account ? account.emailAddress : null,
+    serviceAccountMode: drive.isServiceAccount(),
+  });
+});
+
+/** Déconnexion du compte utilisateur. */
+app.post('/api/admin/drive-user/disconnect', requireAdmin, (req, res) => {
+  const t = store.tokens() || {};
+  delete t.refresh_token;
+  delete t.access_token;
+  delete t.expiry;
+  store.saveTokens(t);
+  const cfg = store.config();
+  cfg.googleRefreshToken = null;
+  store.saveConfig(cfg);
+  res.json({ ok: true });
+});
+
+/** Dossiers du compte utilisateur (pour choisir la racine des tris). */
+app.get('/api/admin/drive-user/folders', requireAdmin, async (req, res) => {
+  try {
+    const folders = await drive.listUserFolders();
+    res.json({ folders: folders.map((f) => ({ id: f.id, name: f.name })) });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+/** Relance manuellement le tri Drive d'une sélection précise. */
+app.post('/api/admin/galleries/:id/selections/:selId/drive-apply', requireAdmin, async (req, res) => {
+  const all = store.galleries();
+  const g = all.find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
+  const sel = (g.selections || []).find((s) => s.id === req.params.selId);
+  if (!sel) return res.status(404).json({ error: 'Sélection introuvable.' });
+  if (!drive.isUserConnected()) {
+    return res.status(400).json({ error: 'Compte Google non connecté : Admin → Réglages → Se connecter avec Google.' });
+  }
+  driveSort.setStatus(sel, 'pending');
+  store.saveGalleries(all);
+  try {
+    const result = await driveSort.applySelection(g, sel);
+    driveSort.setStatus(sel, result.errors.length ? 'partial' : 'ok', {
+      driveFolderId: result.folderId,
+      driveFolderName: result.folderName,
+      driveFolderUrl: result.folderUrl,
+      driveMode: result.mode,
+      driveError: result.errors.length ? result.errors.map((e) => e.name + ' : ' + e.message).join(' ; ').slice(0, 400) : null,
+      driveAppliedAt: Date.now(),
+    });
+    store.saveGalleries(all);
+    res.json({ ok: true, folderUrl: result.folderUrl, folderName: result.folderName, total: result.total, mode: result.mode, errors: result.errors.length });
+  } catch (err) {
+    driveSort.setStatus(sel, 'error', { driveError: String(err.message).slice(0, 200), driveAppliedAt: Date.now() });
+    store.saveGalleries(all);
+    res.status(502).json({ error: err.message });
   }
 });
 
@@ -775,15 +927,18 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
     cfg.notifications = next;
     changed = true;
   }
-  if (body.driveSort !== undefined) {
-    const s = body.driveSort || {};
-    cfg.driveSort = {
-      enabled: !!s.enabled,
-      mode: s.mode === 'shortcut' ? 'shortcut' : 'copy',
-      parentFolderId: String(s.parentFolderId || '').trim() || null,
-      parentFolderName: String(s.parentFolderName || '').trim().slice(0, 200) || null,
-      cleanupDays: Math.max(0, Math.min(365, Number(s.cleanupDays) || 0)),
-    };
+  if (body.selectionDriveMode !== undefined) {
+    const mode = ['off', 'copy', 'shortcut'].includes(String(body.selectionDriveMode))
+      ? String(body.selectionDriveMode) : 'off';
+    cfg.selectionDriveMode = mode;
+    changed = true;
+  }
+  if (body.selectionRootFolderId !== undefined) {
+    cfg.selectionRootFolderId = String(body.selectionRootFolderId || '').trim() || null;
+    changed = true;
+  }
+  if (body.selectionCleanupDays !== undefined) {
+    cfg.selectionCleanupDays = Math.max(0, Math.min(365, Number(body.selectionCleanupDays) || 0));
     changed = true;
   }
   if (changed) store.saveConfig(cfg);
@@ -803,13 +958,9 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
       passSet: !!(cfg.notifications && cfg.notifications.pass),
       configured: mailer.isConfigured(),
     },
-    driveSort: {
-      enabled: !!(cfg.driveSort && cfg.driveSort.enabled),
-      mode: (cfg.driveSort && cfg.driveSort.mode) || 'copy',
-      parentFolderId: (cfg.driveSort && cfg.driveSort.parentFolderId) || '',
-      parentFolderName: (cfg.driveSort && cfg.driveSort.parentFolderName) || '',
-      cleanupDays: (cfg.driveSort && cfg.driveSort.cleanupDays) || 0,
-    },
+    selectionDriveMode: cfg.selectionDriveMode || 'off',
+    selectionRootFolderId: cfg.selectionRootFolderId || '',
+    selectionCleanupDays: Number(cfg.selectionCleanupDays || 0),
   });
 });
 
@@ -834,8 +985,6 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
     driveEmail: acc ? acc.emailAddress : null,
     driveName: acc ? acc.displayName : null,
     serviceAccount: drive.isServiceAccount(),
-    oauthSortReady: drive.isOauthSortReady(),
-    driveSort: store.config().driveSort || null,
     galleriesCount: all.length,
     photosCount: all.reduce((n, g) => n + (g.files ? g.files.length : 0), 0),
     photographerEmail: store.config().photographerEmail || '',
@@ -858,6 +1007,13 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
     backupStore: backup.backupStore(),
     backupKey: drive.isServiceAccount() ? null : ((store.tokens() && store.tokens().refresh_token) || null),
     lastBackupAt: backup.lastBackupAt(),
+    // Tri automatique des sélections sur Drive (compte utilisateur OAuth)
+    driveUserConnected: drive.isUserConnected(),
+    driveUserEmail: null,
+    selectionDriveMode: store.config().selectionDriveMode || 'off',
+    selectionRootFolderId: store.config().selectionRootFolderId || '',
+    selectionCleanupDays: Number(store.config().selectionCleanupDays || 0),
+    oauthClientConfigured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
   });
 });
 
@@ -1075,25 +1231,6 @@ app.post('/api/admin/galleries/:id/sync', requireAdmin, async (req, res) => {
     } catch { /* pas de diagnostic */ }
   }
   res.json({ ok: true, count: g.files.length, hint });
-});
-
-/* Tri automatique : applique (ou réapplique) une sélection sur le Drive */
-app.post('/api/admin/galleries/:id/apply-drive-sort', requireAdmin, async (req, res) => {
-  const all = store.galleries();
-  const g = all.find((x) => x.id === req.params.id);
-  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
-  const selectionId = String((req.body || {}).selectionId || '').trim();
-  const sel = selectionId
-    ? (g.selections || []).find((s) => s.id === selectionId)
-    : (g.selections || [])[0];
-  if (!sel) return res.status(400).json({ error: 'Aucune sélection enregistrée pour cette galerie.' });
-  try {
-    const r = await drive.sortSelectionToDrive(g, sel.albums);
-    if (r && r.skipped) return res.json({ ok: false, reason: r.reason });
-    return res.json({ ok: true, ...r });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: String(err.message).slice(0, 200) });
-  }
 });
 
 app.post('/api/admin/galleries/:id/upload', requireAdmin, upload.array('photos', 30), async (req, res) => {

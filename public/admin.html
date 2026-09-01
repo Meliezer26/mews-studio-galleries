@@ -301,6 +301,37 @@
         </div>
         <div class="field-hint" id="notify-status" style="margin-top:12px"></div>
 
+        <h3 class="display-3" style="margin:40px 0 18px">Tri automatique des sélections sur Google Drive</h3>
+        <div class="field">
+          <label>Compte Google (votre compte, pas le robot)</label>
+          <div class="flex gap-12 wrap center">
+            <span class="badge badge--gold" id="drive-user-state">Vérification…</span>
+            <button class="btn btn--gold btn--sm" id="btn-drive-connect">Se connecter avec Google</button>
+            <button class="btn btn--ghost btn--sm hidden" id="btn-drive-disconnect">Déconnecter</button>
+          </div>
+          <div class="field-hint">Requis pour créer les dossiers triés : seul votre compte Google peut écrire dans le Drive (le robot n'a pas de quota).</div>
+        </div>
+        <div class="field">
+          <label>Mode de tri</label>
+          <select class="select" id="set-drive-mode">
+            <option value="off">Désactivé</option>
+            <option value="copy">Copies réelles (dossier prêt pour le labo)</option>
+            <option value="shortcut">Raccourcis (0 Go, moins compatible avec certains labos)</option>
+          </select>
+          <div class="field-hint">Avec un mode actif, chaque sélection envoyée par un client crée automatiquement le dossier trié sur votre Drive.</div>
+        </div>
+        <div class="field">
+          <label>Dossier racine des sélections triées</label>
+          <select class="select" id="set-drive-root"><option value="">(auto) « Mews Studio — Sélections triées »</option></select>
+          <div class="field-hint">Les dossiers « Sélection — … » seront créés à l'intérieur.</div>
+        </div>
+        <div class="field">
+          <label>Suppression automatique après (jours)</label>
+          <input class="input" id="set-drive-cleanup" type="number" min="0" max="365" placeholder="0 = conserver indéfiniment">
+          <div class="field-hint">Les dossiers triés plus anciens sont mis à la corbeille automatiquement (en mode copies réelles, chaque sélection consomme de l'espace Drive).</div>
+        </div>
+        <button class="btn btn--gold" id="btn-save-drive">Enregistrer</button>
+
         <h3 class="display-3" style="margin:40px 0 18px">E-mail de réception des sélections</h3>
         <div class="field">
           <label>Votre adresse e-mail</label>
@@ -308,40 +339,6 @@
           <div class="field-hint">Quand un client clique sur « Envoyer ma sélection », son application mail s'ouvre avec cette adresse en destinataire.</div>
         </div>
         <button class="btn btn--gold" id="btn-save-email">Enregistrer</button>
-
-        <h3 class="display-3" style="margin:40px 0 18px">Tri automatique sur Google Drive</h3>
-        <div class="field">
-          <label class="check"><input type="checkbox" id="set-sort-enabled"> Quand un client envoie sa sélection, préparer automatiquement les dossiers triés sur mon Drive</label>
-          <div class="field-hint">Crée « Sélections / Sélection — <i>galerie</i> / Album 200 · 150 · 100 photos » et y place chaque photo choisie. Les originaux ne bougent pas, la galerie reste intacte.</div>
-        </div>
-        <div class="field">
-          <label>Compte Google (écriture)</label>
-          <div class="flex gap-12 center wrap">
-            <span class="badge" id="sort-oauth-badge">Non connecté</span>
-            <button class="btn btn--ghost btn--sm" id="btn-oauth-connect">Se connecter avec Google</button>
-          </div>
-          <div class="field-hint">Le robot lit vos dossiers mais ne peut pas écrire. Le tri s'effectue avec votre compte Google personnel — autorisation à donner une seule fois (renouvelable si Google la fait expirer après 7 jours).</div>
-        </div>
-        <div class="field">
-          <label>Mode de classement</label>
-          <select class="select" id="set-sort-mode">
-            <option value="copy">Copies réelles (vrais fichiers, prêts pour le labo)</option>
-            <option value="shortcut">Raccourcis (0 Go consommé)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Dossier parent (optionnel)</label>
-          <select class="select" id="set-sort-parent">
-            <option value="">— Racine de mon Drive —</option>
-          </select>
-          <div class="field-hint">Le dossier « Sélections » sera créé à cet endroit.</div>
-        </div>
-        <div class="field">
-          <label>Nettoyage automatique (jours)</label>
-          <input class="input" id="set-sort-cleanup" type="number" min="0" max="365" placeholder="0 = jamais">
-          <div class="field-hint">Les dossiers de sélection plus vieux que ce délai sont supprimés automatiquement. 0 = conservation illimitée.</div>
-        </div>
-        <button class="btn btn--gold" id="btn-save-sort" style="margin-bottom:40px">Enregistrer</button>
 
         <h3 class="display-3" style="margin:40px 0 18px">Mot de passe</h3>
         <div class="field">

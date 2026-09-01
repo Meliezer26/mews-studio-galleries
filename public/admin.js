@@ -32,10 +32,54 @@
           $('set-default-dl').checked = s.defaultDownloadsEnabled !== false;
           $('set-global-dl').checked = s.globalDownloadsEnabled !== false;
           fillNotifyForm(s.notifications || {});
-          fillSortForm(s);
+          $('set-drive-mode').value = s.selectionDriveMode || 'off';
+          $('set-drive-cleanup').value = s.selectionCleanupDays || '';
+          refreshDriveUser();
+          populateDriveRoots(s.selectionRootFolderId);
         })
         .catch(function () {});
     }
+  }
+
+  /* --- Tri Drive : connexion du compte Google utilisateur ------ */
+  function refreshDriveUser() {
+    window.api('/api/admin/drive-user/status')
+      .then(function (s) {
+        var state = $('drive-user-state');
+        if (s.connected && s.email) {
+          state.textContent = 'Connecté : ' + s.email + ' ✓';
+          $('btn-drive-connect').classList.add('hidden');
+          $('btn-drive-disconnect').classList.remove('hidden');
+        } else if (s.configured) {
+          state.textContent = 'Non connecté — cliquez sur « Se connecter avec Google ».';
+          $('btn-drive-connect').classList.remove('hidden');
+          $('btn-drive-disconnect').classList.add('hidden');
+        } else {
+          state.textContent = 'Identifiants Google OAuth non configurés (finalisation en attente).';
+          $('btn-drive-connect').classList.add('hidden');
+          $('btn-drive-disconnect').classList.add('hidden');
+        }
+      })
+      .catch(function () {
+        $('drive-user-state').textContent = 'Statut indisponible.';
+      });
+  }
+
+  function populateDriveRoots(selectedId) {
+    window.api('/api/admin/drive-user/folders')
+      .then(function (data) {
+        var sel = $('set-drive-root');
+        var current = selectedId || sel.value || '';
+        sel.innerHTML = '<option value="">(auto) « Mews Studio — Sélections triées »</option>';
+        data.folders.forEach(function (f) {
+          var o = document.createElement('option');
+          o.value = f.id;
+          o.textContent = f.name;
+          sel.appendChild(o);
+        });
+        sel.value = current;
+      })
+      .catch(function () { /* compte non connecté : la liste reste en (auto) */ });
   }
 
   /* --- Vue Clients -------------------------------------------- */
@@ -505,34 +549,51 @@
       });
       card.appendChild(albumsWrap);
 
-      var sortBtn = document.createElement('button');
-      sortBtn.type = 'button';
-      sortBtn.className = 'btn btn--ghost btn--sm';
-      sortBtn.style.marginTop = '12px';
-      sortBtn.textContent = '▦ Préparer les dossiers Drive';
-      sortBtn.addEventListener('click', function () {
-        sortBtn.disabled = true;
-        sortBtn.textContent = 'Préparation en cours…';
-        window.api('/api/admin/galleries/' + g.id + '/apply-drive-sort', {
-          method: 'POST',
-          body: { selectionId: sel.id },
-        })
-          .then(function (r) {
-            if (r.ok) {
-              window.toast('Dossiers prêts : ' + r.folderUrl, 'ok');
-              sortBtn.textContent = '▦ Re-préparer (met le dossier à jour)';
-            } else {
-              window.toast(r.reason || r.error || 'Impossible de préparer les dossiers.', 'err');
-              sortBtn.textContent = '▦ Préparer les dossiers Drive';
-            }
-          })
-          .catch(function (err) {
-            window.toast(err.message, 'err');
-            sortBtn.textContent = '▦ Préparer les dossiers Drive';
-          })
-          .finally(function () { sortBtn.disabled = false; });
-      });
-      card.appendChild(sortBtn);
+      /* Ligne « dossier Drive trié » */
+      var driveRow = document.createElement('div');
+      driveRow.className = 'sel-drive';
+      if (sel.driveFolderUrl) {
+        var link = document.createElement('a');
+        link.href = sel.driveFolderUrl;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = '📁 Dossier trié : ' + (sel.driveFolderName || sel.driveFolderUrl);
+        driveRow.appendChild(link);
+        if (sel.driveStatus === 'error') {
+          var errNote = document.createElement('span');
+          errNote.className = 'muted small';
+          errNote.textContent = '⚠ ' + (sel.driveError || 'erreur');
+          driveRow.appendChild(errNote);
+        }
+      } else {
+        var st = document.createElement('span');
+        st.className = 'muted small';
+        st.textContent = sel.driveStatus === 'error'
+          ? '⚠ Tri Drive en erreur : ' + (sel.driveError || '')
+          : sel.driveStatus === 'pending'
+            ? '⏳ Tri Drive en cours…'
+            : 'Dossier Drive : non créé.';
+        driveRow.appendChild(st);
+        var btn = document.createElement('button');
+        btn.className = 'btn btn--ghost btn--sm';
+        btn.textContent = 'Créer le dossier Drive';
+        btn.addEventListener('click', function () {
+          btn.disabled = true;
+          btn.textContent = 'Création…';
+          window.api('/api/admin/galleries/' + g.id + '/selections/' + sel.id + '/drive-apply', { method: 'POST' })
+            .then(function (d) {
+              window.toast('Dossier trié créé ✓ ' + d.total + ' photo(s)', 'ok');
+              renderSelections(g);
+            })
+            .catch(function (err) {
+              window.toast(err.message, 'err');
+              btn.disabled = false;
+              btn.textContent = 'Créer le dossier Drive';
+            });
+        });
+        driveRow.appendChild(btn);
+      }
+      card.appendChild(driveRow);
 
       wrap.appendChild(card);
     });
@@ -831,59 +892,6 @@
           window.api('/api/admin/status').then(function (s) { renderNotifyStatus(s.notifications || {}); }).catch(function () {});
         });
     });
-    /* --- Tri automatique sur Drive ---------------------------- */
-    function fillSortForm(s) {
-      var ds = s.driveSort || {};
-      $('set-sort-enabled').checked = !!ds.enabled;
-      $('set-sort-mode').value = ds.mode === 'shortcut' ? 'shortcut' : 'copy';
-      $('set-sort-cleanup').value = ds.cleanupDays || '';
-      var badge = $('sort-oauth-badge');
-      if (s.oauthSortReady) {
-        badge.textContent = 'Connecté ✓';
-        badge.className = 'badge badge--gold';
-      } else {
-        badge.textContent = 'Non connecté';
-        badge.className = 'badge';
-      }
-      populateFolderSelect($('set-sort-parent'), '', function () {
-        var sel = $('set-sort-parent');
-        var rootOpt = document.createElement('option');
-        rootOpt.value = '';
-        rootOpt.textContent = '— Racine de mon Drive —';
-        sel.insertBefore(rootOpt, sel.firstChild);
-        sel.value = ds.parentFolderId || '';
-      });
-    }
-
-    $('btn-save-sort').addEventListener('click', function () {
-      var parentSel = $('set-sort-parent');
-      var name = parentSel.selectedOptions[0] ? parentSel.selectedOptions[0].textContent : '';
-      window.api('/api/admin/settings', {
-        method: 'POST',
-        body: {
-          driveSort: {
-            enabled: $('set-sort-enabled').checked,
-            mode: $('set-sort-mode').value,
-            parentFolderId: parentSel.value,
-            parentFolderName: parentSel.value ? name : null,
-            cleanupDays: Number($('set-sort-cleanup').value) || 0,
-          },
-        },
-      })
-        .then(function () { window.toast('Tri automatique enregistré ✓', 'ok'); })
-        .catch(function (err) { window.toast(err.message, 'err'); });
-    });
-
-    $('btn-oauth-connect').addEventListener('click', function () {
-      window.api('/api/drive/connect')
-        .then(function (data) {
-          if (!data.url) throw new Error('URL de connexion manquante.');
-          window.open(data.url, '_blank');
-          window.toast('Autorisez Google dans l\u2019onglet qui s\u2019ouvre, puis revenez ici et rechargez (F5).', 'ok');
-        })
-        .catch(function (err) { window.toast(err.message, 'err'); });
-    });
-
     $('btn-save-email').addEventListener('click', function () {
       window.api('/api/admin/settings', { method: 'POST', body: { photographerEmail: $('set-email').value.trim() } })
         .then(function (data) {
@@ -892,6 +900,45 @@
         })
         .catch(function (err) { window.toast(err.message, 'err'); });
     });
+    $('btn-save-drive').addEventListener('click', function () {
+      window.api('/api/admin/settings', {
+        method: 'POST',
+        body: {
+          selectionDriveMode: $('set-drive-mode').value,
+          selectionRootFolderId: $('set-drive-root').value || '',
+          selectionCleanupDays: parseInt($('set-drive-cleanup').value || '0', 10) || 0,
+        },
+      })
+        .then(function (data) {
+          $('set-drive-mode').value = data.selectionDriveMode || 'off';
+          window.toast('Réglages du tri Drive enregistrés ✓', 'ok');
+        })
+        .catch(function (err) { window.toast(err.message, 'err'); });
+    });
+    $('btn-drive-connect').addEventListener('click', function () {
+      window.api('/api/admin/drive-user/connect', { method: 'POST' })
+        .then(function (data) { window.open(data.url, '_blank', 'noopener'); })
+        .catch(function (err) { window.toast(err.message, 'err'); });
+    });
+    $('btn-drive-disconnect').addEventListener('click', function () {
+      window.api('/api/admin/drive-user/disconnect', { method: 'POST' })
+        .then(function () {
+          window.toast('Compte Google déconnecté. Le tri automatique est en pause.', 'ok');
+          refreshDriveUser();
+        })
+        .catch(function (err) { window.toast(err.message, 'err'); });
+    });
+
+    /* Retour du consentement Google (redirection /admin#drive=…) */
+    if (location.hash.indexOf('drive=ok') > -1) {
+      history.replaceState(null, '', location.pathname + location.search);
+      window.toast('Compte Google connecté ✓ Le tri automatique est prêt.', 'ok');
+      refreshDriveUser();
+    } else if (location.hash.indexOf('drive=err') > -1) {
+      history.replaceState(null, '', location.pathname + location.search);
+      var m = (location.hash.match(/m=([^&]*)/) || [])[1];
+      window.toast('Connexion Google impossible : ' + (m ? decodeURIComponent(m) : 'réessayez.'), 'err');
+    }
     $('btn-save-password').addEventListener('click', function () {
       window.api('/api/admin/password', { method: 'POST', body: { current: $('set-current').value, next: $('set-next').value } })
         .then(function () {

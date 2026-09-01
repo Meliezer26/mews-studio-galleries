@@ -169,7 +169,7 @@ Le robot (compte de service) sait **lire** les dossiers mais pas **écrire** (pa
 2. Écran de consentement : **Externe**, ajoutez votre e-mail comme **utilisateur test**. Scopes : `.../auth/drive` (les autres scopes de l'application sont facultatifs pour le tri).
 3. Ajoutez `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET` aux variables d'environnement (Render → Environment) puis redéployez.
 4. Dans l'admin : **Réglages → Tri automatique → « Se connecter avec Google »** → autorisez une fois.
-5. Cochez la case, choisissez le mode (copies réelles ou raccourcis), enregistrez.
+5. Choisissez le mode (copies réelles ou raccourcis — ou « désactivé »), le dossier racine et le délai de nettoyage, puis enregistrez.
 
 ⚠️ Application en statut « Test » : Google fait expirer l'autorisation après **7 jours** — il suffit de recliquer « Se connecter avec Google » (le badge de l'admin l'indique). Le jeton de renouvellement est inclus dans la sauvegarde GitHub (restauré automatiquement après un redéploiement).
 
