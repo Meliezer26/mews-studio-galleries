@@ -1110,6 +1110,7 @@ app.post('/api/admin/galleries', requireAdmin, (req, res) => {
     slug,
     name,
     clientName: String(body.clientName || '').trim() || null,
+    eventName: String(body.eventName || '').trim() || null,
     passwordHash: sec.hashPassword(password),
     mode,
     folderId,
@@ -1168,6 +1169,7 @@ app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {
     g.name = name;
   }
   if (body.clientName !== undefined) g.clientName = String(body.clientName || '').trim() || null;
+  if (body.eventName !== undefined) g.eventName = String(body.eventName || '').trim() || null;
   if (body.password !== undefined && body.password !== '') {
     if (String(body.password).length < 4) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 4 caractères.' });
     g.passwordHash = sec.hashPassword(String(body.password));

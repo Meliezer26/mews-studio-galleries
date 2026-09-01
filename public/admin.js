@@ -377,6 +377,7 @@
     state.editLoaded = false;
     $('eg-name').value = g.name;
     $('eg-client').value = g.clientName || '';
+    $('eg-event').value = g.eventName || '';
     $('eg-password').value = '';
     $('eg-expiry').value = g.expiry ? new Date(g.expiry).toISOString().slice(0, 10) : '';
     window.api('/api/admin/galleries/' + g.id)
@@ -747,6 +748,7 @@
       var payload = {
         name: $('ng-name').value.trim(),
         clientName: $('ng-client').value.trim(),
+        eventName: $('ng-event').value.trim(),
         slug: $('ng-slug').value.trim(),
         password: $('ng-password').value,
         mode: mode,
@@ -782,6 +784,7 @@
       var payload = {
         name: $('eg-name').value.trim(),
         clientName: $('eg-client').value.trim(),
+        eventName: $('eg-event').value.trim(),
         password: $('eg-password').value,
         expiry: $('eg-expiry').value || null,
         downloadsEnabled: $('eg-dl').checked,

@@ -372,6 +372,11 @@
       <input class="input" id="ng-client" placeholder="Louise &amp; Antoine">
     </div>
     <div class="field">
+      <label>Nom de l'événement (utilisé pour nommer les dossiers triés sur Drive)</label>
+      <input class="input" id="ng-event" placeholder="Ex. Mariage Louise &amp; Antoine — facultatif">
+      <div class="field-hint">Le dossier Drive s'appellera « Sélection — <b>nom du client</b> — date ». Sans nom saisi par le client, ce nom d'événement est utilisé.</div>
+    </div>
+    <div class="field">
       <label>Lien de la galerie</label>
       <div class="flex gap-8 center">
         <span class="small muted">/g/</span>
@@ -435,6 +440,11 @@
     <div class="field">
       <label>Prénoms des clients</label>
       <input class="input" id="eg-client">
+    </div>
+    <div class="field">
+      <label>Nom de l'événement (utilisé pour nommer les dossiers triés sur Drive)</label>
+      <input class="input" id="eg-event" placeholder="Ex. Mariage Léa & Tom — si vide, le nom du client est utilisé">
+      <div class="field-hint">Quand un client envoie sa sélection, le dossier Drive s'appellera « Sélection — <b>nom du client</b> — date ». Sans nom de client, c'est ce nom d'événement qui est utilisé.</div>
     </div>
     <div class="field">
       <label>Nouveau mot de passe client (laisser vide pour conserver)</label>
