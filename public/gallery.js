@@ -804,6 +804,39 @@
       if (e.key === 'ArrowRight') lbStep(1);
     });
 
+    /* --- Protections anti-copie ------------------------------ */
+    // Clic droit / toucher long : pas de menu « Enregistrer l'image »
+    document.addEventListener('contextmenu', function (e) {
+      var el = e.target;
+      if (el && el.closest && (el.closest('input') || el.closest('textarea'))) return;
+      e.preventDefault();
+    });
+    // Glisser-déposer d'une image vers le bureau
+    document.addEventListener('dragstart', function (e) {
+      if (e.target && e.target.tagName === 'IMG') e.preventDefault();
+    });
+    // Enregistrer la page (Ctrl/Cmd+S)
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 's') e.preventDefault();
+    });
+    // Mobile : rappel confidentialité quand on revient dans l'onglet
+    // (les navigateurs mobiles ne permettent pas de bloquer une capture d'écran ;
+    //  le filigrane centré reste la protection réelle)
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') { state.hiddenAt = Date.now(); return; }
+        if (!state.hiddenAt) return;
+        var away = Date.now() - state.hiddenAt;
+        state.hiddenAt = null;
+        if (away < 600) return;
+        var warned = false;
+        try { warned = sessionStorage.getItem('mews_shot_warn_' + slug) === '1'; } catch (err) {}
+        if (warned) return;
+        try { sessionStorage.setItem('mews_shot_warn_' + slug, '1'); } catch (err) {}
+        window.toast('Galerie privée : merci de ne pas photographier ni capturer les images. Elles sont protégées par un filigrane.', 'err');
+      });
+    }
+
     // Info galerie
     window.api('/api/g/' + slug + '/info')
       .then(function (info) {

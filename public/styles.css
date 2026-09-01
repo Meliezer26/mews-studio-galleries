@@ -330,7 +330,7 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 
 /* --- Watermark ---------------------------------------------- */
 .wm {
-  position: absolute; left: 8%; top: 50%; transform: translateY(-50%);
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   pointer-events: none; user-select: none; z-index: 6;
   display: flex; flex-direction: column; align-items: center; gap: 1.1em;
   opacity: 0.55;
@@ -344,6 +344,19 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .g-item .wm span { font-size: 2cqw; }
 #lb-stage { container-type: inline-size; }
 #lb-wm span { font-size: 1.2cqw; }
+
+/* --- Protections anti-copie des images ---------------------- */
+.g-item, .g-item * { user-select: none; -webkit-user-select: none; }
+.g-item img {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none; /* iOS : pas de menu « Enregistrer l'image » au toucher long */
+  pointer-events: none;
+}
+.lb-stage img {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+  user-select: none; -webkit-user-select: none;
+}
 
 /* --- Sélection d'albums (côté client) ----------------------- */
 .albums-panel {
