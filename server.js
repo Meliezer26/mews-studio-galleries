@@ -705,40 +705,13 @@ app.get('/api/drive/connect', requireAdmin, (req, res) => {
   if (!drive.isConfigured() || !drive.redirectUri()) {
     return res.status(400).json({ error: 'Google OAuth non configuré (CLIENT_ID, CLIENT_SECRET et BASE_URL requis). Voir SETUP.md.' });
   }
+  // Même mécanisme d'état que /api/admin/drive-user/connect : le retour est
+  // validé par /oauth2callback (jeton oauthState dans data/tokens.json).
   const state = sec.randomToken(16);
-  res.setHeader('Set-Cookie', `mews_oauth_state=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`);
+  const t = store.tokens() || {};
+  t.oauthState = state;
+  store.saveTokens(t);
   res.json({ url: drive.authUrl(state) });
-});
-
-app.get('/oauth2callback', async (req, res) => {
-  const stateCookie = sec.parseCookies(req.headers.cookie)['mews_oauth_state'];
-  if (!stateCookie || stateCookie !== req.query.state) {
-    return res.status(400).send('<h2>Mews Studio — état OAuth invalide.</h2><p>Revenez dans l’espace photographe et réessayez.</p>');
-  }
-  if (req.query.error) {
-    return res.status(400).send('<h2>Autorisation refusée.</h2><p>' + req.query.error + '</p>');
-  }
-  try {
-    const data = await drive.exchangeCode(req.query.code);
-    const account = await drive.driveAccount();
-    store.saveTokens({
-      access_token: data.access_token,
-      refresh_token: data.refresh_token || (store.tokens() && store.tokens().refresh_token),
-      expiry: Date.now() + (data.expires_in || 3600) * 1000,
-      email: account ? account.emailAddress : null,
-    });
-    backup.now(); // première sauvegarde dès la connexion Drive
-    res.setHeader('Set-Cookie', 'mews_oauth_state=; Path=/; Max-Age=0');
-    res.send(`<!doctype html><html lang="fr"><meta charset="utf-8">
-      <title>Connexion réussie</title>
-      <body style="font-family:Georgia,serif;background:#14120f;color:#f4efe6;display:grid;place-items:center;height:100vh;margin:0">
-      <div style="text-align:center;padding:2rem">
-        <h1 style="font-weight:500">Google Drive est connecté ✓</h1>
-        <p>Vous pouvez fermer cet onglet et revenir à votre espace photographe.</p>
-      </div></body></html>`);
-  } catch (err) {
-    res.status(500).send('<h2>La connexion a échoué.</h2><p>' + String(err.message).slice(0, 300) + '</p>');
-  }
 });
 
 /* ============================================================

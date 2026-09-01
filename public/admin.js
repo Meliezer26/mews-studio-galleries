@@ -583,6 +583,9 @@
           window.api('/api/admin/galleries/' + g.id + '/selections/' + sel.id + '/drive-apply', { method: 'POST' })
             .then(function (d) {
               window.toast('Dossier trié créé ✓ ' + d.total + ' photo(s)', 'ok');
+              sel.driveFolderUrl = d.folderUrl;
+              sel.driveFolderName = d.folderName;
+              sel.driveStatus = 'ok';
               renderSelections(g);
             })
             .catch(function (err) {
