@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /g/
+
+Sitemap: https://mews-galleries.onrender.com/sitemap.xml

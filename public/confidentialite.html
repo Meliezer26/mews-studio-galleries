@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Politique de confidentialité — Mews Studio Galleries</title>
-<meta name="description" content="Politique de confidentialité de Mews Studio Galleries : quelles données sont collectées, comment elles sont utilisées et protégées.">
+<meta name="description" content="Politique de confidentialité de Mews Studio Galleries : quelles données sont collectées (nom, e-mail, sélections de photos), comment elles sont utilisées, stockées et protégées, et quels sont vos droits.">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="/styles.css">
@@ -15,6 +15,9 @@
   .legal p, .legal li { color: var(--ink-2); line-height: 1.75; font-size: 0.98rem; }
   .legal ul { padding-left: 22px; margin: 10px 0; }
   .legal .date { color: var(--muted); font-size: 0.85rem; margin-bottom: 30px; }
+  .legal table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.92rem; }
+  .legal th, .legal td { border: 1px solid var(--line-2); padding: 8px 10px; text-align: left; color: var(--ink-2); }
+  .legal th { color: var(--accent-2); background: var(--panel); }
 </style>
 </head>
 <body>
@@ -35,62 +38,97 @@
 
 <main class="legal">
   <h1>Politique de confidentialité</h1>
-  <p class="date">Dernière mise à jour : 1<sup>er</sup> septembre 2026</p>
+  <p class="date">Dernière mise à jour : 2 septembre 2026</p>
 
-  <p>La présente politique décrit la manière dont <strong>Mews Studio Galleries</strong> (« nous ») collecte, utilise et protège les données lorsque vous utilisez notre service de galeries photos privées. En utilisant le service, vous acceptez les pratiques décrites ci-dessous.</p>
+  <p>La présente politique décrit la manière dont <strong>Mews Studio Galleries</strong> (« nous ») collecte, utilise, stocke et protège les données personnelles lorsque vous utilisez notre service de galeries photos privées. En utilisant le service, vous acceptez les pratiques décrites ci-dessous.</p>
 
-  <h2>1. Nature du service</h2>
-  <p>Mews Studio Galleries est un service de galeries photos <strong>privées et protégées par mot de passe</strong>, réservé à l'usage d'un studio photographique et de ses clients. Il n'est pas destiné au grand public et ne comporte aucune publicité ni aucun partage de données à des tiers.</p>
-
-  <h2>2. Données que nous collectons</h2>
+  <h2>1. Nature et finalité du service</h2>
+  <p><strong>Mews Studio Galleries</strong> est une application de galeries photos <strong>privées et protégées par mot de passe</strong>, destinée à un studio photographique professionnel (Mew's Studio) et à ses clients. Elle permet au photographe de présenter ses photos à ses clients (visualisation, sélection de favoris, récupération des images), sans publicité et sans partage de données à des tiers.</p>
   <ul>
-    <li><strong>Identifiant de connexion photographe</strong> : l'adresse e-mail du compte Google utilisée pour se connecter à l'espace photographe (uniquement pour relier le service à votre Google Drive).</li>
-    <li><strong>Accès Google Drive</strong> : le service accède, avec votre autorisation explicite, aux dossiers Google Drive que vous choisissez d'utiliser comme galeries, afin d'en afficher les photos à vos clients. L'autorisation demandée couvre : la lecture des photos des dossiers partagés (drive.readonly), la création et la gestion de fichiers et dossiers nécessaires au tri des sélections (drive.file, drive).</li>
-    <li><strong>Données client</strong> : lorsqu'un client envoie sa sélection, son nom (champ libre), la liste des photos choisies et l'historique de ses sélections.</li>
-    <li><strong>Mot de passe des galeries</strong> : stocké sous forme de hash (empreinte cryptographique), jamais en clair.</li>
+    <li><strong>Pour le photographe</strong> : connecter des dossiers Google Drive, créer des galeries privées, suivre les sélections de ses clients, activer le téléchargement, être notifié par e-mail des sélections reçues.</li>
+    <li><strong>Pour le client</strong> : consulter sa galerie privée avec le mot de passe communiqué par le photographe, choisir ses photos (sélection automatiquement sauvegardée sous son nom) et, si le photographe l'a autorisé, télécharger les images.</li>
   </ul>
+
+  <h2>2. Données que nous collectons et traitons</h2>
+  <table>
+    <tr><th>Donnée</th><th>Qui la fournit</th><th>Pourquoi</th></tr>
+    <tr><td>Adresse e-mail du compte Google du photographe</td><td>Photographe (connexion Google)</td><td>Relier le service à son Google Drive pour afficher les photos des dossiers choisis.</td></tr>
+    <tr><td>Accès Google Drive (dossiers choisis par le photographe)</td><td>Photographe (autorisation explicite)</td><td>Lire et afficher les photos des galeries ; créer les dossiers de sélections triées. L'autorisation demandée couvre : lecture des photos des dossiers partagés (drive.readonly), création et gestion des fichiers et dossiers de tri (drive.file, drive).</td></tr>
+    <tr><td>Nom du client (champ libre)</td><td>Client (lors de l'envoi d'une sélection) ou photographe (création du compte client)</td><td>Sauvegarder la sélection du client sous son nom et la restituer lors de ses prochaines visites.</td></tr>
+    <tr><td>Adresse e-mail du client</td><td>Photographe (facultatif, espace d'administration)</td><td>Envoyer au client ses informations d'accès à la galerie (lien et mot de passe).</td></tr>
+    <tr><td>Sélections de photos et historique</td><td>Client</td><td>Transmettre au photographe la liste des photos choisies et conserver l'historique des envois.</td></tr>
+    <tr><td>Mot de passe des galeries</td><td>Photographe</td><td>Protéger l'accès aux galeries. Stocké sous forme de hash cryptographique (scrypt), jamais en clair.</td></tr>
+  </table>
 
   <h2>3. Données que nous NE collectons PAS</h2>
   <ul>
-    <li>Aucune donnée bancaire (le service est gratuit, aucun paiement).</li>
-    <li>Aucune donnée de navigation publicitaire ni cookie de suivi publicitaire.</li>
-    <li>Le service n'a pas accès aux photos d'autres dossiers Google Drive que ceux que le photographe lui a explicitement indiqués.</li>
+    <li>Aucune donnée bancaire (le service est gratuit, aucun paiement n'est demandé).</li>
+    <li>Aucune donnée de navigation publicitaire, aucun cookie de suivi publicitaire, aucun profilage.</li>
+    <li>Le service n'accède pas aux photos d'autres dossiers Google Drive que ceux que le photographe lui a explicitement indiqués.</li>
+    <li>Aucune donnée n'est collectée auprès de personnes de moins de 15 ans : le service est réservé aux clients du photographe, dans un cadre contractuel.</li>
   </ul>
 
   <h2>4. Utilisation des données</h2>
   <ul>
-    <li><strong>Affichage des galeries</strong> : les photos des dossiers Drive sélectionnés sont affichées uniquement aux clients disposant du mot de passe de la galerie correspondante.</li>
-    <li><strong>Tri automatique des sélections</strong> : quand un client envoie sa sélection, le service crée, dans le Google Drive du photographe (compte connecté), un dossier trié contenant une copie (ou un raccourci) des photos choisies. Rien n'est jamais supprimé ni modifié en dehors de ces dossiers créés par le service.</li>
-    <li><strong>Notifications</strong> : le service envoie au photographe un e-mail de notification lorsqu'un client envoie une sélection.</li>
+    <li><strong>Affichage des galeries</strong> : les photos des dossiers Drive sélectionnés sont affichées uniquement aux visiteurs disposant du mot de passe de la galerie correspondante.</li>
+    <li><strong>Tri automatique des sélections</strong> : lorsqu'un client envoie sa sélection, le service crée, dans le Google Drive du photographe (compte connecté), un dossier trié contenant une copie (ou un raccourci) des photos choisies. Rien n'est jamais supprimé ni modifié en dehors des dossiers créés par le service.</li>
+    <li><strong>Notifications</strong> : le service peut envoyer au photographe un e-mail de notification lorsqu'un client envoie une sélection (fonction optionnelle).</li>
+    <li><strong>Informations d'accès client</strong> : si le photographe a renseigné l'adresse e-mail du client, le service lui envoie le lien et le mot de passe de sa galerie.</li>
     <li><strong>Téléchargement</strong> : les liens de téléchargement directs sont générés temporairement (1 heure) à la demande du photographe, puis automatiquement révoqués.</li>
   </ul>
 
-  <h2>5. Conservation des données</h2>
+  <h2>5. Cookies et stockage local</h2>
+  <p>Le service n'utilise <strong>aucun cookie de suivi</strong>. Il emploie uniquement :</p>
   <ul>
-    <li>Les galeries et réglages sont conservés tant que le photographe utilise le service ; ils sont sauvegardés automatiquement dans un dépôt privé appartenant au photographe.</li>
+    <li>des <strong>cookies de session strictement techniques</strong> (ou stockage local du navigateur) nécessaires à l'authentification de l'espace photographe et à la mémorisation du mot de passe de la galerie sur l'appareil du client ;</li>
+    <li>le <strong>stockage local du navigateur</strong> pour conserver la sélection du client entre deux visites.</li>
+  </ul>
+  <p>Vous pouvez effacer ces données à tout moment en vidant le stockage du site dans les réglages de votre navigateur.</p>
+
+  <h2>6. Conservation des données</h2>
+  <ul>
+    <li>Les galeries, sélections clients et réglages sont conservés tant que le photographe utilise le service ; ils sont sauvegardés automatiquement dans un dépôt appartenant au photographe.</li>
     <li>Le photographe peut configurer la suppression automatique des dossiers de sélections triés (délai au choix ; valeur par défaut : conservation indéfinie).</li>
     <li>Les liens de téléchargement publics expirent automatiquement au bout d'une heure.</li>
+    <li>À la demande du photographe, l'ensemble des données du service peut être supprimé.</li>
   </ul>
 
-  <h2>6. Partage des données</h2>
-  <p>Nous ne vendons, ne louons et ne partageons aucune donnée avec des tiers. Les seuls traitements externes sont ceux des infrastructures d'hébergement (hébergeur du service) et des API Google, strictement nécessaires au fonctionnement du service.</p>
+  <h2>7. Hébergement et transferts</h2>
+  <ul>
+    <li>Le service est hébergé par <strong>Render (Render Services Inc., États-Unis)</strong> : code applicatif, réglages et sélections y sont traités. Les transferts vers les États-Unis sont encadrés par les clauses contractuelles types de la Commission européenne.</li>
+    <li>Les <strong>photos elles-mêmes restent dans le Google Drive du photographe</strong> (Google LLC) : le service les affiche sans jamais les copier sur ses propres serveurs.</li>
+    <li>Les e-mails de notification et d'accès transitent par l'infrastructure d'envoi configurée par le photographe (SMTP de son choix) ou par son propre client de messagerie.</li>
+  </ul>
 
-  <h2>7. Sécurité</h2>
+  <h2>8. Partage des données</h2>
+  <p>Nous ne vendons, ne louons et ne partageons aucune donnée personnelle avec des tiers. Les seuls traitements externes sont ceux des infrastructures d'hébergement (Render, Google APIs, prestataire SMTP éventuel), strictement nécessaires au fonctionnement du service, dans les conditions décrites ci-dessus.</p>
+
+  <h2>9. Sécurité</h2>
   <ul>
     <li>Connexions chiffrées (HTTPS) sur l'ensemble du service.</li>
     <li>Mots de passe stockés sous forme de hash cryptographique (scrypt), jamais en clair.</li>
     <li>Galeries privées non indexées par les moteurs de recherche.</li>
     <li>Jeton d'accès Google du photographe conservé de manière chiffrée dans l'environnement de l'hébergeur ; le photographe peut le révoquer à tout moment depuis son compte Google (« Applications tierces ayant accès à votre compte ») ou depuis l'espace photographe.</li>
+    <li>Les photos affichées sont protégées contre l'enregistrement direct (clic droit désactivé, filigrane) ; ces mesures ne s'appliquent pas aux captures d'écran de l'appareil du visiteur.</li>
   </ul>
 
-  <h2>8. Vos droits</h2>
-  <p>Vous pouvez à tout moment : demander l'accès, la rectification ou la suppression de vos données ; révoquer l'accès du service à votre compte Google ; demander la suppression complète du compte du service. Pour toute demande, écrivez à : <a href="mailto:mewstudiofrance@gmail.com">mewstudiofrance@gmail.com</a>.</p>
+  <h2>10. Vos droits (RGPD)</h2>
+  <p>Conformément au Règlement général sur la protection des données (RGPD), vous disposez des droits suivants sur vos données personnelles :</p>
+  <ul>
+    <li><strong>Droit d'accès</strong> : obtenir la copie des données vous concernant ;</li>
+    <li><strong>Droit de rectification</strong> : corriger des données inexactes ou incomplètes ;</li>
+    <li><strong>Droit à l'effacement</strong> (« droit à l'oubli ») : demander la suppression de vos données ;</li>
+    <li><strong>Droit à la limitation</strong> et <strong>droit d'opposition</strong> au traitement ;</li>
+    <li><strong>Droit à la portabilité</strong> : recevoir vos données dans un format structuré et lisible ;</li>
+    <li><strong>Révocation de l'accès Google</strong> : retirer à tout moment l'accès du service à votre compte Google.</li>
+  </ul>
+  <p>Pour exercer ces droits, écrivez à : <a href="mailto:mewstudiofrance@gmail.com">mewstudiofrance@gmail.com</a>. Vous pouvez également introduire une réclamation auprès de la <a href="https://www.cnil.fr" target="_blank" rel="noopener">CNIL</a> (autorité de contrôle française).</p>
 
-  <h2>9. Responsable du traitement</h2>
+  <h2>11. Responsable du traitement</h2>
   <p>Mews Studio Galleries — contact : <a href="mailto:mewstudiofrance@gmail.com">mewstudiofrance@gmail.com</a>.<br>
   Site du studio : <a href="https://mewstudio.com" target="_blank" rel="noopener">mewstudio.com</a>.</p>
 
-  <h2>10. Modifications</h2>
+  <h2>12. Modifications</h2>
   <p>Cette politique peut être mise à jour. La date de dernière mise à jour figure en tête de page. Les modifications prennent effet dès leur publication.</p>
 </main>
 
