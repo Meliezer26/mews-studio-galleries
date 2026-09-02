@@ -383,6 +383,12 @@ app.get('/connexion', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'connexion.html'));
 });
 
+/* Page « Politique de confidentialité » — également servie SANS extension,
+   car c'est l'URL déclarée à Google (Branding → privacy policy link). */
+app.get('/confidentialite', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'confidentialite.html'));
+});
+
 app.post('/api/connexion', (req, res) => {
   const ip = req.ip || 'unknown';
   if (!connexionLimiter(ip)) return res.status(429).json({ error: 'Trop de tentatives, réessayez plus tard.' });
