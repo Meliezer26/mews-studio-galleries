@@ -142,7 +142,6 @@
     if (logged) {
       $('cl-name-out').textContent = state.client.name;
       $('cl-hist-count').textContent = state.client.history.length;
-      if (!$('alb-client-name').value) $('alb-client-name').value = state.client.name;
       if (state.client.email && !$('cl-email').value) $('cl-email').value = state.client.email;
     }
   }
@@ -479,7 +478,6 @@
         state.alb.checked = data.client.albums.checked || {};
         state.alb.photos = data.client.albums.photos || {};
         if (!state.alb.name) state.alb.name = data.client.name;
-        $('alb-client-name').value = state.alb.name;
         $('cl-name').value = '';
         saveAlbumsLocal();
         renderAlbumsPanel();
@@ -552,18 +550,21 @@
       window.toast('Ajoutez au moins une photo à un album avant d\u2019envoyer.', 'err');
       return;
     }
-    state.alb.name = $('alb-client-name').value.trim();
-    saveAlbums();
+    var senderName = state.client ? state.client.name : (state.alb.name || '');
+    state.alb.name = senderName;
+    saveAlbumsLocal();
 
     // Enregistrement (côté photographe + historique du client)
     var albums = currentSelectionAlbums();
+    var sent = null;
     var req;
     if (state.client) {
       req = window.api('/api/g/' + slug + '/client/selection', {
         method: 'POST',
         headers: clientHeaders(),
         body: { albums: albums },
-      }).then(function () {
+      }).then(function (res) {
+        sent = res && res.emailSent;
         return window.api('/api/g/' + slug + '/client/me', { headers: clientHeaders() });
       }).then(function (data) {
         state.client.history = data.client.selections;
@@ -572,16 +573,32 @@
     } else {
       req = window.api('/api/g/' + slug + '/selection', {
         method: 'POST',
-        body: { name: state.alb.name, albums: albums },
-      });
+        body: { name: senderName, albums: albums },
+      }).then(function (res) { sent = res && res.emailSent; });
     }
-    req.catch(function () { /* l'e-mail reste utilisable même si l'enregistrement échoue */ });
 
+    req.then(function () {
+      if (sent) {
+        // L'e-mail est parti automatiquement du serveur : rien d'autre à faire.
+        window.toast('Sélection envoyée par e-mail au photographe ✓', 'ok');
+        return;
+      }
+      openSendFallback();
+    }).catch(function () {
+      if (sent) {
+        window.toast('Sélection envoyée par e-mail au photographe ✓', 'ok');
+      } else {
+        // L'enregistrement a échoué mais l'e-mail reste possible.
+        openSendFallback();
+      }
+    });
+  }
+
+  function openSendFallback() {
     if (!state.albums.email) {
-      window.toast('L\u2019adresse e-mail du photographe n\u2019est pas encore configurée. Utilisez « Copier le récap ».', 'err');
+      window.toast('L\u2019adresse e-mail du photographe n\u2019est pas encore configurée.', 'err');
       return;
     }
-
     // Ouverture de l'application mail + fenêtre de secours
     state.mailtoUrl = buildMailto();
     $('send-email').textContent = state.albums.email;
@@ -591,6 +608,15 @@
       selectionText();
     $('send-modal').classList.add('open');
     openMailApp();
+  }
+
+  function gmailComposeUrl() {
+    var subject = 'Sélection de photos — ' + (state.galleryMeta ? state.galleryMeta.name : 'galerie');
+    var body = selectionText();
+    if (body.length > 1400) body = body.slice(0, 1400) + '\n…';
+    return 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(state.albums.email || '') +
+      '&su=' + encodeURIComponent(subject) +
+      '&body=' + encodeURIComponent(body);
   }
 
   function openMailApp() {
@@ -718,6 +744,10 @@
 
     /* Fenêtre d'aide à l'envoi */
     $('send-retry').addEventListener('click', openMailApp);
+    $('send-gmail').addEventListener('click', function () {
+      try { window.open(gmailComposeUrl(), '_blank', 'noopener'); } catch (e) { /* rien à faire */ }
+      window.toast('Gmail s\u2019ouvre dans un nouvel onglet — le message est pré-rempli.', 'ok');
+    });
     $('send-copy').addEventListener('click', function () {
       window.copyText($('send-recap').value).then(function (ok) {
         window.toast(ok
@@ -837,7 +867,6 @@
           state.selecting = false;
           state.selected.clear();
         }
-        $('alb-client-name').value = state.alb.name || '';
         $('lb-wm').innerHTML = '';
         if (state.watermark) $('lb-wm').appendChild(watermarkSpans(1));
         $('lb-wm').style.display = state.watermark ? '' : 'none';

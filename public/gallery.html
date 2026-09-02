@@ -210,7 +210,6 @@
       </div>
     </div>
     <div class="albums-send">
-      <input class="input" id="alb-client-name" placeholder="Votre nom">
       <button class="btn btn--gold btn--sm" id="btn-send-selection">✉ Envoyer ma sélection</button>
     </div>
     <div class="albums-cards" id="albums-cards"></div>
@@ -236,10 +235,11 @@
 <div class="send-modal" id="send-modal">
   <div class="send-box">
     <h3>Votre sélection est prête ✉</h3>
-    <p class="sub">J'ai demandé à votre application mail de s'ouvrir. Si rien ne s'ouvre sur cet ordinateur, copiez le récapitulatif ci-dessous et collez-le dans un nouvel e-mail adressé à <b id="send-email"></b> (Gmail, Orange, Outlook…).</p>
+    <p class="sub">Si votre application mail ne s'ouvre pas sur cet appareil, ouvrez Gmail dans le navigateur ou copiez le récapitulatif ci-dessous et collez-le dans un nouvel e-mail adressé à <b id="send-email"></b>.</p>
     <textarea id="send-recap" rows="7" readonly></textarea>
     <div class="send-actions">
-      <button class="btn btn--gold btn--sm" id="send-retry">✉ Réessayer avec mon application mail</button>
+      <button class="btn btn--gold btn--sm" id="send-retry">✉ Ouvrir mon application mail</button>
+      <button class="btn btn--ghost btn--sm" id="send-gmail">Ouvrir Gmail dans le navigateur</button>
       <button class="btn btn--ghost btn--sm" id="send-copy">Copier le récapitulatif</button>
       <button class="btn btn--ghost btn--sm" id="send-close">Fermer</button>
     </div>

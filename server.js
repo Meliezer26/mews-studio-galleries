@@ -195,14 +195,17 @@ function buildNotificationInfo(req, g, clientName, albums) {
 }
 
 /** Envoie la notification en arrière-plan (n'interrompt jamais la réponse). */
-function notifySelection(req, g, clientName, albums) {
-  if (!mailer.isConfigured()) return;
-  mailer.sendSelectionNotification(buildNotificationInfo(req, g, clientName, albums))
-    .then(() => noteNotify(true))
-    .catch((err) => {
-      console.error('[notify]', err.message);
-      noteNotify(false, err.message);
-    });
+async function notifySelection(req, g, clientName, albums) {
+  if (!mailer.isConfigured()) return false;
+  try {
+    await mailer.sendSelectionNotification(buildNotificationInfo(req, g, clientName, albums));
+    noteNotify(true);
+    return true;
+  } catch (err) {
+    console.error('[notify]', err.message);
+    noteNotify(false, err.message);
+    return false;
+  }
 }
 
 /* --- Tri automatique des sélections sur Drive ---------------- */
@@ -493,9 +496,9 @@ app.post('/api/g/:slug/selection', async (req, res) => {
   const all = store.galleries();
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
-  notifySelection(req, g, sel.name, albums);
+  const emailSent = await notifySelection(req, g, sel.name, albums);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
-  res.json({ ok: true });
+  res.json({ ok: true, emailSent });
 });
 
 /* --- Comptes clients (identification + historique) ----------- */
@@ -637,9 +640,9 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   const all = store.galleries();
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
-  notifySelection(req, g, client.name, albums);
+  const emailSent = await notifySelection(req, g, client.name, albums);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
-  res.json({ ok: true });
+  res.json({ ok: true, emailSent });
 });
 
 /* --- Proxys photo (vignette / téléchargement) --------------- */
