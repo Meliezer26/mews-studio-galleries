@@ -9,13 +9,13 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Réveiller le service Render
+      - name: Pings continus (~12 min de couverture)
         run: |
-          for i in 1 2 3; do
+          for i in 1 2 3 4; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 https://mews-galleries.onrender.com/)
-            if [ "$code" = "200" ]; then echo "accueil OK ($code)"; exit 0; fi
-            echo "essai $i: HTTP $code"; sleep 30
+            if [ "$code" = "200" ]; then echo "ping $i OK"; else echo "ping $i : HTTP $code"; fi
+            [ "$i" -lt 4 ] && sleep 250
           done
-          curl -s -o /dev/null --max-time 150 https://mews-galleries.onrender.com/ || true
           exit 0
