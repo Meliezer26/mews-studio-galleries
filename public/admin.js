@@ -3,7 +3,7 @@
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
-  var state = { galleries: [], currentGalleryId: null, filter: 'all' };
+  var state = { galleries: [], currentGalleryId: null, filter: 'all', clientAccess: null };
 
   /* --- Session ---------------------------------------------- */
   function isLogged() {
@@ -110,9 +110,18 @@
         data.galleries.forEach(function (g) {
           var card = document.createElement('div');
           card.className = 'client-gallery';
+          var head = document.createElement('div');
+          head.className = 'client-gallery-head';
           var h = document.createElement('h3');
           h.innerHTML = escapeHtml(g.name) + ' <span class="muted">(lien /g/' + escapeHtml(g.slug) + ')</span>';
-          card.appendChild(h);
+          head.appendChild(h);
+          var addBtn = document.createElement('button');
+          addBtn.className = 'btn btn--gold btn--sm';
+          addBtn.textContent = '+ Nouveau client';
+          addBtn.type = 'button';
+          addBtn.addEventListener('click', function () { openClientAccessModal(g.id, g.slug, g.name, null); });
+          head.appendChild(addBtn);
+          card.appendChild(head);
           if (!g.clients.length) {
             var p = document.createElement('p');
             p.className = 'small muted';
@@ -122,16 +131,25 @@
           g.clients.forEach(function (c) {
             var row = document.createElement('div');
             row.className = 'client-row';
-            var head = document.createElement('div');
-            head.className = 'client-row-head';
+            var rhead = document.createElement('div');
+            rhead.className = 'client-row-head';
             var b = document.createElement('b');
             b.textContent = c.name;
+            var em = document.createElement('span');
+            em.className = 'muted small';
+            em.textContent = c.email ? ('✉ ' + c.email + ' · ') : '';
             var meta = document.createElement('span');
             meta.className = 'muted small';
-            meta.textContent = c.selections + ' sélection(s) · dernière activité le ' + window.fmtDate(c.lastSeenAt);
-            head.appendChild(b);
-            head.appendChild(meta);
-            row.appendChild(head);
+            meta.textContent = em.textContent + c.selections + ' sélection(s) · dernière activité le ' + (c.lastSeenAt ? window.fmtDate(c.lastSeenAt) : '—');
+            rhead.appendChild(b);
+            rhead.appendChild(meta);
+            var sendBtn = document.createElement('button');
+            sendBtn.className = 'btn btn--ghost btn--sm';
+            sendBtn.textContent = '📧 Envoyer l\u2019accès';
+            sendBtn.type = 'button';
+            sendBtn.addEventListener('click', function () { openClientAccessModal(g.id, g.slug, g.name, c); });
+            rhead.appendChild(sendBtn);
+            row.appendChild(rhead);
             var chips = document.createElement('div');
             chips.className = 'client-albums';
             ['200', '150', '100'].forEach(function (tid) {
@@ -156,6 +174,41 @@
         });
       })
       .catch(function (err) { wrap.innerHTML = '<div class="alert alert--err">' + escapeHtml(err.message) + '</div>'; });
+  }
+
+  /* --- Modale : créer un client / envoyer l'accès -------------- */
+  function openClientAccessModal(galleryId, slug, galleryName, client) {
+    state.clientAccess = { galleryId, clientId: client ? client.id : null };
+    $('mca-title').textContent = client
+      ? 'Envoyer l\u2019accès — ' + client.name + ' (' + galleryName + ')'
+      : 'Nouveau client — ' + galleryName;
+    $('mca-name').value = client ? client.name : '';
+    $('mca-name').disabled = !!client;
+    $('mca-email').value = client ? (client.email || '') : '';
+    $('mca-pin').value = '';
+    $('mca-pin').placeholder = client ? 'Nouveau code (vide = conserver l\u2019actuel)' : 'Ex. 4 chiffres ou plus';
+    $('mca-gpw').value = '';
+    $('btn-save-client-access').textContent = client ? 'Envoyer l\u2019accès' : 'Créer et envoyer l\u2019accès';
+    openModal('m-client-access');
+    setTimeout(function () { $(client ? 'mca-email' : 'mca-name').focus(); }, 60);
+  }
+
+  function clientAccessDone(data) {
+    closeModal('m-client-access');
+    loadClients();
+    if (data.sent) {
+      window.toast('E-mail d\u2019accès envoyé au client ✓', 'ok');
+      return;
+    }
+    if (data.sendError) {
+      window.toast('Compte créé, mais l\u2019envoi a échoué : ' + data.sendError, 'err');
+    }
+    if (data.mailto) {
+      window.toast('SMTP non configuré : votre messagerie s\u2019ouvre avec l\u2019e-mail prêt à envoyer.', '');
+      window.location.href = data.mailto;
+    } else if (!data.sent && !data.sendError) {
+      window.toast('Client enregistré. E-mail : renseignez une adresse pour l\u2019envoyer.', 'err');
+    }
   }
 
   /* --- Réglages : notifications SMTP --------------------------- */
@@ -935,6 +988,28 @@
           window.toast('Réglages du tri Drive enregistrés ✓', 'ok');
         })
         .catch(function (err) { window.toast(err.message, 'err'); });
+    });
+    $('btn-save-client-access').addEventListener('click', function () {
+      var st = state.clientAccess;
+      if (!st) return;
+      var isNew = !st.clientId;
+      var name = $('mca-name').value.trim();
+      var email = $('mca-email').value.trim();
+      var pin = $('mca-pin').value.trim();
+      var gpw = $('mca-gpw').value.trim();
+      if (isNew && name.length < 2) { window.toast('Entrez le prénom du client.', 'err'); return; }
+      if (!email) { window.toast('Adresse e-mail du client requise.', 'err'); return; }
+      if (isNew && pin.length < 4) { window.toast('Le code personnel doit faire au moins 4 caractères.', 'err'); return; }
+      if (!isNew && pin && pin.length < 4) { window.toast('Le nouveau code doit faire au moins 4 caractères.', 'err'); return; }
+      var btn = $('btn-save-client-access');
+      btn.disabled = true;
+      var url = isNew
+        ? '/api/admin/galleries/' + st.galleryId + '/clients'
+        : '/api/admin/galleries/' + st.galleryId + '/clients/' + st.clientId + '/send-access';
+      var body = { name: name, email: email, pin: pin, galleryPassword: gpw };
+      window.api(url, { method: 'POST', body: body })
+        .then(function (data) { clientAccessDone(data); })
+        .catch(function (err) { btn.disabled = false; window.toast(err.message, 'err'); });
     });
     $('btn-drive-connect').addEventListener('click', function () {
       window.api('/api/admin/drive-user/connect', { method: 'POST' })

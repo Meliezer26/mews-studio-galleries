@@ -1065,6 +1065,102 @@ app.post('/api/admin/backup-now', requireAdmin, async (req, res) => {
   res.json(r);
 });
 
+/* --- Comptes clients côté photographe ------------------------ */
+/* Création d'un client depuis l'admin + envoi immédiat de l'e-mail
+   d'accès (lien, mot de passe de la galerie, code personnel). */
+
+function clientAccessInfo(g, clientName, clientEmail, galleryPassword, pin) {
+  const base = process.env.BASE_URL || `http://localhost:${PORT}`;
+  return {
+    clientName,
+    clientEmail,
+    galleryName: g.name,
+    galleryUrl: base + '/g/' + g.slug,
+    galleryPassword: galleryPassword || '',
+    pin: pin || '',
+  };
+}
+
+/** Lien mailto: de secours quand SMTP n'est pas configuré. */
+function buildClientAccessMailto(info) {
+  const { subject, text } = mailer.buildClientAccessContent(info);
+  return 'mailto:' + encodeURIComponent(info.clientEmail) +
+    '?subject=' + encodeURIComponent(subject) +
+    '&body=' + encodeURIComponent(text);
+}
+
+app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
+  const all = store.galleries();
+  const g = all.find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
+  const body = req.body || {};
+  const name = String(body.name || '').trim().slice(0, 60);
+  const email = String(body.email || '').trim().slice(0, 120);
+  const pin = String(body.pin || '');
+  const galleryPassword = String(body.galleryPassword || '').trim().slice(0, 80);
+  if (name.length < 2) return res.status(400).json({ error: 'Entrez le prénom du client.' });
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
+  if (pin.length < 4) return res.status(400).json({ error: 'Le code personnel doit faire au moins 4 caractères.' });
+  g.clients = g.clients || [];
+  if (g.clients.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+    return res.status(409).json({ error: 'Un client portant ce prénom existe déjà sur cette galerie. Utilisez « Envoyer l\'accès » sur sa ligne.' });
+  }
+  const client = {
+    id: sec.randomToken(10),
+    name,
+    email: email || null,
+    pinHash: sec.hashPassword(pin),
+    createdAt: Date.now(),
+    lastSeenAt: null,
+    albums: { checked: {}, photos: {} },
+    selections: [],
+  };
+  g.clients.push(client);
+  const idx = all.findIndex((x) => x.id === g.id);
+  if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
+
+  let sent = false;
+  let sendError = null;
+  let mailto = null;
+  if (email) {
+    const info = clientAccessInfo(g, name, email, galleryPassword, pin);
+    mailto = buildClientAccessMailto(info);
+    if (mailer.isConfigured()) {
+      try { await mailer.sendClientAccessEmail(info); sent = true; }
+      catch (err) { sendError = String(err.message).slice(0, 160); }
+    }
+  }
+  res.status(201).json({ ok: true, sent, sendError, mailto });
+});
+
+app.post('/api/admin/galleries/:id/clients/:clientId/send-access', requireAdmin, async (req, res) => {
+  const all = store.galleries();
+  const g = all.find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
+  const client = (g.clients || []).find((c) => c.id === req.params.clientId);
+  if (!client) return res.status(404).json({ error: 'Client introuvable.' });
+  const body = req.body || {};
+  const email = String(body.email || client.email || '').trim().slice(0, 120);
+  const pin = String(body.pin || '');
+  const galleryPassword = String(body.galleryPassword || '').trim().slice(0, 80);
+  if (!email) return res.status(400).json({ error: 'Adresse e-mail du client requise.' });
+  if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
+  if (pin && pin.length < 4) return res.status(400).json({ error: 'Le nouveau code doit faire au moins 4 caractères.' });
+  if (email !== client.email) client.email = email;
+  if (pin) client.pinHash = sec.hashPassword(pin);
+  const idx = all.findIndex((x) => x.id === g.id);
+  if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
+
+  const info = clientAccessInfo(g, client.name, email, galleryPassword, pin);
+  let sent = false;
+  let sendError = null;
+  if (mailer.isConfigured()) {
+    try { await mailer.sendClientAccessEmail(info); sent = true; }
+    catch (err) { sendError = String(err.message).slice(0, 160); }
+  }
+  res.json({ ok: true, sent, sendError, mailto: buildClientAccessMailto(info) });
+});
+
 /* --- Récapitulatif des profils clients ----------------------- */
 
 app.get('/api/admin/clients', requireAdmin, (req, res) => {
@@ -1075,7 +1171,9 @@ app.get('/api/admin/clients', requireAdmin, (req, res) => {
       slug: g.slug,
       name: g.name,
       clients: (g.clients || []).map((c) => ({
+        id: c.id,
         name: c.name,
+        email: c.email || null,
         createdAt: c.createdAt,
         lastSeenAt: c.lastSeenAt,
         selections: (c.selections || []).length,

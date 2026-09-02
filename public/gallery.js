@@ -872,6 +872,7 @@
         $('btn-albums').classList.toggle('hidden', !state.albums);
         $('btn-dl-all').classList.toggle('hidden', !state.downloads);
         $('btn-select').classList.toggle('hidden', !state.downloads);
+        $('btn-dl-sel').classList.toggle('hidden', !state.downloads);
         if (!state.downloads && state.selecting) {
           state.selecting = false;
           state.selected.clear();

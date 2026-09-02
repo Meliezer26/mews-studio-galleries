@@ -47,6 +47,7 @@
 
   /* Vue Clients */
   .client-gallery { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 18px; }
+  .client-gallery-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   .client-gallery h3 { font-size: 1.15rem; margin-bottom: 14px; }
   .client-gallery h3 .muted { font-size: 0.8rem; font-weight: 400; }
   .client-row { border-top: 1px solid var(--line); padding: 12px 0; }
@@ -192,7 +193,6 @@
       </div>
       <div id="clients-list"></div>
     </section>
-
     <!-- ===== Vue Drive ===== -->
     <section data-view-pane="drive" style="display:none">
       <div class="a-head">
@@ -483,6 +483,38 @@
     <div class="form-actions">
       <button class="btn btn--gold" id="btn-save-gallery">Enregistrer</button>
       <button class="btn btn--ghost" data-close="m-edit">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Modale : accès client (création + e-mail) ============ -->
+<div class="modal-backdrop hidden" id="m-client-access">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="mca-title">Nouveau client</h3>
+      <button class="modal-close" data-close="m-client-access">✕</button>
+    </div>
+    <p class="small muted" style="margin:0 0 14px">Le client pourra retrouver sa sélection avec son prénom + code personnel. Un e-mail d'accès lui est envoyé immédiatement (lien galerie, mot de passe, code).</p>
+    <div class="field">
+      <label>Prénom du client</label>
+      <input class="input" id="mca-name" placeholder="Ex. Léa">
+    </div>
+    <div class="field">
+      <label>E-mail du client</label>
+      <input class="input" id="mca-email" type="email" placeholder="Ex. lea@exemple.fr">
+    </div>
+    <div class="field">
+      <label>Code personnel (4 caractères minimum)</label>
+      <input class="input" id="mca-pin" placeholder="Laissez vide pour conserver l'actuel (client existant)">
+      <div class="field-hint">Ce code est demandé au client avec son prénom pour retrouver son historique de sélection.</div>
+    </div>
+    <div class="field">
+      <label>Mot de passe de la galerie (pour l'inclure dans l'e-mail)</label>
+      <input class="input" id="mca-gpw" placeholder="Facultatif — il n'est jamais stocké, impossible de le retrouver ensuite">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn--gold" id="btn-save-client-access">Créer et envoyer l'accès</button>
+      <button class="btn btn--ghost" data-close="m-client-access">Annuler</button>
     </div>
   </div>
 </div>
