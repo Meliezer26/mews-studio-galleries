@@ -405,7 +405,6 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
   display: flex; align-items: center; gap: 12px;
 }
 .alb-card:hover { border-color: var(--line-2); }
-.alb-card.checked { border-color: rgba(229, 72, 77, 0.55); }
 .alb-card.active { border-color: var(--red); box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.28); }
 .alb-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 0; }
 .alb-card-head .dot-c { width: 11px; height: 11px; border-radius: 50%; flex: none; }
@@ -415,7 +414,8 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
   border: 2px solid var(--line-2); display: grid; place-items: center;
   font-size: 0.7rem; color: #000000; background: transparent; transition: all 0.15s;
 }
-.alb-card.checked .alb-check { background: var(--red); border-color: var(--red); color: #ffffff; }
+.alb-card.checked .alb-check { background: var(--accent); border-color: var(--accent); color: #000000; }
+.alb-card.active .alb-check { background: var(--red); border-color: var(--red); color: #ffffff; }
 .alb-count { font-size: 0.8rem; color: var(--ink-2); margin-bottom: 0; white-space: nowrap; }
 .alb-count b { color: var(--accent-2); font-size: 0.95rem; }
 .alb-bar { display: none; }
