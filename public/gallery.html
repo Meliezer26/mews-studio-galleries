@@ -50,7 +50,6 @@
     font-size: 1rem; transition: all 0.2s;
   }
   .g-ico:hover { background: var(--accent); color: #000000; }
-  .g-ico.faved { background: rgba(224, 108, 90, 0.9); color: #fff; }
   .g-sel {
     position: absolute; left: 10px; top: 10px; width: 26px; height: 26px; border-radius: 50%;
     border: 2px solid rgba(255,255,255,0.85); display: none; place-items: center;
@@ -148,7 +147,7 @@
 <div class="g-page">
   <div class="g-top hidden" id="top">
     <div class="g-top-inner">
-      <a class="brand" href="/" style="flex:none">
+      <a class="brand" href="/connexion" style="flex:none">
         <span class="brand-logo-wrap"><img class="brand-logo" src="/logo.png" alt="Mews Studio"></span>
       </a>
       <div class="g-meta">
@@ -157,7 +156,6 @@
       </div>
       <div class="g-tools">
         <button class="chip hidden" id="btn-albums">▣ Albums <span class="count" id="alb-total">0</span></button>
-        <button class="chip" id="btn-favs">♥ <span class="count" id="fav-count">0</span></button>
         <button class="chip" id="btn-select">Sélectionner</button>
         <button class="chip" id="btn-dl-all">⤓ Tout télécharger</button>
       </div>
@@ -193,10 +191,11 @@
     <div class="albums-head">
       <div>
         <h2>Sélection d'albums</h2>
-        <p class="sub">Choisissez un ou plusieurs albums puis cliquez sur les photos pour les remplir — l'album actif est entouré d'un cadre blanc.</p>
+        <p class="sub">Choisissez un ou plusieurs albums puis cliquez sur les photos pour les remplir — l'album actif est entouré d'un cadre rouge.</p>
       </div>
       <div class="ident">
         <form id="ident-form" class="ident-form">
+          <input class="input" id="cl-email" type="email" placeholder="Adresse e-mail" autocomplete="off">
           <input class="input" id="cl-name" placeholder="Votre nom" autocomplete="off">
           <button class="btn btn--gold btn--sm" type="submit">S'identifier</button>
           <div class="field-hint">Première visite ? Votre profil se crée tout seul : vos choix sont sauvegardés automatiquement.</div>
@@ -212,7 +211,6 @@
     </div>
     <div class="albums-send">
       <input class="input" id="alb-client-name" placeholder="Votre nom">
-      <button class="btn btn--ghost btn--sm" id="btn-copy-selection">Copier le récap</button>
       <button class="btn btn--gold btn--sm" id="btn-send-selection">✉ Envoyer ma sélection</button>
     </div>
     <div class="albums-cards" id="albums-cards"></div>
@@ -264,7 +262,6 @@
     <span class="lb-name" id="lb-name"></span>
     <div class="lb-actions">
       <button class="btn btn--gold btn--sm" id="lb-alb" style="display:none">＋ Ajouter à l'album</button>
-      <button class="btn btn--ghost btn--sm" id="lb-fav">♥ Favori</button>
       <button class="btn btn--gold btn--sm" id="lb-dl">⤓ Télécharger en HD</button>
     </div>
   </div>

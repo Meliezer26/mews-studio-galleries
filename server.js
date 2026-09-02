@@ -454,7 +454,7 @@ app.get('/api/g/:slug/photos', async (req, res) => {
       ? { text: (g.watermark.text || 'Mews Studio').slice(0, 60) }
       : null,
     albums: g.albums && g.albums.enabled
-      ? { types: ALBUM_TYPES, email: store.config().photographerEmail || '' }
+      ? { types: ALBUM_TYPES, email: store.config().photographerEmail || 'mewstudiofrance@gmail.com' }
       : null,
   });
 });
@@ -514,6 +514,7 @@ function clientFromToken(req, g) {
 function clientPayload(c) {
   return {
     name: c.name,
+    email: c.email || '',
     albums: c.albums || { checked: {}, photos: {} },
     selections: (c.selections || []).map((s) => ({ date: s.date, albums: s.albums })),
   };
@@ -544,6 +545,7 @@ app.post('/api/g/:slug/client/auth', async (req, res) => {
   }
   const name = String((req.body && req.body.name) || '').trim().slice(0, 60);
   if (name.length < 2) return res.status(400).json({ error: 'Entrez votre nom.' });
+  const email = String((req.body && req.body.email) || '').trim().slice(0, 120);
 
   g.clients = g.clients || [];
   const norm = name.toLowerCase();
@@ -552,12 +554,15 @@ app.post('/api/g/:slug/client/auth', async (req, res) => {
     client = {
       id: sec.randomToken(10),
       name,
+      email: email || '',
       createdAt: Date.now(),
       lastSeenAt: Date.now(),
       albums: { checked: {}, photos: {} },
       selections: [],
     };
     g.clients.push(client);
+  } else if (email) {
+    client.email = email;
   }
   client.lastSeenAt = Date.now();
   const all = store.galleries();

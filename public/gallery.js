@@ -3,13 +3,11 @@
   'use strict';
 
   var slug = window.location.pathname.split('/').filter(Boolean)[1] || '';
-  var ALBUM_COLORS = { '200': '#d9a441', '150': '#8fbf7f', '100': '#7fa8bf' };
+  var ALBUM_COLORS = { '200': '#ffffff', '150': '#b8b8b8', '100': '#7d7d7d' };
 
   var state = {
     photos: [],
-    favs: new Set(),
     selected: new Set(),
-    favOnly: false,
     selecting: false,
     lbIndex: -1,
     lbList: [],
@@ -25,21 +23,6 @@
   var $ = function (id) { return document.getElementById(id); };
 
   /* --- Persistance (localStorage par galerie) ---------------- */
-  function loadFavs() {
-    try {
-      var raw = localStorage.getItem('mews_favs_' + slug);
-      state.favs = new Set(raw ? JSON.parse(raw) : []);
-    } catch { state.favs = new Set(); }
-  }
-  function saveFavs() {
-    try { localStorage.setItem('mews_favs_' + slug, JSON.stringify([...state.favs])); } catch {}
-  }
-  function toggleFav(id) {
-    if (state.favs.has(id)) state.favs.delete(id); else state.favs.add(id);
-    saveFavs();
-    render();
-  }
-
   function loadAlbums() {
     try {
       var raw = localStorage.getItem('mews_albums_' + slug);
@@ -65,12 +48,12 @@
     try {
       var raw = localStorage.getItem('mews_client_' + slug);
       var d = raw ? JSON.parse(raw) : null;
-      if (d && d.token && d.name) state.client = { token: d.token, name: d.name, history: [] };
+      if (d && d.token && d.name) state.client = { token: d.token, name: d.name, email: d.email || '', history: [] };
     } catch { state.client = null; }
   }
   function saveClientToken() {
     try {
-      localStorage.setItem('mews_client_' + slug, JSON.stringify({ token: state.client.token, name: state.client.name }));
+      localStorage.setItem('mews_client_' + slug, JSON.stringify({ token: state.client.token, name: state.client.name, email: state.client.email || '' }));
     } catch {}
   }
   function clearClient() {
@@ -133,7 +116,7 @@
   }
 
   function visiblePhotos() {
-    return state.favOnly ? state.photos.filter(function (p) { return state.favs.has(p.id); }) : state.photos;
+    return state.photos;
   }
 
   function albumById(typeId) {
@@ -160,6 +143,7 @@
       $('cl-name-out').textContent = state.client.name;
       $('cl-hist-count').textContent = state.client.history.length;
       if (!$('alb-client-name').value) $('alb-client-name').value = state.client.name;
+      if (state.client.email && !$('cl-email').value) $('cl-email').value = state.client.email;
     }
   }
 
@@ -328,8 +312,6 @@
     grid.classList.toggle('selecting', state.selecting && !state.albumMode);
     grid.classList.toggle('albums-mode', state.albumMode);
 
-    $('fav-count').textContent = state.favs.size;
-    $('btn-favs').classList.toggle('active', state.favOnly && !state.albumMode);
     $('btn-select').classList.toggle('active', state.selecting && !state.albumMode);
     $('btn-albums').classList.toggle('active', state.albumMode);
     $('alb-total').textContent = albTotal();
@@ -346,11 +328,9 @@
       empty.className = 'empty';
       empty.style.gridColumn = '1 / -1';
       var b = document.createElement('b');
-      b.textContent = state.favOnly ? 'Aucun favori pour le moment' : 'Cette galerie est vide';
+      b.textContent = 'Cette galerie est vide';
       var s = document.createElement('span');
-      s.textContent = state.favOnly
-        ? 'Cliquez sur le cœur d\u2019une photo pour la retrouver ici.'
-        : 'Votre photographe n\u2019a pas encore ajouté de photos.';
+      s.textContent = 'Votre photographe n\u2019a pas encore ajouté de photos.';
       empty.appendChild(b);
       empty.appendChild(document.createElement('br'));
       empty.appendChild(s);
@@ -406,7 +386,7 @@
           var num = document.createElement('span');
           num.className = 'alb-badge-num' + (inAlb ? ' in' : '');
           num.textContent = rest;
-          num.title = 'Album « ' + activeT.label + ' » : ' + rest + ' place(s) restante(s)';
+          num.title = 'Album « ' + activeT.label + ' » : ' + rest + ' photo(s) restante(s)';
           tile.appendChild(num);
         }
       }
@@ -414,20 +394,14 @@
       var actions = document.createElement('div');
       actions.className = 'g-actions';
 
-      var favBtn = document.createElement('button');
-      favBtn.className = 'g-ico' + (state.favs.has(p.id) ? ' faved' : '');
-      favBtn.innerHTML = '♥';
-      favBtn.title = state.favs.has(p.id) ? 'Retirer des favoris' : 'Ajouter aux favoris';
-      favBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleFav(p.id); });
-
-      var dlBtn = document.createElement('button');
-      dlBtn.className = 'g-ico';
-      dlBtn.innerHTML = '⤓';
-      dlBtn.title = 'Télécharger en HD';
-      dlBtn.addEventListener('click', function (e) { e.stopPropagation(); triggerDownload(p); });
-
-      actions.appendChild(favBtn);
-      if (state.downloads) actions.appendChild(dlBtn);
+      if (state.downloads) {
+        var dlBtn = document.createElement('button');
+        dlBtn.className = 'g-ico';
+        dlBtn.innerHTML = '⤓';
+        dlBtn.title = 'Télécharger en HD';
+        dlBtn.addEventListener('click', function (e) { e.stopPropagation(); triggerDownload(p); });
+        actions.appendChild(dlBtn);
+      }
       tile.appendChild(actions);
 
       tile.addEventListener('click', function () {
@@ -497,10 +471,10 @@
     btn.disabled = true;
     window.api('/api/g/' + slug + '/client/auth', {
       method: 'POST',
-      body: { name: $('cl-name').value.trim() },
+      body: { name: $('cl-name').value.trim(), email: $('cl-email').value.trim() },
     })
       .then(function (data) {
-        state.client = { token: data.token, name: data.client.name, history: data.client.selections };
+        state.client = { token: data.token, name: data.client.name, email: data.client.email || '', history: data.client.selections };
         saveClientToken();
         state.alb.checked = data.client.albums.checked || {};
         state.alb.photos = data.client.albums.photos || {};
@@ -520,10 +494,9 @@
     state.albumMode = on;
     if (on) {
       if (state.selecting) { state.selecting = false; state.selected.clear(); }
-      state.favOnly = false;
       if (!state.alb.active) state.alb.active = Object.keys(state.alb.checked)[0] || null;
     }
-    $('albums-panel').classList.toggle('hidden', !on);
+    $('albums-panel').classList.toggle('hidden', !state.albums);
     render();
   }
 
@@ -621,16 +594,16 @@
   }
 
   function openMailApp() {
-    try { window.location.href = state.mailtoUrl; } catch (e) { /* rien à faire */ }
-  }
-
-  function copySelection() {
-    state.alb.name = $('alb-client-name').value.trim();
-    saveAlbums();
-    var text = 'À : ' + (state.albums.email || '(adresse du photographe)') + '\nObjet : Sélection de photos\n\n' + selectionText();
-    window.copyText(text).then(function (ok) {
-      window.toast(ok ? 'Récapitulatif copié ✓' : 'Impossible de copier automatiquement.', ok ? 'ok' : 'err');
-    });
+    // Ouvre l'application mail par défaut (fiable sur PC comme sur mobile)
+    var a = document.createElement('a');
+    a.href = state.mailtoUrl;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(function () {
+      try { window.location.href = state.mailtoUrl; } catch (e) { /* rien à faire */ }
+    }, 400);
   }
 
   /* --- Visionneuse ------------------------------------------- */
@@ -648,8 +621,6 @@
     $('lb-count').textContent = (state.lbIndex + 1) + ' / ' + state.lbList.length;
     $('lb-img').src = photoUrl(p, 'thumb') + '?size=1600';
     $('lb-name').textContent = p.name;
-    $('lb-fav').textContent = state.favs.has(p.id) ? '♥ Retirer des favoris' : '♡ Ajouter aux favoris';
-    $('lb-fav').classList.toggle('btn--danger', state.favs.has(p.id));
     $('lb-dl').style.display = state.downloads ? '' : 'none';
 
     /* Bouton album dans la visionneuse (mode albums) */
@@ -662,7 +633,7 @@
       var rest = activeT.capacity - albPhotos(activeT.id).length;
       $('lb-alb').textContent = inAlb
         ? '✓ Retirer de « ' + activeT.label + ' »'
-        : '＋ Ajouter à « ' + activeT.label + ' » (' + rest + ' place' + (rest > 1 ? 's' : '') + ' restante' + (rest > 1 ? 's' : '') + ')';
+        : '＋ Ajouter à « ' + activeT.label + ' » (' + rest + ' photo' + (rest > 1 ? 's' : '') + ' restante' + (rest > 1 ? 's' : '') + ')';
       $('lb-alb').classList.toggle('btn--gold', !inAlb);
       $('lb-alb').classList.toggle('btn--ghost', inAlb);
     }
@@ -706,7 +677,6 @@
 
   /* --- Initialisation ---------------------------------------- */
   function init() {
-    loadFavs();
     loadAlbums();
     loadClient();
 
@@ -721,12 +691,6 @@
         .finally(function () { btn.disabled = false; });
     });
 
-    $('btn-favs').addEventListener('click', function () {
-      if (state.albumMode) setAlbumMode(false);
-      state.favOnly = !state.favOnly;
-      if (state.selecting) { state.selecting = false; state.selected.clear(); }
-      render();
-    });
     $('btn-select').addEventListener('click', function () {
       if (state.albumMode) setAlbumMode(false);
       state.selecting = !state.selecting;
@@ -751,7 +715,6 @@
       render();
     });
     $('btn-send-selection').addEventListener('click', sendSelection);
-    $('btn-copy-selection').addEventListener('click', copySelection);
 
     /* Fenêtre d'aide à l'envoi */
     $('send-retry').addEventListener('click', openMailApp);
@@ -777,10 +740,6 @@
     $('lb-prev').addEventListener('click', function () { lbStep(-1); });
     $('lb-next').addEventListener('click', function () { lbStep(1); });
     $('lb').addEventListener('click', function (e) { if (e.target === $('lb') || e.target === $('lb-img')) closeLightbox(); });
-    $('lb-fav').addEventListener('click', function () {
-      var p = state.lbList[state.lbIndex];
-      if (p) { toggleFav(p.id); updateLightbox(); }
-    });
     $('lb-dl').addEventListener('click', function () {
       var p = state.lbList[state.lbIndex];
       if (p) triggerDownload(p);
@@ -859,6 +818,8 @@
         state.downloads = data.downloads !== false;
         state.watermark = data.watermark || null;
         state.albums = data.albums || null;
+    state.albumMode = !!state.albums;
+    $('albums-panel').classList.toggle('hidden', !state.albums);
         document.title = state.galleryMeta.name + ' — Mews Studio Galleries';
         $('g-name').textContent = state.galleryMeta.name;
         var sub = [];
