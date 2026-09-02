@@ -14,8 +14,8 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root {
-    --bg: #14120f; --card: #1d1a16; --gold: #d9a441; --gold-soft: rgba(217,164,65,.14);
-    --text: #f4efe6; --muted: #a39a8c; --line: rgba(244,239,230,.16);
+    --bg: #000000; --card: #111111; --gold: #ffffff; --gold-soft: rgba(255, 255, 255,.14);
+    --text: #ffffff; --muted: #9a9a9a; --line: rgba(255, 255, 255,.16);
   }
   body {
     min-height: 100vh; display: flex; flex-direction: column; align-items: center;
@@ -28,7 +28,7 @@
   .top a:hover { color: var(--gold); }
   .card {
     width: 100%; max-width: 440px; text-align: center; padding: 44px 34px 38px;
-    background: var(--card); border: 1px solid rgba(217,164,65,.32); border-radius: 22px;
+    background: var(--card); border: 1px solid rgba(255, 255, 255,.32); border-radius: 22px;
   }
   .mark {
     margin: 0 auto 20px; padding: 9px 16px; border-radius: 14px;
@@ -52,10 +52,10 @@
   input:focus { border-color: var(--gold); }
   button {
     padding: 14px; border: 0; border-radius: 999px; cursor: pointer;
-    background: var(--gold); color: #171106; font-size: 15px; font-weight: 600;
+    background: var(--gold); color: #000000; font-size: 15px; font-weight: 600;
     font-family: inherit; letter-spacing: .02em; transition: background .15s ease;
   }
-  button:hover { background: #f0c46a; }
+  button:hover { background: #f0f0f0; }
   button:disabled { opacity: .55; cursor: wait; }
   .error {
     display: none; margin-top: 14px; padding: 11px 14px; border-radius: 10px;
