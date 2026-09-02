@@ -384,8 +384,10 @@ app.get('/connexion', (req, res) => {
 });
 
 /* Page « Politique de confidentialité » — également servie SANS extension,
-   car c'est l'URL déclarée à Google (Branding → privacy policy link). */
-app.get('/confidentialite', (req, res) => {
+   car c'est l'URL déclarée à Google (Branding → privacy policy link).
+   Insensible à la casse (Google/Search Console y sont sensibles). */
+app.get(/^\/confidentialite$/i, (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'confidentialite.html'));
 });
 
@@ -1341,6 +1343,13 @@ app.delete('/api/admin/galleries/:id', requireAdmin, (req, res) => {
 });
 
 /* --- Erreurs ------------------------------------------------ */
+/* 404 : jamais mis en cache, pour qu'un lien corrigé entre-temps
+   redevienne immédiatement visible. */
+app.use((req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.status(404).send('Cannot GET ' + req.path);
+});
+
 app.use((err, req, res, next) => {
   console.error('[error]', err.message);
   if (res.headersSent) return next(err);
