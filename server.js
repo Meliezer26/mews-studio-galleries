@@ -388,6 +388,12 @@ app.get('/connexion', (req, res) => {
    Tolérante : casse, accent (« confidentialité »), barre oblique finale,
    variante longue. */
 const PRIVACY_REGEX = /^\/(politique-de-)?confidentialit(e|é)?\/?$/i;
+app.use((req, res, next) => {
+  // Décode les caractères accentués encodés par le navigateur (é → %C3%A9)
+  // pour que la route ci-dessous les reconnaisse.
+  try { if (req.url.includes('%')) req.url = decodeURIComponent(req.url); } catch (e) { /* URL malformée : laisser tel quel */ }
+  next();
+});
 app.get(PRIVACY_REGEX, (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'confidentialite.html'));
