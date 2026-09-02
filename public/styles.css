@@ -367,21 +367,22 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 
 /* --- Sélection d'albums (côté client) ----------------------- */
 .albums-panel {
-  margin: 18px 24px 6px; padding: 22px 24px;
-  background: var(--panel); border: 1px solid var(--line-2); border-radius: var(--radius-lg);
-  display: grid; gap: 18px;
+  margin: 14px 28px 4px; padding: 14px 20px;
+  background: var(--panel); border: 1px solid var(--line-2); border-radius: 16px;
+  display: grid; gap: 12px;
 }
-.albums-head { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
-.albums-panel h2 { font-size: 1.25rem; margin-bottom: 4px; }
-.albums-panel .sub { color: var(--muted); font-size: 0.9rem; max-width: 520px; }
+.albums-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.albums-panel h2 { font-size: 1.05rem; margin-bottom: 2px; }
+.albums-panel .sub { color: var(--muted); font-size: 0.85rem; max-width: 460px; }
 .albums-send { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .albums-send .input { width: 220px; }
-.albums-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.albums-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 
 /* Identification client */
-.ident { background: var(--bg-2); border: 1px dashed var(--line-2); border-radius: 14px; padding: 14px 16px; }
-.ident-form { display: grid; gap: 8px; }
-.ident-form .input { width: 100%; }
+.ident { background: transparent; border: none; padding: 0; }
+.ident-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ident-form .input { width: 170px; }
+.ident-form .field-hint { display: none; }
 .ident-logged { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ident-logged .badge { text-transform: none; }
 .ident .lock-error { min-height: 18px; font-size: 0.84rem; color: #f0a497; }
@@ -398,23 +399,24 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .hist-album { font-size: 0.86rem; color: var(--ink-2); }
 .hist-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .alb-card {
-  border: 1.5px solid var(--line); border-radius: 16px; padding: 18px; cursor: pointer;
+  border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 14px; cursor: pointer;
   background: var(--bg-2); transition: all 0.2s; position: relative; text-align: left;
+  display: flex; align-items: center; gap: 12px;
 }
 .alb-card:hover { border-color: var(--line-2); }
 .alb-card.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14); }
-.alb-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.alb-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 0; }
 .alb-card-head .dot-c { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-.alb-card-head b { font-size: 1rem; }
+.alb-card-head b { font-size: 0.95rem; }
 .alb-check {
   margin-left: auto; width: 20px; height: 20px; border-radius: 6px; flex: none;
   border: 2px solid var(--line-2); display: grid; place-items: center;
   font-size: 0.7rem; color: #000000; background: transparent; transition: all 0.15s;
 }
 .alb-card.checked .alb-check { background: var(--accent); border-color: var(--accent); }
-.alb-count { font-size: 0.86rem; color: var(--ink-2); margin-bottom: 10px; }
-.alb-count b { color: var(--accent-2); font-size: 1.05rem; }
-.alb-bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.alb-count { font-size: 0.8rem; color: var(--ink-2); margin-bottom: 0; white-space: nowrap; }
+.alb-count b { color: var(--accent-2); font-size: 0.95rem; }
+.alb-bar { display: none; }
 .alb-bar i { display: block; height: 100%; border-radius: 99px; transition: width 0.3s; }
 .alb-add {
   position: absolute; left: 8px; top: 8px; z-index: 7;
@@ -444,9 +446,17 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .albums-send .input { width: 220px; }
 
 @media (max-width: 900px) {
-  .albums-panel { margin: 14px 14px 6px; padding: 18px; }
-  .albums-head { grid-template-columns: 1fr; }
+  .albums-panel { margin: 14px 14px 6px; padding: 16px; }
+  .albums-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .ident { background: var(--bg-2); border: 1px dashed var(--line-2); border-radius: 14px; padding: 12px 14px; }
+  .ident-form { display: grid; gap: 8px; }
+  .ident-form .input { width: 100%; }
+  .ident-form .field-hint { display: block; font-size: 0.72rem; }
   .albums-cards { grid-template-columns: 1fr; }
+  .alb-card { display: block; padding: 16px; }
+  .alb-card-head { margin-bottom: 8px; }
+  .alb-count { margin-bottom: 10px; }
+  .alb-bar { display: block; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
   .albums-send { justify-content: flex-start; }
   .albums-send .input { width: 100%; }
 }
