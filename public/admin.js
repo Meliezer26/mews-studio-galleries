@@ -185,8 +185,6 @@
     $('mca-name').value = client ? client.name : '';
     $('mca-name').disabled = !!client;
     $('mca-email').value = client ? (client.email || '') : '';
-    $('mca-pin').value = '';
-    $('mca-pin').placeholder = client ? 'Nouveau code (vide = conserver l\u2019actuel)' : 'Ex. 4 chiffres ou plus';
     $('mca-gpw').value = '';
     $('btn-save-client-access').textContent = client ? 'Envoyer l\u2019accès' : 'Créer et envoyer l\u2019accès';
     openModal('m-client-access');
@@ -995,18 +993,15 @@
       var isNew = !st.clientId;
       var name = $('mca-name').value.trim();
       var email = $('mca-email').value.trim();
-      var pin = $('mca-pin').value.trim();
       var gpw = $('mca-gpw').value.trim();
-      if (isNew && name.length < 2) { window.toast('Entrez le prénom du client.', 'err'); return; }
+      if (isNew && name.length < 2) { window.toast('Entrez le nom du client.', 'err'); return; }
       if (!email) { window.toast('Adresse e-mail du client requise.', 'err'); return; }
-      if (isNew && pin.length < 4) { window.toast('Le code personnel doit faire au moins 4 caractères.', 'err'); return; }
-      if (!isNew && pin && pin.length < 4) { window.toast('Le nouveau code doit faire au moins 4 caractères.', 'err'); return; }
       var btn = $('btn-save-client-access');
       btn.disabled = true;
       var url = isNew
         ? '/api/admin/galleries/' + st.galleryId + '/clients'
         : '/api/admin/galleries/' + st.galleryId + '/clients/' + st.clientId + '/send-access';
-      var body = { name: name, email: email, pin: pin, galleryPassword: gpw };
+      var body = { name: name, email: email, galleryPassword: gpw };
       window.api(url, { method: 'POST', body: body })
         .then(function (data) { clientAccessDone(data); })
         .catch(function (err) { btn.disabled = false; window.toast(err.message, 'err'); });

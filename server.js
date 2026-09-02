@@ -543,22 +543,15 @@ app.post('/api/g/:slug/client/auth', async (req, res) => {
     return res.status(400).json({ error: 'La sélection d\u2019albums n\u2019est pas active sur cette galerie.' });
   }
   const name = String((req.body && req.body.name) || '').trim().slice(0, 60);
-  const pin = String((req.body && req.body.pin) || '');
-  if (name.length < 2) return res.status(400).json({ error: 'Entrez votre prénom.' });
-  if (pin.length < 4) return res.status(400).json({ error: 'Le code personnel doit faire au moins 4 caractères.' });
+  if (name.length < 2) return res.status(400).json({ error: 'Entrez votre nom.' });
 
   g.clients = g.clients || [];
   const norm = name.toLowerCase();
   let client = g.clients.find((c) => c.name.toLowerCase() === norm);
-  if (client) {
-    if (!sec.verifyPassword(pin, client.pinHash)) {
-      return res.status(403).json({ error: 'Code personnel incorrect pour « ' + name + ' ».' });
-    }
-  } else {
+  if (!client) {
     client = {
       id: sec.randomToken(10),
       name,
-      pinHash: sec.hashPassword(pin),
       createdAt: Date.now(),
       lastSeenAt: Date.now(),
       albums: { checked: {}, photos: {} },
@@ -1069,7 +1062,7 @@ app.post('/api/admin/backup-now', requireAdmin, async (req, res) => {
 /* Création d'un client depuis l'admin + envoi immédiat de l'e-mail
    d'accès (lien, mot de passe de la galerie, code personnel). */
 
-function clientAccessInfo(g, clientName, clientEmail, galleryPassword, pin) {
+function clientAccessInfo(g, clientName, clientEmail, galleryPassword) {
   const base = process.env.BASE_URL || `http://localhost:${PORT}`;
   return {
     clientName,
@@ -1077,7 +1070,6 @@ function clientAccessInfo(g, clientName, clientEmail, galleryPassword, pin) {
     galleryName: g.name,
     galleryUrl: base + '/g/' + g.slug,
     galleryPassword: galleryPassword || '',
-    pin: pin || '',
   };
 }
 
@@ -1096,20 +1088,17 @@ app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
   const body = req.body || {};
   const name = String(body.name || '').trim().slice(0, 60);
   const email = String(body.email || '').trim().slice(0, 120);
-  const pin = String(body.pin || '');
   const galleryPassword = String(body.galleryPassword || '').trim().slice(0, 80);
-  if (name.length < 2) return res.status(400).json({ error: 'Entrez le prénom du client.' });
+  if (name.length < 2) return res.status(400).json({ error: 'Entrez le nom du client.' });
   if (email && !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
-  if (pin.length < 4) return res.status(400).json({ error: 'Le code personnel doit faire au moins 4 caractères.' });
   g.clients = g.clients || [];
   if (g.clients.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
-    return res.status(409).json({ error: 'Un client portant ce prénom existe déjà sur cette galerie. Utilisez « Envoyer l\'accès » sur sa ligne.' });
+    return res.status(409).json({ error: 'Un client portant ce nom existe déjà sur cette galerie. Utilisez « Envoyer l\'accès » sur sa ligne.' });
   }
   const client = {
     id: sec.randomToken(10),
     name,
     email: email || null,
-    pinHash: sec.hashPassword(pin),
     createdAt: Date.now(),
     lastSeenAt: null,
     albums: { checked: {}, photos: {} },
@@ -1123,7 +1112,7 @@ app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
   let sendError = null;
   let mailto = null;
   if (email) {
-    const info = clientAccessInfo(g, name, email, galleryPassword, pin);
+    const info = clientAccessInfo(g, name, email, galleryPassword);
     mailto = buildClientAccessMailto(info);
     if (mailer.isConfigured()) {
       try { await mailer.sendClientAccessEmail(info); sent = true; }
@@ -1141,17 +1130,14 @@ app.post('/api/admin/galleries/:id/clients/:clientId/send-access', requireAdmin,
   if (!client) return res.status(404).json({ error: 'Client introuvable.' });
   const body = req.body || {};
   const email = String(body.email || client.email || '').trim().slice(0, 120);
-  const pin = String(body.pin || '');
   const galleryPassword = String(body.galleryPassword || '').trim().slice(0, 80);
   if (!email) return res.status(400).json({ error: 'Adresse e-mail du client requise.' });
   if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
-  if (pin && pin.length < 4) return res.status(400).json({ error: 'Le nouveau code doit faire au moins 4 caractères.' });
   if (email !== client.email) client.email = email;
-  if (pin) client.pinHash = sec.hashPassword(pin);
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
 
-  const info = clientAccessInfo(g, client.name, email, galleryPassword, pin);
+  const info = clientAccessInfo(g, client.name, email, galleryPassword);
   let sent = false;
   let sendError = null;
   if (mailer.isConfigured()) {

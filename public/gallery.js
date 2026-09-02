@@ -497,7 +497,7 @@
     btn.disabled = true;
     window.api('/api/g/' + slug + '/client/auth', {
       method: 'POST',
-      body: { name: $('cl-name').value.trim(), pin: $('cl-pin').value },
+      body: { name: $('cl-name').value.trim() },
     })
       .then(function (data) {
         state.client = { token: data.token, name: data.client.name, history: data.client.selections };
@@ -507,7 +507,6 @@
         if (!state.alb.name) state.alb.name = data.client.name;
         $('alb-client-name').value = state.alb.name;
         $('cl-name').value = '';
-        $('cl-pin').value = '';
         saveAlbumsLocal();
         renderAlbumsPanel();
         render();
