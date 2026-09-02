@@ -385,8 +385,10 @@ app.get('/connexion', (req, res) => {
 
 /* Page « Politique de confidentialité » — également servie SANS extension,
    car c'est l'URL déclarée à Google (Branding → privacy policy link).
-   Insensible à la casse (Google/Search Console y sont sensibles). */
-app.get(/^\/confidentialite$/i, (req, res) => {
+   Tolérante : casse, accent (« confidentialité »), barre oblique finale,
+   variante longue. */
+const PRIVACY_REGEX = /^\/(politique-de-)?confidentialit(e|é)?\/?$/i;
+app.get(PRIVACY_REGEX, (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'confidentialite.html'));
 });
