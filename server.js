@@ -969,6 +969,8 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
     next.pass = (typeof n.pass === 'string' && n.pass) ? n.pass.slice(0, 200) : (current.pass || '');
     // Idem pour la clé API Resend (vide = conserver l'existante)
     next.apiKey = (typeof n.apiKey === 'string' && n.apiKey.trim()) ? n.apiKey.trim().slice(0, 200) : (current.apiKey || '');
+    // Mode « envoyer via mon compte Google » (API Gmail)
+    next.gmailMode = !!n.gmailMode;
     cfg.notifications = next;
     changed = true;
   }
@@ -1002,6 +1004,7 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
       to: (cfg.notifications && cfg.notifications.to) || '',
       passSet: !!(cfg.notifications && cfg.notifications.pass),
       resendSet: !!(cfg.notifications && cfg.notifications.apiKey),
+      gmailMode: !!(cfg.notifications && cfg.notifications.gmailMode),
       provider: mailer.provider(),
       configured: mailer.isConfigured(),
     },
@@ -1047,6 +1050,7 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
       to: n.to || '',
       passSet: !!n.pass,
       resendSet: !!n.apiKey,
+      gmailMode: !!n.gmailMode,
       provider: mailer.provider(),
       configured: mailer.isConfigured(),
       lastNotify: store.config().lastNotify || null,

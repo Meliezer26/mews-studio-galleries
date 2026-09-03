@@ -31,6 +31,7 @@
           if (!$('set-email').value) $('set-email').value = s.photographerEmail || '';
           $('set-default-dl').checked = s.defaultDownloadsEnabled !== false;
           $('set-global-dl').checked = s.globalDownloadsEnabled !== false;
+          notifyGmailEmail = s.driveEmail || '';
           fillNotifyForm(s.notifications || {});
           $('set-drive-mode').value = s.selectionDriveMode || 'off';
           $('set-drive-cleanup').value = s.selectionCleanupDays || '';
@@ -209,14 +210,16 @@
     }
   }
 
-  /* --- Réglages : notifications (Resend / SMTP) ---------------- */
-  var notifyResendSet = false; // clé Resend enregistrée côté serveur ?
+  /* --- Réglages : notifications (Resend / Gmail / SMTP) -------- */
+  var notifyResendSet = false;  // clé Resend enregistrée côté serveur ?
+  var notifyGmailEmail = '';    // adresse du compte Google connecté (affichée dans le statut)
 
   function updateSmtpVisibility() {
     var block = $('smtp-block');
     if (!block) return;
     var resendActive = notifyResendSet || $('set-resend-key').value.trim() !== '';
-    block.classList.toggle('block-off', resendActive);
+    var gmailActive = $('set-gmail-mode').checked;
+    block.classList.toggle('block-off', resendActive || gmailActive);
   }
 
   function fillNotifyForm(n) {
@@ -224,6 +227,7 @@
     notifyResendSet = !!n.resendSet;
     $('set-resend-key').value = '';
     $('set-resend-key').placeholder = notifyResendSet ? '•••••••• (conservée — laissez vide)' : 're_…';
+    $('set-gmail-mode').checked = !!n.gmailMode;
     $('set-smtp-host').value = n.host || '';
     $('set-smtp-port').value = n.port || 587;
     $('set-smtp-secure').checked = !!n.secure;
@@ -239,10 +243,12 @@
   function renderNotifyStatus(n) {
     var el = $('notify-status');
     var parts = [];
-    if (n.configured) parts.push('Configuration complète ✓');
-    else parts.push('Configuration incomplète (expéditeur + clé Resend ou hôte SMTP requis)');
-    if (n.resendSet) parts.push('envoi via Resend (clé enregistrée)');
+    if (n.provider === 'gmail') parts.push('envoi via Gmail (' + (notifyGmailEmail || 'compte Google') + ')');
+    else if (n.resendSet) parts.push('envoi via Resend (clé enregistrée)');
+    else if (n.gmailMode) parts.push('mode Gmail activé — connectez votre compte Google (section Google Drive)');
     else if (n.passSet && n.host) parts.push('envoi via SMTP (mot de passe enregistré)');
+    if (n.configured) parts.push('configuration complète ✓');
+    else parts.push('configuration incomplète (expéditeur + clé Resend, compte Gmail ou hôte SMTP requis)');
     if (n.lastNotify) {
       parts.push('dernier envoi : ' + (n.lastNotify.ok ? 'réussi' : 'échec') + ' le ' + window.fmtDate(n.lastNotify.date) + (n.lastNotify.error ? ' — ' + n.lastNotify.error : ''));
     }
@@ -253,6 +259,7 @@
     return {
       enabled: $('set-notify-enabled').checked,
       apiKey: $('set-resend-key').value.trim(),
+      gmailMode: $('set-gmail-mode').checked,
       host: $('set-smtp-host').value.trim(),
       port: parseInt($('set-smtp-port').value, 10) || 587,
       secure: $('set-smtp-secure').checked,
@@ -968,6 +975,7 @@
         .catch(function (err) { window.toast(err.message, 'err'); });
     });
     $('set-resend-key').addEventListener('input', updateSmtpVisibility);
+    $('set-gmail-mode').addEventListener('change', updateSmtpVisibility);
     $('btn-test-email').addEventListener('click', function () {
       var btn = this;
       btn.disabled = true;

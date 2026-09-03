@@ -177,9 +177,24 @@ Le robot (compte de service) sait **lire** les dossiers mais pas **écrire** (pa
 
 Quand un client envoie une sélection d'albums, le serveur peut vous notifier automatiquement par e-mail.
 
-**⚠️ Important (Render) : le plan gratuit de Render bloque la sortie SMTP (ports 25, 465 et 587) depuis septembre 2025.** Sur un service Render gratuit, utilisez donc le mode **Resend** (API HTTPS) ci-dessous. Le mode SMTP ne fonctionne que sur Render payant ou en local.
+**⚠️ Important (Render) : le plan gratuit de Render bloque la sortie SMTP (ports 25, 465 et 587) depuis septembre 2025.** Sur un service Render gratuit, utilisez le mode **Gmail** (API HTTPS, depuis votre compte Google) ou **Resend** (API HTTPS, depuis un domaine vérifié) ci-dessous. Le mode SMTP ne fonctionne que sur Render payant ou en local.
 
-### Mode 1 — Resend (recommandé, gratuit)
+L'ordre de priorité des modes : **Resend** (si une clé est renseignée) → **Gmail** (si coché et compte connecté) → **SMTP**.
+
+### Mode 1 — Gmail API (recommandé sur Render gratuit, gratuit)
+
+Envoie **depuis votre adresse Gmail** (ex. `Mews Studio <vous@gmail.com>`) via l'API officielle Gmail : aucun port SMTP, aucun domaine à vérifier, 500 e-mails/jour.
+
+1. Dans l'espace photographe : **Réglages → section « Google Drive »** → **Se connecter avec Google**. L'autorisation inclut désormais la permission d'**envoyer des e-mails** (scope `gmail.send`).
+   - Premier passage : si l'application n'est pas encore « publiée/vérifiée » par Google, ajoutez votre compte comme *utilisateur de test* (console Google → APIs & Services → OAuth consent screen → Test users). Le jeton d'une app non vérifiée expire au bout de 7 jours : un bandeau le rappelle, il suffit de re-cliquer.
+2. Dans l'espace photographe : **Réglages → Notifications e-mail**.
+3. Cochez **« M'envoyer un e-mail à chaque sélection reçue »**.
+4. Cochez **« Envoyer via mon compte Google (API Gmail) »**.
+5. **Expéditeur** : `Mews Studio <vous@gmail.com>` (l'adresse doit être votre compte Google connecté ; le nom d'affichage est libre).
+6. **Destinataire** : votre adresse (vide = votre adresse de réception des sélections).
+7. Cliquez **Enregistrer**, puis **Envoyer un e-mail de test** pour vérifier.
+
+### Mode 2 — Resend (recommandé si vous avez un domaine, gratuit)
 
 1. Créez un compte gratuit sur <https://resend.com> (jusqu'à 3 000 e-mails/mois).
 2. Ajoutez votre domaine (ex. `mewstudio.com`) : Resend vous donne 3 enregistrements DNS à ajouter chez votre registrar (1 CNAME `resend` + 2 TXT). Vérification en quelques minutes.
@@ -193,7 +208,7 @@ Quand un client envoie une sélection d'albums, le serveur peut vous notifier au
 
 Le bloc « SMTP classique » est automatiquement ignoré tant qu'une clé Resend est active.
 
-### Mode 2 — SMTP classique (Render payant ou local uniquement)
+### Mode 3 — SMTP classique (Render payant ou local uniquement)
 
 1. Dans l'espace photographe : **Réglages → Notifications e-mail**, laissez le champ « Clé API Resend » vide.
 2. Cochez **« M'envoyer un e-mail à chaque sélection reçue »**.
