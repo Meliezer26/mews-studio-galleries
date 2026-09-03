@@ -967,6 +967,8 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
     };
     // Le mot de passe n'est mis à jour que s'il est renseigné
     next.pass = (typeof n.pass === 'string' && n.pass) ? n.pass.slice(0, 200) : (current.pass || '');
+    // Idem pour la clé API Resend (vide = conserver l'existante)
+    next.apiKey = (typeof n.apiKey === 'string' && n.apiKey.trim()) ? n.apiKey.trim().slice(0, 200) : (current.apiKey || '');
     cfg.notifications = next;
     changed = true;
   }
@@ -999,6 +1001,8 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
       from: (cfg.notifications && cfg.notifications.from) || '',
       to: (cfg.notifications && cfg.notifications.to) || '',
       passSet: !!(cfg.notifications && cfg.notifications.pass),
+      resendSet: !!(cfg.notifications && cfg.notifications.apiKey),
+      provider: mailer.provider(),
       configured: mailer.isConfigured(),
     },
     selectionDriveMode: cfg.selectionDriveMode || 'off',
@@ -1042,6 +1046,8 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
       from: n.from || '',
       to: n.to || '',
       passSet: !!n.pass,
+      resendSet: !!n.apiKey,
+      provider: mailer.provider(),
       configured: mailer.isConfigured(),
       lastNotify: store.config().lastNotify || null,
     },

@@ -173,11 +173,29 @@ Le robot (compte de service) sait **lire** les dossiers mais pas **écrire** (pa
 
 ⚠️ Application en statut « Test » : Google fait expirer l'autorisation après **7 jours** — il suffit de recliquer « Se connecter avec Google » (le badge de l'admin l'indique). Le jeton de renouvellement est inclus dans la sauvegarde GitHub (restauré automatiquement après un redéploiement).
 
-## Notifications e-mail (SMTP)
+## Notifications e-mail
 
 Quand un client envoie une sélection d'albums, le serveur peut vous notifier automatiquement par e-mail.
 
-1. Dans l'espace photographe : **Réglages → Notifications e-mail (SMTP)**.
+**⚠️ Important (Render) : le plan gratuit de Render bloque la sortie SMTP (ports 25, 465 et 587) depuis septembre 2025.** Sur un service Render gratuit, utilisez donc le mode **Resend** (API HTTPS) ci-dessous. Le mode SMTP ne fonctionne que sur Render payant ou en local.
+
+### Mode 1 — Resend (recommandé, gratuit)
+
+1. Créez un compte gratuit sur <https://resend.com> (jusqu'à 3 000 e-mails/mois).
+2. Ajoutez votre domaine (ex. `mewstudio.com`) : Resend vous donne 3 enregistrements DNS à ajouter chez votre registrar (1 CNAME `resend` + 2 TXT). Vérification en quelques minutes.
+3. Dans Resend : **API Keys → Create API Key** (clé `re_…`).
+4. Dans l'espace photographe : **Réglages → Notifications e-mail**.
+5. Cochez **« M'envoyer un e-mail à chaque sélection reçue »**.
+6. **Clé API Resend** : collez votre clé `re_…`.
+7. **Expéditeur** : une adresse de votre domaine vérifié, ex. `Mews Studio <galeries@mewstudio.com>` (le nom d'affichage est libre).
+8. **Destinataire** : votre adresse (vide = votre adresse de réception des sélections).
+9. Cliquez **Enregistrer**, puis **Envoyer un e-mail de test** pour vérifier.
+
+Le bloc « SMTP classique » est automatiquement ignoré tant qu'une clé Resend est active.
+
+### Mode 2 — SMTP classique (Render payant ou local uniquement)
+
+1. Dans l'espace photographe : **Réglages → Notifications e-mail**, laissez le champ « Clé API Resend » vide.
 2. Cochez **« M'envoyer un e-mail à chaque sélection reçue »**.
 3. Renseignez votre serveur SMTP :
 
@@ -192,4 +210,4 @@ Quand un client envoie une sélection d'albums, le serveur peut vous notifier au
 5. **Destinataire** : votre adresse (vide = votre adresse de réception des sélections).
 6. Cliquez **Enregistrer**, puis **Envoyer un e-mail de test** pour vérifier.
 
-La configuration est stockée côté serveur (`data/config.json`) ; le mot de passe n'est jamais renvoyé au navigateur. Le statut du dernier envoi (réussi/échec) est affiché sous le formulaire.
+La configuration est stockée côté serveur (`data/config.json`) ; la clé Resend et le mot de passe ne sont jamais renvoyés au navigateur. Le statut du dernier envoi (réussi/échec) et le mode actif (Resend/SMTP) sont affichés sous le formulaire.

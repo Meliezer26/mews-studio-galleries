@@ -301,34 +301,43 @@
         </div>
         <button class="btn btn--gold" id="btn-save-drive">Enregistrer</button>
 
-        <h3 class="display-3" style="margin-bottom:18px">Notifications e-mail (SMTP)</h3>
+        <h3 class="display-3" style="margin-bottom:18px">Notifications e-mail</h3>
         <div class="field">
           <label class="check"><input type="checkbox" id="set-notify-enabled"> M'envoyer un e-mail à chaque sélection reçue</label>
           <div class="field-hint">En complément de l'e-mail envoyé par le client : le serveur vous notifie automatiquement avec le détail des albums.</div>
         </div>
         <div class="field">
-          <label>Serveur SMTP (hôte)</label>
-          <input class="input" id="set-smtp-host" placeholder="smtp.gmail.com">
+          <label>Clé API Resend <span style="color:var(--muted,#999);font-weight:400">— recommandé, gratuit</span></label>
+          <input class="input" type="password" id="set-resend-key" placeholder="re_…" autocomplete="off">
+          <div class="field-hint">Le mode par défaut : Resend envoie par API HTTPS, sans aucun port SMTP (indispensable sur Render, dont le plan gratuit bloque les ports SMTP). Gratuit jusqu'à 3 000 e-mails/mois. Créez votre compte sur <b>resend.com</b> → « API Keys » → « Create API Key ». Laissez vide pour conserver la clé actuelle. Si une clé est active, le bloc SMTP ci-dessous est ignoré.</div>
         </div>
-        <div class="field">
-          <label>Port</label>
-          <input class="input" id="set-smtp-port" placeholder="587">
-        </div>
-        <div class="field">
-          <label class="check"><input type="checkbox" id="set-smtp-secure"> Connexion SSL directe (port 465)</label>
-          <div class="field-hint">Laissez décoché pour STARTTLS (port 587, le plus courant).</div>
-        </div>
-        <div class="field">
-          <label>Utilisateur</label>
-          <input class="input" id="set-smtp-user" placeholder="ex : vous@gmail.com">
-        </div>
-        <div class="field">
-          <label>Mot de passe (ou mot de passe d'application)</label>
-          <input class="input" type="password" id="set-smtp-pass" placeholder="Laissez vide pour conserver l'actuel" autocomplete="off">
+        <div id="smtp-block">
+          <div class="field-hint" style="margin-bottom:14px">⚠️ Bloc « SMTP classique » — les ports 25/465/587 sont <b>bloqués sur le plan gratuit de Render</b> : ce bloc ne fonctionne que si le serveur est en payant ou en local. Avec une clé Resend active, il est ignoré.</div>
+          <div class="field">
+            <label>Serveur SMTP (hôte)</label>
+            <input class="input" id="set-smtp-host" placeholder="smtp.gmail.com">
+          </div>
+          <div class="field">
+            <label>Port</label>
+            <input class="input" id="set-smtp-port" placeholder="587">
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" id="set-smtp-secure"> Connexion SSL directe (port 465)</label>
+            <div class="field-hint">Laissez décoché pour STARTTLS (port 587, le plus courant).</div>
+          </div>
+          <div class="field">
+            <label>Utilisateur</label>
+            <input class="input" id="set-smtp-user" placeholder="ex : vous@gmail.com">
+          </div>
+          <div class="field">
+            <label>Mot de passe (ou mot de passe d'application)</label>
+            <input class="input" type="password" id="set-smtp-pass" placeholder="Laissez vide pour conserver l'actuel" autocomplete="off">
+          </div>
         </div>
         <div class="field">
           <label>Expéditeur</label>
           <input class="input" id="set-smtp-from" placeholder="Mews Studio &lt;galeries@mewstudio.com&gt;">
+          <div class="field-hint">Avec Resend : l'adresse doit appartenir à un <b>domaine vérifié sur votre compte Resend</b> (ex. « Mews Studio &lt;galeries@mewstudio.com&gt; »). Le nom d'affichage est libre.</div>
         </div>
         <div class="field">
           <label>Destinataire des notifications</label>

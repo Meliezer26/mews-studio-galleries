@@ -209,9 +209,21 @@
     }
   }
 
-  /* --- Réglages : notifications SMTP --------------------------- */
+  /* --- Réglages : notifications (Resend / SMTP) ---------------- */
+  var notifyResendSet = false; // clé Resend enregistrée côté serveur ?
+
+  function updateSmtpVisibility() {
+    var block = $('smtp-block');
+    if (!block) return;
+    var resendActive = notifyResendSet || $('set-resend-key').value.trim() !== '';
+    block.classList.toggle('block-off', resendActive);
+  }
+
   function fillNotifyForm(n) {
     $('set-notify-enabled').checked = !!n.enabled;
+    notifyResendSet = !!n.resendSet;
+    $('set-resend-key').value = '';
+    $('set-resend-key').placeholder = notifyResendSet ? '•••••••• (conservée — laissez vide)' : 're_…';
     $('set-smtp-host').value = n.host || '';
     $('set-smtp-port').value = n.port || 587;
     $('set-smtp-secure').checked = !!n.secure;
@@ -220,6 +232,7 @@
     $('set-smtp-from').value = n.from || '';
     $('set-smtp-to').value = n.to || '';
     $('set-smtp-pass').placeholder = n.passSet ? '•••••••• (conservé — laissez vide)' : 'Mot de passe SMTP';
+    updateSmtpVisibility();
     renderNotifyStatus(n);
   }
 
@@ -227,8 +240,9 @@
     var el = $('notify-status');
     var parts = [];
     if (n.configured) parts.push('Configuration complète ✓');
-    else parts.push('Configuration incomplète (hôte et expéditeur requis)');
-    if (n.passSet) parts.push('mot de passe enregistré');
+    else parts.push('Configuration incomplète (expéditeur + clé Resend ou hôte SMTP requis)');
+    if (n.resendSet) parts.push('envoi via Resend (clé enregistrée)');
+    else if (n.passSet && n.host) parts.push('envoi via SMTP (mot de passe enregistré)');
     if (n.lastNotify) {
       parts.push('dernier envoi : ' + (n.lastNotify.ok ? 'réussi' : 'échec') + ' le ' + window.fmtDate(n.lastNotify.date) + (n.lastNotify.error ? ' — ' + n.lastNotify.error : ''));
     }
@@ -238,6 +252,7 @@
   function collectNotify() {
     return {
       enabled: $('set-notify-enabled').checked,
+      apiKey: $('set-resend-key').value.trim(),
       host: $('set-smtp-host').value.trim(),
       port: parseInt($('set-smtp-port').value, 10) || 587,
       secure: $('set-smtp-secure').checked,
@@ -947,10 +962,12 @@
         .then(function (data) {
           fillNotifyForm(data.notifications || {});
           $('set-smtp-pass').value = '';
-          window.toast('Notifications SMTP enregistrées ✓', 'ok');
+          $('set-resend-key').value = '';
+          window.toast('Notifications enregistrées ✓', 'ok');
         })
         .catch(function (err) { window.toast(err.message, 'err'); });
     });
+    $('set-resend-key').addEventListener('input', updateSmtpVisibility);
     $('btn-test-email').addEventListener('click', function () {
       var btn = this;
       btn.disabled = true;

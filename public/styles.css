@@ -488,3 +488,4 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; } .mt-24 { margin-top: 24px; } .mt-40 { margin-top: 40px; }
 .flex { display: flex; } .gap-8 { gap: 8px; } .gap-12 { gap: 12px; } .between { justify-content: space-between; } .center { align-items: center; } .wrap { flex-wrap: wrap; }
 .hidden { display: none !important; }
+.block-off { opacity: 0.45; pointer-events: none; }
