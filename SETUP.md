@@ -183,14 +183,17 @@ L'ordre de priorité des modes : **Resend** (si une clé est renseignée) → **
 
 ### Mode 1 — Gmail API (recommandé sur Render gratuit, gratuit)
 
-Envoie **depuis votre adresse Gmail** (ex. `Mews Studio <vous@gmail.com>`) via l'API officielle Gmail : aucun port SMTP, aucun domaine à vérifier, 500 e-mails/jour.
+Envoie **depuis une adresse Gmail de votre choix** (ex. `Mews Studio <vous@gmail.com>`) via l'API officielle Gmail : aucun port SMTP, aucun domaine à vérifier, 500 e-mails/jour.
 
-1. Dans l'espace photographe : **Réglages → section « Google Drive »** → **Se connecter avec Google**. L'autorisation inclut désormais la permission d'**envoyer des e-mails** (scope `gmail.send`).
-   - Premier passage : si l'application n'est pas encore « publiée/vérifiée » par Google, ajoutez votre compte comme *utilisateur de test* (console Google → APIs & Services → OAuth consent screen → Test users). Le jeton d'une app non vérifiée expire au bout de 7 jours : un bandeau le rappelle, il suffit de re-cliquer.
+**Le compte d'envoi est une connexion Google dédiée, indépendante du compte Drive** : on peut faire trier les albums 200/150/100 sur le Drive d'un compte (ex. le compte photo) et faire partir les e-mails d'un autre compte (ex. un Gmail pro).
+
+1. Dans l'espace photographe : **Réglages → Notifications e-mail** → bouton **« Se connecter avec Google (envoi d'e-mails) »** → choisissez le compte qui signera les e-mails → autorisez (seule permission demandée : *envoyer vos e-mails*).
+   - Premier passage : si l'application n'est pas encore « publiée/vérifiée » par Google, ajoutez ce compte comme *utilisateur de test* (console Google → Google Auth Platform → Audience → Test users). Le jeton d'une app non vérifiée expire au bout de 7 jours : un bandeau le rappelle, il suffit de re-cliquer.
+   - **Sauvegarde du jeton** : pour survivre aux redéploiements Render, copiez le jeton de renouvellement affiché dans l'admin (bouton œil / API `GET /api/admin/mail/status`) dans la variable d'env `GOOGLE_MAIL_REFRESH_TOKEN` du service.
 2. Dans l'espace photographe : **Réglages → Notifications e-mail**.
 3. Cochez **« M'envoyer un e-mail à chaque sélection reçue »**.
-4. Cochez **« Envoyer via mon compte Google (API Gmail) »**.
-5. **Expéditeur** : `Mews Studio <vous@gmail.com>` (l'adresse doit être votre compte Google connecté ; le nom d'affichage est libre).
+4. Cochez **« Envoyer via Google (API Gmail) »**.
+5. **Expéditeur** : `Mews Studio <vous@gmail.com>` (l'adresse doit être le compte d'envoi connecté ; le nom d'affichage est libre).
 6. **Destinataire** : votre adresse (vide = votre adresse de réception des sélections).
 7. Cliquez **Enregistrer**, puis **Envoyer un e-mail de test** pour vérifier.
 

@@ -31,11 +31,11 @@
           if (!$('set-email').value) $('set-email').value = s.photographerEmail || '';
           $('set-default-dl').checked = s.defaultDownloadsEnabled !== false;
           $('set-global-dl').checked = s.globalDownloadsEnabled !== false;
-          notifyGmailEmail = s.driveEmail || '';
           fillNotifyForm(s.notifications || {});
           $('set-drive-mode').value = s.selectionDriveMode || 'off';
           $('set-drive-cleanup').value = s.selectionCleanupDays || '';
           refreshDriveUser();
+          refreshMailAccount();
           populateDriveRoots(s.selectionRootFolderId);
         })
         .catch(function () {});
@@ -211,8 +211,33 @@
   }
 
   /* --- Réglages : notifications (Resend / Gmail / SMTP) -------- */
-  var notifyResendSet = false;  // clé Resend enregistrée côté serveur ?
-  var notifyGmailEmail = '';    // adresse du compte Google connecté (affichée dans le statut)
+  var notifyResendSet = false; // clé Resend enregistrée côté serveur ?
+  var notifyMailEmail = '';    // adresse du compte d'envoi Google (statut)
+
+  function refreshMailAccount() {
+    var st = $('mail-account-status');
+    if (!st) return;
+    window.api('/api/admin/mail/status')
+      .then(function (s) {
+        notifyMailEmail = s.email || '';
+        if (!s.configured) {
+          st.textContent = 'Identifiants Google OAuth non configurés (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET dans les variables d\'env du serveur).';
+          $('btn-mail-connect').style.display = 'none';
+          $('btn-mail-disconnect').style.display = 'none';
+        } else if (s.connected) {
+          st.textContent = 'Connecté : ' + (s.email || 'compte Google') + ' ✓ — les e-mails partiront de cette adresse.';
+          $('btn-mail-connect').style.display = 'none';
+          $('btn-mail-disconnect').style.display = '';
+          $('mail-key-row').style.display = s.refreshToken ? '' : 'none';
+          if (s.refreshToken) $('mail-key').value = s.refreshToken;
+        } else {
+          st.textContent = 'Non connecté — cliquez sur « Se connecter avec Google (envoi d\'e-mails) » et autorisez.';
+          $('btn-mail-connect').style.display = '';
+          $('btn-mail-disconnect').style.display = 'none';
+        }
+      })
+      .catch(function () { st.textContent = 'Statut du compte d\'envoi indisponible.'; });
+  }
 
   function updateSmtpVisibility() {
     var block = $('smtp-block');
@@ -243,7 +268,7 @@
   function renderNotifyStatus(n) {
     var el = $('notify-status');
     var parts = [];
-    if (n.provider === 'gmail') parts.push('envoi via Gmail (' + (notifyGmailEmail || 'compte Google') + ')');
+    if (n.provider === 'gmail') parts.push('envoi via Gmail (' + (notifyMailEmail || 'compte d\'envoi') + ')');
     else if (n.resendSet) parts.push('envoi via Resend (clé enregistrée)');
     else if (n.gmailMode) parts.push('mode Gmail activé — connectez votre compte Google (section Google Drive)');
     else if (n.passSet && n.host) parts.push('envoi via SMTP (mot de passe enregistré)');
@@ -935,6 +960,11 @@
         })
         .catch(function (err) { window.toast(err.message, 'err'); });
     });
+    $('btn-copy-mail-key').addEventListener('click', function () {
+      window.copyText($('mail-key').value).then(function (ok) {
+        window.toast(ok ? 'Clé copiée ✓' : 'Clé : ' + $('mail-key').value, ok ? 'ok' : 'err');
+      });
+    });
     $('btn-copy-key').addEventListener('click', function () {
       window.copyText($('backup-key').value).then(function (ok) {
         window.toast(ok ? 'Clé copiée ✓' : 'Clé : ' + $('backup-key').value, ok ? 'ok' : 'err');
@@ -1049,9 +1079,33 @@
         })
         .catch(function (err) { window.toast(err.message, 'err'); });
     });
+    $('btn-mail-connect').addEventListener('click', function () {
+      var btn = this;
+      btn.disabled = true;
+      window.api('/api/admin/mail/connect', { method: 'POST' })
+        .then(function (data) { window.open(data.url, '_blank', 'noopener'); })
+        .catch(function (err) { window.toast(err.message, 'err'); })
+        .finally(function () { btn.disabled = false; });
+    });
+    $('btn-mail-disconnect').addEventListener('click', function () {
+      window.api('/api/admin/mail/disconnect', { method: 'POST' })
+        .then(function () {
+          window.toast('Compte d\'envoi déconnecté. L\'envoi Gmail est en pause.', 'ok');
+          refreshMailAccount();
+        })
+        .catch(function (err) { window.toast(err.message, 'err'); });
+    });
 
-    /* Retour du consentement Google (redirection /admin#drive=…) */
-    if (location.hash.indexOf('drive=ok') > -1) {
+    /* Retour du consentement Google (redirection /admin#drive=… ou /admin#mail=…) */
+    if (location.hash.indexOf('mail=ok') > -1) {
+      history.replaceState(null, '', location.pathname + location.search);
+      window.toast('Compte d\'envoi Google connecté ✓', 'ok');
+      refreshMailAccount();
+    } else if (location.hash.indexOf('mail=err') > -1) {
+      history.replaceState(null, '', location.pathname + location.search);
+      var mm = (location.hash.match(/m=([^&]*)/) || [])[1];
+      window.toast('Connexion du compte d\'envoi impossible : ' + (mm ? decodeURIComponent(mm) : 'réessayez.'), 'err');
+    } else if (location.hash.indexOf('drive=ok') > -1) {
       history.replaceState(null, '', location.pathname + location.search);
       window.toast('Compte Google connecté ✓ Le tri automatique est prêt.', 'ok');
       refreshDriveUser();

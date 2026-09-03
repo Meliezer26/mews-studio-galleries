@@ -68,6 +68,12 @@ store.ensureDirs();
       delete cfg.googleRefreshToken;
       store.saveConfig(cfg);
     }
+    // Idem pour le jeton du compte d'envoi d'e-mails (Gmail API).
+    const tm = store.tokensMail() || {};
+    if (!tm.refresh_token && process.env.GOOGLE_MAIL_REFRESH_TOKEN) {
+      tm.refresh_token = process.env.GOOGLE_MAIL_REFRESH_TOKEN;
+      store.saveTokensMail(tm);
+    }
   } catch (err) {
     console.warn('[oauth] Ré-hydratation impossible :', err.message);
   }
@@ -787,31 +793,31 @@ app.get('/api/drive/connect', requireAdmin, (req, res) => {
  *  (Le compte de service ne sait que lire : pas de quota.)
  * ============================================================ */
 
-/** Retour du consentement Google : échange du code → jeton stocké. */
+/** Retour du consentement Google : échange du code → jeton stocké.
+ *  Deux flux possibles, distingués par l'état (state) enregistré :
+ *   - flux Drive  (tokens.json)      → /admin#drive=…
+ *   - flux envoi  (tokens-mail.json) → /admin#mail=…  */
 app.get('/oauth2callback', async (req, res) => {
   const code = String(req.query.code || '');
   const state = String(req.query.state || '');
-  const t = store.tokens() || {};
-  if (!code) return res.redirect('/admin#drive=annule');
+  const tm = store.tokensMail() || {};
+  const isMailFlow = !!(tm.oauthState && state && state === tm.oauthState);
+  const t = isMailFlow ? tm : (store.tokens() || {});
+  if (!code) return res.redirect(isMailFlow ? '/admin#mail=annule' : '/admin#drive=annule');
   if (t.oauthState && state !== t.oauthState) {
-    return res.redirect('/admin#drive=err&m=' + encodeURIComponent('État OAuth invalide, réessayez.'));
+    return res.redirect((isMailFlow ? '/admin#mail=err&m=' : '/admin#drive=err&m=') + encodeURIComponent('État OAuth invalide, réessayez.'));
   }
   try {
-    const data = await drive.exchangeCode(code);
+    const data = await (isMailFlow ? drive.exchangeMailCode(code) : drive.exchangeCode(code));
     t.access_token = data.access_token;
     t.expiry = Date.now() + (data.expires_in || 3600) * 1000;
     if (data.refresh_token) t.refresh_token = data.refresh_token;
     delete t.oauthState;
-    store.saveTokens(t);
-    if (data.refresh_token) {
-      // IMPORTANT : le jeton de renouvellement n'est PAS copié dans config.json
-      // (la sauvegarde GitHub refuserait un contenu contenant un secret).
-      // Il survit au redémarrage via la variable d'environnement
-      // GOOGLE_REFRESH_TOKEN (voir le ré-hydratation au démarrage).
-    }
-    res.redirect('/admin#drive=ok');
+    if (isMailFlow) store.saveTokensMail(t);
+    else store.saveTokens(t);
+    res.redirect(isMailFlow ? '/admin#mail=ok' : '/admin#drive=ok');
   } catch (err) {
-    res.redirect('/admin#drive=err&m=' + encodeURIComponent(String(err.message).slice(0, 120)));
+    res.redirect((isMailFlow ? '/admin#mail=err&m=' : '/admin#drive=err&m=') + encodeURIComponent(String(err.message).slice(0, 120)));
   }
 });
 
@@ -851,6 +857,44 @@ app.post('/api/admin/drive-user/disconnect', requireAdmin, (req, res) => {
   const cfg = store.config();
   cfg.googleRefreshToken = null;
   store.saveConfig(cfg);
+  res.json({ ok: true });
+});
+
+/* ============================================================
+ *  OAuth compte d'ENVOI d'e-mails (API Gmail) — indépendant du
+ *  compte Drive. Permet de trier les albums sur le Drive d'un
+ *  compte et de faire partir les e-mails d'un autre compte.
+ * ============================================================ */
+
+/** Démarre la connexion OAuth du compte d'envoi (bouton admin). */
+app.post('/api/admin/mail/connect', requireAdmin, (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.status(400).json({ error: 'Identifiants OAuth Google absents (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).' });
+  }
+  const state = sec.randomToken(16);
+  const t = store.tokensMail() || {};
+  t.oauthState = state;
+  store.saveTokensMail(t);
+  res.json({ url: drive.mailAuthUrl(state) });
+});
+
+/** État du compte d'envoi. */
+app.get('/api/admin/mail/status', requireAdmin, async (req, res) => {
+  const connected = drive.isMailConnected();
+  const account = connected ? await drive.mailAccount() : null;
+  res.json({
+    configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    connected,
+    email: account ? account.emailAddress : null,
+    // Admin uniquement : à reporter dans la variable GOOGLE_MAIL_REFRESH_TOKEN
+    // de l'hébergeur pour survivre aux redéploiements (comme GOOGLE_REFRESH_TOKEN).
+    refreshToken: (store.tokensMail() && store.tokensMail().refresh_token) || null,
+  });
+});
+
+/** Déconnexion du compte d'envoi. */
+app.post('/api/admin/mail/disconnect', requireAdmin, (req, res) => {
+  store.saveTokensMail(null);
   res.json({ ok: true });
 });
 
@@ -1055,6 +1099,8 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
       configured: mailer.isConfigured(),
       lastNotify: store.config().lastNotify || null,
     },
+    // Compte d'envoi d'e-mails (connexion dédiée, distincte du compte Drive)
+    mailConnected: drive.isMailConnected(),
     // Sauvegarde automatique (voir lib/backup.js)
     backupEnabled: backup.backupStore() !== null,
     backupStore: backup.backupStore(),

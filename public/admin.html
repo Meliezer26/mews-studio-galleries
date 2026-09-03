@@ -312,8 +312,24 @@
           <div class="field-hint">Le mode par défaut : Resend envoie par API HTTPS, sans aucun port SMTP (indispensable sur Render, dont le plan gratuit bloque les ports SMTP). Gratuit jusqu'à 3 000 e-mails/mois. Créez votre compte sur <b>resend.com</b> → « API Keys » → « Create API Key ». Laissez vide pour conserver la clé actuelle. Si une clé est active, le bloc SMTP ci-dessous est ignoré.</div>
         </div>
         <div class="field">
-          <label class="check"><input type="checkbox" id="set-gmail-mode"> Envoyer via mon compte Google (API Gmail — gratuit, sans domaine)</label>
-          <div class="field-hint">Les e-mails partent de votre adresse Gmail (ex. « Mews Studio &lt;mewstudiofrance@gmail.com&gt; ») via l'API officielle Gmail : aucun port SMTP, aucun domaine à vérifier. Utilise le compte Google connecté dans la section « Google Drive » (autorisation d'envoi requise). 500 e-mails/jour max. Si une clé Resend est renseignée, celle-ci passe en priorité.</div>
+          <label class="check"><input type="checkbox" id="set-gmail-mode"> Envoyer via Google (API Gmail — gratuit, sans domaine)</label>
+          <div class="field-hint">Les e-mails partent du compte Google d'envoi choisi ci-dessous (ex. « Mews Studio &lt;mewstudiofrance@gmail.com&gt; ») via l'API officielle Gmail : aucun port SMTP, aucun domaine à vérifier. 500 e-mails/jour max. Si une clé Resend est renseignée, celle-ci passe en priorité.</div>
+        </div>
+        <div class="field" id="gmail-send-box">
+          <label>Compte Google d'envoi des e-mails</label>
+          <div class="field-hint" id="mail-account-status">Vérification…</div>
+          <div class="flex gap-12 wrap">
+            <button class="btn btn--ghost" id="btn-mail-connect" type="button">Se connecter avec Google (envoi d'e-mails)</button>
+            <button class="btn btn--ghost" id="btn-mail-disconnect" type="button" style="display:none">Déconnecter</button>
+          </div>
+          <div class="field-hint">Compte <b>indépendant</b> de la connexion Drive (qui sert au tri des albums sur le Drive de votre compte photo) : ici, vous connectez le compte dont partiront les e-mails, par exemple votre Gmail pro.</div>
+          <div id="mail-key-row" style="display:none;margin-top:10px">
+            <div class="field-hint">Clé de secours — à coller dans la variable <code>GOOGLE_MAIL_REFRESH_TOKEN</code> de votre hébergeur pour pouvoir restaurer après un redéploiement :</div>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <input id="mail-key" readonly style="flex:1;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)">
+              <button class="btn btn--ghost" id="btn-copy-mail-key" type="button">Copier</button>
+            </div>
+          </div>
         </div>
         <div id="smtp-block">
           <div class="field-hint" style="margin-bottom:14px">⚠️ Bloc « SMTP classique » — les ports 25/465/587 sont <b>bloqués sur le plan gratuit de Render</b> : ce bloc ne fonctionne que si le serveur est en payant ou en local. Avec une clé Resend active, il est ignoré.</div>
