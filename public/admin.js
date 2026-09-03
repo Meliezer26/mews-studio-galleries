@@ -225,7 +225,9 @@
           $('btn-mail-connect').style.display = 'none';
           $('btn-mail-disconnect').style.display = 'none';
         } else if (s.connected) {
-          st.textContent = 'Connecté : ' + (s.email || 'compte Google') + ' ✓ — les e-mails partiront de cette adresse.';
+          st.textContent = s.email
+            ? 'Connecté : ' + s.email + ' ✓ — les e-mails partiront de cette adresse.'
+            : 'Connecté ✓ (adresse non récupérée : ' + (s.accountError || 'erreur inconnue') + ') — les e-mails partiront du compte connecté.';
           $('btn-mail-connect').style.display = 'none';
           $('btn-mail-disconnect').style.display = '';
           $('mail-key-row').style.display = s.refreshToken ? '' : 'none';

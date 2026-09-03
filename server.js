@@ -813,8 +813,15 @@ app.get('/oauth2callback', async (req, res) => {
     t.expiry = Date.now() + (data.expires_in || 3600) * 1000;
     if (data.refresh_token) t.refresh_token = data.refresh_token;
     delete t.oauthState;
-    if (isMailFlow) store.saveTokensMail(t);
-    else store.saveTokens(t);
+    if (isMailFlow) {
+      store.saveTokensMail(t);
+      // Capturer l'adresse du compte d'envoi tout de suite (sert au statut
+      // et à l'envoi, même si l'API de profil est instable plus tard).
+      const acc = await drive.mailAccount();
+      if (acc && acc.emailAddress) { t.email = acc.emailAddress; store.saveTokensMail(t); }
+    } else {
+      store.saveTokens(t);
+    }
     res.redirect(isMailFlow ? '/admin#mail=ok' : '/admin#drive=ok');
   } catch (err) {
     res.redirect((isMailFlow ? '/admin#mail=err&m=' : '/admin#drive=err&m=') + encodeURIComponent(String(err.message).slice(0, 120)));
@@ -886,6 +893,7 @@ app.get('/api/admin/mail/status', requireAdmin, async (req, res) => {
     configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     connected,
     email: account ? account.emailAddress : null,
+    accountError: (account && account.error) || null,
     // Admin uniquement : à reporter dans la variable GOOGLE_MAIL_REFRESH_TOKEN
     // de l'hébergeur pour survivre aux redéploiements (comme GOOGLE_REFRESH_TOKEN).
     refreshToken: (store.tokensMail() && store.tokensMail().refresh_token) || null,
