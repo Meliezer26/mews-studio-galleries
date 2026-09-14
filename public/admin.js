@@ -138,7 +138,8 @@
             b.textContent = c.name;
             var em = document.createElement('span');
             em.className = 'muted small';
-            em.textContent = c.email ? ('✉ ' + c.email + ' · ') : '';
+            var extraEmails = (c.emails || []).length > 1 ? ' +' + ((c.emails || []).length - 1) : '';
+            em.textContent = c.email ? ('✉ ' + c.email + extraEmails + ' · ') : '';
             var meta = document.createElement('span');
             meta.className = 'muted small';
             meta.textContent = em.textContent + c.selections + ' sélection(s) · dernière activité le ' + (c.lastSeenAt ? window.fmtDate(c.lastSeenAt) : '—');
@@ -199,7 +200,9 @@
     closeModal('m-client-access');
     loadClients();
     if (data.sent) {
-      window.toast('E-mail d\u2019accès envoyé au client ✓', 'ok');
+      var n = data.sentCount || 1;
+      window.toast((n > 1 ? n + ' e-mails d\u2019accès envoyés' : 'E-mail d\u2019accès envoyé') + ' ✓', data.failedCount ? 'err' : 'ok');
+      if (data.failedCount) window.toast(data.failedCount + ' adresse(s) en échec : ' + (data.sendError || ''), 'err');
       return;
     }
     if (data.sendError) {
@@ -1069,16 +1072,16 @@
       if (!st) return;
       var isNew = !st.clientId;
       var name = $('mca-name').value.trim();
-      var email = $('mca-email').value.trim();
+      var emails = $('mca-email').value.trim();
       var gpw = $('mca-gpw').value.trim();
       if (isNew && name.length < 2) { window.toast('Entrez le nom du client.', 'err'); return; }
-      if (!email) { window.toast('Adresse e-mail du client requise.', 'err'); return; }
+      if (!emails) { window.toast('Au moins une adresse e-mail du client est requise.', 'err'); return; }
       var btn = $('btn-save-client-access');
       btn.disabled = true;
       var url = isNew
         ? '/api/admin/galleries/' + st.galleryId + '/clients'
         : '/api/admin/galleries/' + st.galleryId + '/clients/' + st.clientId + '/send-access';
-      var body = { name: name, email: email, galleryPassword: gpw };
+      var body = { name: name, emails: emails, galleryPassword: gpw };
       window.api(url, { method: 'POST', body: body })
         .then(function (data) { clientAccessDone(data); })
         .catch(function (err) { btn.disabled = false; window.toast(err.message, 'err'); });

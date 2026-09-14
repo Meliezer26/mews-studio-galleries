@@ -1194,16 +1194,29 @@ function buildClientAccessMailto(info) {
     '&body=' + encodeURIComponent(text);
 }
 
+/** Parse une liste d'adresses e-mails (chaîne ou tableau) — séparateurs : virgule, point-virgule, espaces, retours à la ligne. */
+function parseEmailList(input) {
+  const raw = Array.isArray(input) ? input.map(String) : String(input || '');
+  const out = [];
+  const seen = new Set();
+  raw.join(',').split(/[,;\s\n]+/).map((s) => s.trim()).filter(Boolean).forEach((addr) => {
+    if (addr.length > 200 || !/^\S+@\S+\.\S+$/.test(addr)) return;
+    const k = addr.toLowerCase();
+    if (!seen.has(k)) { seen.add(k); out.push(addr); }
+  });
+  return out.slice(0, 25); // sécurité : max 25 adresses par envoi
+}
+
 app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
   const all = store.galleries();
   const g = all.find((x) => x.id === req.params.id);
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
   const body = req.body || {};
   const name = String(body.name || '').trim().slice(0, 60);
-  const email = String(body.email || '').trim().slice(0, 120);
+  const emails = parseEmailList(body.emails || body.email);
   const galleryPassword = String(body.galleryPassword || '').trim().slice(0, 80);
   if (name.length < 2) return res.status(400).json({ error: 'Entrez le nom du client.' });
-  if (email && !/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
+  if (!emails.length) return res.status(400).json({ error: 'Au moins une adresse e-mail valide est requise.' });
   g.clients = g.clients || [];
   if (g.clients.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
     return res.status(409).json({ error: 'Un client portant ce nom existe déjà sur cette galerie. Utilisez « Envoyer l\'accès » sur sa ligne.' });
@@ -1211,7 +1224,8 @@ app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
   const client = {
     id: sec.randomToken(10),
     name,
-    email: email || null,
+    email: emails[0],
+    emails,
     createdAt: Date.now(),
     lastSeenAt: null,
     albums: { checked: {}, photos: {} },
@@ -1221,18 +1235,22 @@ app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
 
-  let sent = false;
+  let sentCount = 0;
+  let failedCount = 0;
   let sendError = null;
-  let mailto = null;
-  if (email) {
-    const info = clientAccessInfo(g, name, email, galleryPassword);
-    mailto = buildClientAccessMailto(info);
-    if (mailer.isConfigured()) {
-      try { await mailer.sendClientAccessEmail(info); sent = true; }
-      catch (err) { sendError = String(err.message).slice(0, 160); }
+  const mailto = buildClientAccessMailto(clientAccessInfo(g, name, emails[0], galleryPassword));
+  if (mailer.isConfigured()) {
+    for (const e of emails) {
+      try {
+        await mailer.sendClientAccessEmail(clientAccessInfo(g, name, e, galleryPassword));
+        sentCount++;
+      } catch (err) {
+        failedCount++;
+        sendError = String(err.message).slice(0, 160);
+      }
     }
   }
-  res.status(201).json({ ok: true, sent, sendError, mailto });
+  res.status(201).json({ ok: true, sent: sentCount > 0, sentCount, failedCount, sendError, mailto });
 });
 
 app.post('/api/admin/galleries/:id/clients/:clientId/send-access', requireAdmin, async (req, res) => {
@@ -1242,22 +1260,30 @@ app.post('/api/admin/galleries/:id/clients/:clientId/send-access', requireAdmin,
   const client = (g.clients || []).find((c) => c.id === req.params.clientId);
   if (!client) return res.status(404).json({ error: 'Client introuvable.' });
   const body = req.body || {};
-  const email = String(body.email || client.email || '').trim().slice(0, 120);
+  const emails = parseEmailList(body.emails || body.email);
   const galleryPassword = String(body.galleryPassword || '').trim().slice(0, 80);
-  if (!email) return res.status(400).json({ error: 'Adresse e-mail du client requise.' });
-  if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ error: 'Adresse e-mail invalide.' });
-  if (email !== client.email) client.email = email;
+  if (!emails.length) return res.status(400).json({ error: 'Au moins une adresse e-mail valide est requise.' });
+  if (emails[0].toLowerCase() !== String(client.email || '').toLowerCase()) client.email = emails[0];
+  client.emails = Array.from(new Set([...(client.emails || (client.email ? [client.email] : [])), ...emails].map((x) => String(x).toLowerCase())));
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
 
-  const info = clientAccessInfo(g, client.name, email, galleryPassword);
-  let sent = false;
+  let sentCount = 0;
+  let failedCount = 0;
   let sendError = null;
+  const mailto = buildClientAccessMailto(clientAccessInfo(g, client.name, emails[0], galleryPassword));
   if (mailer.isConfigured()) {
-    try { await mailer.sendClientAccessEmail(info); sent = true; }
-    catch (err) { sendError = String(err.message).slice(0, 160); }
+    for (const e of emails) {
+      try {
+        await mailer.sendClientAccessEmail(clientAccessInfo(g, client.name, e, galleryPassword));
+        sentCount++;
+      } catch (err) {
+        failedCount++;
+        sendError = String(err.message).slice(0, 160);
+      }
+    }
   }
-  res.json({ ok: true, sent, sendError, mailto: buildClientAccessMailto(info) });
+  res.json({ ok: true, sent: sentCount > 0, sentCount, failedCount, sendError, mailto });
 });
 
 /* --- Récapitulatif des profils clients ----------------------- */
@@ -1274,6 +1300,7 @@ app.get('/api/admin/clients', requireAdmin, (req, res) => {
         id: c.id,
         name: c.name,
         email: c.email || null,
+        emails: c.emails || (c.email ? [c.email] : []),
         createdAt: c.createdAt,
         lastSeenAt: c.lastSeenAt,
         selections: (c.selections || []).length,
