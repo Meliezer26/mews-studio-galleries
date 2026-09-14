@@ -450,10 +450,6 @@
 
   function toggleGallery(g, btn) {
     var enabling = g.enabled === false;
-    var msg = enabling
-      ? 'Réactiver la galerie « ' + g.name + ' » ?\nVos clients retrouveront l\u2019accès.'
-      : 'Désactiver la galerie « ' + g.name + ' » ?\nVos clients ne pourront plus l\u2019ouvrir (les photos ne sont pas touchées).';
-    if (!window.confirm(msg)) return;
     btn.disabled = true;
     window.api('/api/admin/galleries/' + g.id + '/update', { method: 'POST', body: { enabled: enabling } })
       .then(function () {
