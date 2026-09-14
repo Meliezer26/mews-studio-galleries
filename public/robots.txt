@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /g/
 
-Sitemap: https://mews-galleries.onrender.com/sitemap.xml
+Sitemap: https://galeries.mewstudio.com/sitemap.xml
