@@ -1323,6 +1323,7 @@ app.get('/api/admin/galleries', requireAdmin, (req, res) => {
     createdAt: g.createdAt,
     expiry: g.expiry || null,
     url: '/g/' + g.slug,
+    enabled: g.enabled !== false,
     downloadsEnabled: g.downloadsEnabled !== false,
     albumsEnabled: !!(g.albums && g.albums.enabled),
     clientsCount: (g.clients || []).length,
