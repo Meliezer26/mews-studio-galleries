@@ -889,10 +889,13 @@ app.post('/api/admin/mail/connect', requireAdmin, (req, res) => {
 app.get('/api/admin/mail/status', requireAdmin, async (req, res) => {
   const connected = drive.isMailConnected();
   const account = connected ? await drive.mailAccount() : null;
+  // Le profil API exige un scope > gmail.send : en secours, l'adresse du champ Expéditeur.
+  const m = /<([^<>]+)>/.exec(String((store.config().notifications || {}).from || ''));
+  const fallbackEmail = m ? m[1].trim() : '';
   res.json({
     configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     connected,
-    email: account ? account.emailAddress : null,
+    email: (account && account.emailAddress) || (connected ? fallbackEmail : null),
     accountError: (account && account.error) || null,
     // Admin uniquement : à reporter dans la variable GOOGLE_MAIL_REFRESH_TOKEN
     // de l'hébergeur pour survivre aux redéploiements (comme GOOGLE_REFRESH_TOKEN).
