@@ -1080,6 +1080,29 @@ app.post('/api/admin/test-email', requireAdmin, async (req, res) => {
   }
 });
 
+/** Envoie un rappel Google Agenda (bouton « Ajouter à l'agenda ») à l'adresse demandée. */
+app.post('/api/admin/reminder/send', requireAdmin, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const to = String(body.to || '').trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return res.status(400).json({ error: 'Adresse de destination manquante ou invalide.' });
+    const start = String(body.start || '');
+    const end = String(body.end || '');
+    if (!/^\d{8}T\d{6}$/.test(start) || !/^\d{8}T\d{6}$/.test(end)) return res.status(400).json({ error: 'Heures invalides — format attendu AAAAMMJJTHHMMSS (ex. 20260921T100000).' });
+    await mailer.sendReminder({
+      to,
+      title: String(body.title || 'Rappel — Mews Studio').slice(0, 200),
+      startLocal: start,
+      endLocal: end,
+      details: String(body.details || '').slice(0, 1000),
+      ctz: String(body.ctz || 'Europe/Paris').slice(0, 40),
+    });
+    res.json({ ok: true, to });
+  } catch (err) {
+    res.status(502).json({ error: 'Envoi impossible : ' + err.message });
+  }
+});
+
 app.get('/api/admin/status', requireAdmin, async (req, res) => {
   const acc = drive.isConnected() ? await drive.driveAccount() : null;
   const all = store.galleries();
