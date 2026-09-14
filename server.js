@@ -1196,10 +1196,10 @@ function buildClientAccessMailto(info) {
 
 /** Parse une liste d'adresses e-mails (chaîne ou tableau) — séparateurs : virgule, point-virgule, espaces, retours à la ligne. */
 function parseEmailList(input) {
-  const raw = Array.isArray(input) ? input.map(String) : String(input || '');
+  const joined = Array.isArray(input) ? input.map((x) => String(x)).join(',') : String(input || '');
   const out = [];
   const seen = new Set();
-  raw.join(',').split(/[,;\s\n]+/).map((s) => s.trim()).filter(Boolean).forEach((addr) => {
+  joined.split(/[,;\s\n]+/).map((s) => s.trim()).filter(Boolean).forEach((addr) => {
     if (addr.length > 200 || !/^\S+@\S+\.\S+$/.test(addr)) return;
     const k = addr.toLowerCase();
     if (!seen.has(k)) { seen.add(k); out.push(addr); }
