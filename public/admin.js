@@ -421,7 +421,7 @@
     if (g.mode === 'drive') {
       actions.appendChild(actBtn('Sync', 'ghost', function () { syncGallery(g, this); }));
     }
-    actions.appendChild(actBtn(g.enabled === false ? 'Activer' : 'Désactiver', 'soft', function () { toggleGallery(g, this); }));
+    actions.appendChild(actBtn(g.enabled === false ? 'Activer' : 'Désactiver', g.enabled === false ? 'toggle-off' : 'soft', function () { toggleGallery(g, this); }));
     actions.appendChild(actBtn('Supprimer', 'danger', function () { removeGallery(g); }));
 
     body.appendChild(h3);

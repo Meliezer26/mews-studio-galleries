@@ -84,6 +84,8 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 .btn--soft:hover { background: rgba(255, 255, 255, 0.24); }
 .btn--danger { background: rgba(224, 108, 90, 0.12); color: var(--danger); }
 .btn--danger:hover { background: rgba(224, 108, 90, 0.22); }
+.btn--toggle-off { background: var(--danger); color: #ffffff; border-color: var(--danger); }
+.btn--toggle-off:hover { background: #c95c49; transform: translateY(-1px); }
 .btn--sm { padding: 9px 18px; font-size: 0.86rem; }
 .btn--lg { padding: 16px 34px; font-size: 1.02rem; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
