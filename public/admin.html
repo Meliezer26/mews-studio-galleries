@@ -489,6 +489,7 @@
     <div class="field">
       <label>Nouveau mot de passe client (laisser vide pour conserver)</label>
       <input class="input" id="eg-password" placeholder="Au moins 4 caractères" autocomplete="off">
+      <p class="small muted" id="eg-pass-ref" style="margin:6px 0 0"></p>
     </div>
     <div class="field hidden" id="eg-folder-field">
       <label>Dossier Google Drive</label>
@@ -536,7 +537,8 @@
     </div>
     <div class="field">
       <label>Mot de passe de la galerie (pour l'inclure dans l'e-mail)</label>
-      <input class="input" id="mca-gpw" placeholder="Facultatif — il n'est jamais stocké, impossible de le retrouver ensuite">
+      <input class="input" id="mca-gpw" placeholder="Mot de passe que le client saisira pour déverrouiller">
+      <p class="small muted" id="mca-gpw-hint" style="margin:6px 0 0"></p>
     </div>
     <div class="form-actions">
       <button class="btn btn--gold" id="btn-save-client-access">Créer et envoyer l'accès</button>

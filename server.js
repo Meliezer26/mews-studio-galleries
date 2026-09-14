@@ -1269,6 +1269,7 @@ app.get('/api/admin/clients', requireAdmin, (req, res) => {
       id: g.id,
       slug: g.slug,
       name: g.name,
+      passwordRef: g.passwordRef || null,
       clients: (g.clients || []).map((c) => ({
         id: c.id,
         name: c.name,
@@ -1369,6 +1370,7 @@ app.post('/api/admin/galleries', requireAdmin, (req, res) => {
     clientName: String(body.clientName || '').trim() || null,
     eventName: String(body.eventName || '').trim() || null,
     passwordHash: sec.hashPassword(password),
+    passwordRef: password,
     mode,
     folderId,
     folderName: body.folderName || (mode === 'demo' ? 'Photos locales (mode démo)' : folderId),
@@ -1430,6 +1432,7 @@ app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {
   if (body.password !== undefined && body.password !== '') {
     if (String(body.password).length < 4) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 4 caractères.' });
     g.passwordHash = sec.hashPassword(String(body.password));
+    g.passwordRef = String(body.password); // référence lisible (admin uniquement) pour pré-remplir « Envoyer l'accès »
   }
   if (body.expiry !== undefined) g.expiry = body.expiry ? new Date(body.expiry).getTime() : null;
   if (body.watermarkEnabled !== undefined) {

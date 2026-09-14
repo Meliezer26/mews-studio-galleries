@@ -120,7 +120,7 @@
           addBtn.className = 'btn btn--gold btn--sm';
           addBtn.textContent = '+ Nouveau client';
           addBtn.type = 'button';
-          addBtn.addEventListener('click', function () { openClientAccessModal(g.id, g.slug, g.name, null); });
+          addBtn.addEventListener('click', function () { openClientAccessModal(g.id, g.slug, g.name, null, g.passwordRef); });
           head.appendChild(addBtn);
           card.appendChild(head);
           if (!g.clients.length) {
@@ -148,7 +148,7 @@
             sendBtn.className = 'btn btn--ghost btn--sm';
             sendBtn.textContent = '📧 Envoyer l\u2019accès';
             sendBtn.type = 'button';
-            sendBtn.addEventListener('click', function () { openClientAccessModal(g.id, g.slug, g.name, c); });
+            sendBtn.addEventListener('click', function () { openClientAccessModal(g.id, g.slug, g.name, c, g.passwordRef); });
             rhead.appendChild(sendBtn);
             row.appendChild(rhead);
             var chips = document.createElement('div');
@@ -178,7 +178,7 @@
   }
 
   /* --- Modale : créer un client / envoyer l'accès -------------- */
-  function openClientAccessModal(galleryId, slug, galleryName, client) {
+  function openClientAccessModal(galleryId, slug, galleryName, client, passwordRef) {
     state.clientAccess = { galleryId, clientId: client ? client.id : null };
     $('mca-title').textContent = client
       ? 'Envoyer l\u2019accès — ' + client.name + ' (' + galleryName + ')'
@@ -186,7 +186,10 @@
     $('mca-name').value = client ? client.name : '';
     $('mca-name').disabled = !!client;
     $('mca-email').value = client ? (client.email || '') : '';
-    $('mca-gpw').value = '';
+    $('mca-gpw').value = passwordRef || '';
+    $('mca-gpw-hint').textContent = passwordRef
+      ? 'Mot de passe actuel de la galerie (pré-rempli — le client l\u2019utilisera pour déverrouiller).'
+      : 'Non mémorisé pour cette galerie : saisissez le mot de passe que le client utilisera (ou videz le champ pour ne pas l\u2019inclure dans l\u2019e-mail). Astuce : définissez-le dans Galeries → Modifier pour le retrouver ici automatiquement.';
     $('btn-save-client-access').textContent = client ? 'Envoyer l\u2019accès' : 'Créer et envoyer l\u2019accès';
     openModal('m-client-access');
     setTimeout(function () { $(client ? 'mca-email' : 'mca-name').focus(); }, 60);
@@ -507,9 +510,13 @@
     $('eg-event').value = g.eventName || '';
     $('eg-password').value = '';
     $('eg-expiry').value = g.expiry ? new Date(g.expiry).toISOString().slice(0, 10) : '';
+    $('eg-pass-ref').textContent = '';
     window.api('/api/admin/galleries/' + g.id)
       .then(function (data) {
         var full = data.gallery;
+        $('eg-pass-ref').textContent = full.passwordRef
+          ? 'Mot de passe actuel : ' + full.passwordRef + '  (laisser vide pour le conserver)'
+          : 'Mot de passe actuel : non mémorisé — saisissez-le ici pour le retrouver ensuite dans « Envoyer l\u2019accès ».';
         $('eg-dl').checked = full.downloadsEnabled !== false;
         $('eg-albums').checked = !!(full.albums && full.albums.enabled);
         $('eg-wm').checked = !!(full.watermark && full.watermark.enabled);
