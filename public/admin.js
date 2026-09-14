@@ -361,7 +361,7 @@
 
   function galleryCard(g) {
     var card = document.createElement('div');
-    card.className = 'g-card';
+    card.className = 'g-card' + (g.enabled === false ? ' g-card--off' : '');
 
     var cover = document.createElement('div');
     cover.className = 'g-card-cover';
@@ -405,6 +405,7 @@
     var meta = document.createElement('div');
     meta.className = 'g-card-meta';
     meta.appendChild(badge(g.mode === 'drive' ? 'Drive' : 'Stockage local', g.mode === 'drive' ? 'gold' : ''));
+    if (g.enabled === false) meta.appendChild(badge('Désactivée', 'warn'));
     if (g.downloadsEnabled === false) meta.appendChild(badge('Sans téléchargement', 'warn'));
     if (g.albumsEnabled) meta.appendChild(badge('👥 ' + (g.clientsCount || 0) + ' client(s)', 'ok'));
     if (g.expiry) {
@@ -420,6 +421,7 @@
     if (g.mode === 'drive') {
       actions.appendChild(actBtn('Sync', 'ghost', function () { syncGallery(g, this); }));
     }
+    actions.appendChild(actBtn(g.enabled === false ? 'Activer' : 'Désactiver', 'soft', function () { toggleGallery(g, this); }));
     actions.appendChild(actBtn('Supprimer', 'danger', function () { removeGallery(g); }));
 
     body.appendChild(h3);
@@ -444,6 +446,21 @@
     b.textContent = text;
     b.addEventListener('click', fn);
     return b;
+  }
+
+  function toggleGallery(g, btn) {
+    var enabling = g.enabled === false;
+    var msg = enabling
+      ? 'Réactiver la galerie « ' + g.name + ' » ?\nVos clients retrouveront l\u2019accès.'
+      : 'Désactiver la galerie « ' + g.name + ' » ?\nVos clients ne pourront plus l\u2019ouvrir (les photos ne sont pas touchées).';
+    if (!window.confirm(msg)) return;
+    btn.disabled = true;
+    window.api('/api/admin/galleries/' + g.id + '/update', { method: 'POST', body: { enabled: enabling } })
+      .then(function () {
+        window.toast(enabling ? 'Galerie activée ✓' : 'Galerie désactivée', 'ok');
+        loadGalleries();
+      })
+      .catch(function (err) { window.toast(err.message, 'err'); btn.disabled = false; });
   }
 
   function removeGallery(g) {

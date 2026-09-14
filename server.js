@@ -136,7 +136,8 @@ function requireAdmin(req, res, next) {
 }
 
 function findGallery(slug) {
-  return store.galleries().find((g) => g.slug === String(slug)) || null;
+  // Galerie désactivée (toggle admin) = invisible côté client, comme introuvable.
+  return store.galleries().find((g) => g.slug === String(slug) && g.enabled !== false) || null;
 }
 
 function isExpired(g) {
@@ -416,7 +417,7 @@ app.post('/api/connexion', (req, res) => {
 
   const matches = [];
   for (const g of store.galleries()) {
-    if (g.passwordHash && !isExpired(g) && sec.verifyPassword(password, g.passwordHash)) {
+    if (g.passwordHash && g.enabled !== false && !isExpired(g) && sec.verifyPassword(password, g.passwordHash)) {
       matches.push(g);
     }
     if (matches.length >= 20) break; // sécurité : on s'arrête à 20 correspondances
@@ -1427,6 +1428,9 @@ app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {
   }
   if (body.downloadsEnabled !== undefined) {
     g.downloadsEnabled = !!body.downloadsEnabled;
+  }
+  if (body.enabled !== undefined) {
+    g.enabled = !!body.enabled;
   }
   if (body.folderId !== undefined && body.folderId !== '') {
     g.mode = 'drive';
