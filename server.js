@@ -77,6 +77,20 @@ store.ensureDirs();
   } catch (err) {
     console.warn('[oauth] Ré-hydratation impossible :', err.message);
   }
+  // Auto-réparation : si la restauration a laissé une config sans mot de passe
+  // admin (config.json vide/incomplet), il est rétabli depuis l'env ADMIN_PASSWORD
+  // (source de vérité, même principe que les jetons Google).
+  try {
+    const cfgH = store.config();
+    if (!cfgH.adminPasswordHash && process.env.ADMIN_PASSWORD) {
+      cfgH.adminPasswordHash = sec.hashPassword(process.env.ADMIN_PASSWORD);
+      if (!cfgH.secret) cfgH.secret = sec.randomToken(32);
+      store.saveConfig(cfgH);
+      console.log('[startup] Config réparée : mot de passe admin rétabli depuis ADMIN_PASSWORD.');
+    }
+  } catch (err) {
+    console.warn('[startup] Réparation de la config impossible :', err.message);
+  }
   demo.seed();
   backup.cleanupExpiredGrants().catch(() => {});
   backup.startPeriodicBackup();
