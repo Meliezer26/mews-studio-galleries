@@ -516,12 +516,30 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .alb-badge-num.in { background: var(--red); color: #ffffff; }
 .g-item.in-album { outline: 2px solid var(--red); outline-offset: -2px; }
 
-/* Mention discrète : photo déjà envoyée dans un album précédent (pas de blocage) */
-.alb-sent-tag {
+/* Petit ✦ doré : photo déjà dans un album (informationnel, jamais un blocage) */
+.alb-sent-star {
   position: absolute; right: 8px; top: 8px; z-index: 6;
-  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
-  color: #000; background: rgba(240, 200, 120, 0.88); padding: 3px 8px; border-radius: 99px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 0.72rem; color: #000;
+  background: rgba(240, 200, 120, 0.92);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.35);
+  pointer-events: auto; cursor: help;
+}
+@media (hover: hover) {
+  .alb-sent-star:hover { transform: scale(1.25); transition: transform 0.12s ease; }
+}
+/* Légende du ✦ (visible seulement après le premier envoi) */
+.alb-legend {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 10px 14px; margin-bottom: 10px; border-radius: 10px;
+  font-size: 0.78rem; line-height: 1.45; color: var(--ink-2);
+  background: rgba(240, 200, 120, 0.08); border: 1px solid rgba(240, 200, 120, 0.3);
+}
+.alb-legend-star {
+  flex: none; width: 20px; height: 20px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 0.66rem; color: #000;
+  background: rgba(240, 200, 120, 0.92);
 }
 /* Carte d'album : ligne « déjà envoyé à Mews Studio » */
 .alb-sentline { margin-top: 4px; font-size: 0.74rem; font-weight: 600; color: #86c994; white-space: nowrap; }

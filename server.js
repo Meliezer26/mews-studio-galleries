@@ -513,6 +513,14 @@ app.get('/api/g/:slug/photos', async (req, res) => {
         ? { types, email: store.config().photographerEmail || 'mewstudiofrance@gmail.com' }
         : null;
     })(),
+    // Photos déjà dans au moins un album envoyé (tous clients confondus) :
+    // sert au petit ✦ informatif (« déjà dans un album »), jamais un blocage.
+    sentInAlbums: (function () {
+      const s = new Set();
+      (g.clients || []).forEach((c) => (c.selections || []).forEach((sel) =>
+        (sel.albums || []).forEach((a) => (a.photoIds || []).forEach((id) => s.add(id)))));
+      return Array.from(s);
+    })(),
   });
 });
 

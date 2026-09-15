@@ -17,6 +17,7 @@
     albumMode: false,
     alb: { name: '', checked: {}, active: null, photos: {}, covers: {} }, // par typeId ; covers: { typeId: photoId }
     client: null,              // { token, name, history } — profil identifié
+    sentInAlbums: [],          // photos déjà dans un album envoyé (tous clients) → ✦
     saveTimer: null,
     sending: false,            // verrou anti double-envoi de sélection
   };
@@ -332,6 +333,13 @@
     wrap.innerHTML = '';
     renderIdentity();
     renderHistory();
+    // Légende du ✦ : visible seulement si des albums ont déjà été envoyés (par quelqu'un)
+    if (state.sentInAlbums && state.sentInAlbums.length) {
+      var legend = document.createElement('div');
+      legend.className = 'alb-legend';
+      legend.innerHTML = '<span class="alb-legend-star">✦</span> Photo déjà choisie pour un album (le vôtre ou celui d\u2019une autre personne). <b>Aucune inquiétude :</b> elle reste bien disponible — vous pouvez tout à fait la choisir aussi pour votre album.';
+      wrap.appendChild(legend);
+    }
     var hint = document.createElement('div');
     hint.className = 'alb-cover-hint';
     hint.innerHTML = '🖼 <b>Couverture d\u2019album</b> : choisissez pour chaque album une photo en format <b>horizontal (paysage)</b>.';
@@ -433,12 +441,12 @@
 
     if (state.albumMode && state.albums) renderAlbumsPanel();
 
-    // Photos déjà envoyées par le client : simples « marquées » (pas de verrou —
-    // une même photo peut figurer dans plusieurs albums).
+    // Photos déjà dans un album envoyé (n'importe quel client) : simple ✦
+    // informatif — jamais un blocage.
     var sentSet = null;
-    if (state.albumMode && state.albums && state.client && state.client.sentIds && state.client.sentIds.length) {
+    if (state.albumMode && state.albums && state.sentInAlbums && state.sentInAlbums.length) {
       sentSet = {};
-      state.client.sentIds.forEach(function (id) { sentSet[id] = 1; });
+      state.sentInAlbums.forEach(function (id) { sentSet[id] = 1; });
     }
 
     var vis = visiblePhotos();
@@ -490,11 +498,12 @@
       if (state.albumMode && state.albums) {
         var isSent = !!(sentSet && sentSet[p.id]);
         if (isSent) {
-          // Simple mention « déjà envoyée » (informationnelle, pas de blocage)
+          // Petit ✦ doré : « déjà dans un album » — purement informatif,
+          // sans effet de blocage (la photo reste sélectionnable).
           var sentTag = document.createElement('span');
-          sentTag.className = 'alb-sent-tag';
-          sentTag.textContent = '✓ envoyée';
-          sentTag.title = 'Photo déjà envoyée dans un album précédent (elle peut aussi figurer dans un autre album)';
+          sentTag.className = 'alb-sent-star';
+          sentTag.textContent = '✦';
+          sentTag.title = 'Cette photo figure déjà dans un album — vous pouvez tout à fait la choisir aussi pour le vôtre.';
           tile.appendChild(sentTag);
         }
         var activeT = albumById(state.alb.active) || (state.albums.types[0] ? albumById(state.albums.types[0].id) : null);
@@ -581,6 +590,10 @@
     }
     list.push(p.id);
     state.alb.photos[typeId] = list;
+    // Rassure au moment exact où une photo « déjà dans un album » est ajoutée
+    if (state.sentInAlbums && state.sentInAlbums.indexOf(p.id) > -1) {
+      window.toast('✓ Ajoutée ! Elle figure aussi dans un autre album — c\u2019est tout à fait possible.', 'ok');
+    }
     saveAlbums();
     renderAlbumsPanel();
     render();
@@ -761,6 +774,9 @@
         albums.forEach(function (a) {
           var list = state.alb.photos[a.typeId] || [];
           state.alb.photos[a.typeId] = list.filter(function (id) { return a.photoIds.indexOf(id) === -1; });
+          a.photoIds.forEach(function (id) {
+            if (state.sentInAlbums.indexOf(id) === -1) state.sentInAlbums.push(id);
+          });
         });
         saveAlbumsLocal();
         renderAlbumsPanel();
@@ -1072,6 +1088,8 @@
         state.downloads = data.downloads !== false;
         state.watermark = data.watermark || null;
         state.albums = data.albums || null;
+        // Photos déjà dans un album envoyé (tous clients) → ✦ informatif
+        state.sentInAlbums = data.sentInAlbums || [];
     state.albumMode = !!state.albums;
     $('albums-panel').classList.toggle('hidden', !state.albums);
         document.title = state.galleryMeta.name + ' — Mews Studio Galleries';
