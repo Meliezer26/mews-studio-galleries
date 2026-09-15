@@ -29,35 +29,35 @@ const sec = require('./lib/security');
 const mailer = require('./lib/mailer');
 const backup = require('./lib/backup');
 const driveSort = require('./lib/drive-sort');
+const { PACKAGE_DEFS, packageCapacity, packageLabel, sanitizePackages } = require('./lib/packages');
 const { ALBUM_TYPES } = demo;
 
-/** Formats d'albums configurés pour une galerie (rétro-compat : pas de types = tous les formats). */
+/** Formats d'albums génériques (rétro-compat pour les galeries créées
+    avant les packages : « Album 200 photos » etc.). */
 function galleryAlbumTypes(g) {
   if (!g || !g.albums || !Array.isArray(g.albums.types) || !g.albums.types.length) return ALBUM_TYPES;
   return ALBUM_TYPES.filter((t) => g.albums.types.includes(t.id));
 }
 
-/** Options d'impression vendues (posters, agrandissements) : sélection de
-    photos côté client comme les albums (envoi, verrou, tri Drive).
-    Capacité = quantité commandée (ex : 2 posters → choisir 2 photos). */
-const PRINT_PACKAGES = [
-  { id: 'posters-30x45', label: 'Posters 30\u00d745' },
-  { id: 'agrandissements-20x30', label: 'Agrandissements 20\u00d730' },
-];
-
-function printOptionTypes(g) {
+/** Tous les formats sélectionnables côté client : UNE CARTE PAR PACKAGE
+    VENDU, avec son descriptif exact (ex : « Album 30×60 — 150 photos »).
+    Capacité d'un album = nombre de photos du package ; capacité d'un
+    poster/agrandissement = quantité commandée (2 posters → 2 photos). */
+function allSelectableTypes(g) {
   const pk = (g && g.packages) || {};
   const out = [];
-  PRINT_PACKAGES.forEach((p) => {
-    const qty = Number(pk[p.id]) || 0;
-    if (qty > 0) out.push({ id: p.id, label: p.label, capacity: Math.min(999, qty), print: true });
-  });
+  for (const def of PACKAGE_DEFS) {
+    if (def.type === 'check') {
+      if (pk[def.id]) {
+        out.push({ id: def.id, label: def.label, capacity: packageCapacity(def.id), print: false });
+      }
+    } else if (Number(pk[def.id]) > 0) {
+      out.push({ id: def.id, label: def.label, capacity: Math.min(999, Number(pk[def.id])), print: true });
+    }
+  }
+  // Rétro-compat : galerie sans aucun package → formats génériques d'albums.
+  if (!out.length) return galleryAlbumTypes(g);
   return out;
-}
-
-/** Tous les formats sélectionnables côté client : albums photo + impressions. */
-function allSelectableTypes(g) {
-  return galleryAlbumTypes(g).concat(printOptionTypes(g));
 }
 
 /** Nettoie la liste des formats envoyée par l'admin (ids valides, pas de doublons). */
@@ -1419,34 +1419,6 @@ function parseEmailList(input) {
   return out.slice(0, 25); // sécurité : max 25 adresses par envoi
 }
 
-/** Catalogue des packages vendus (cases à cocher + quantités). */
-const PACKAGE_DEFS = [
-  { id: 'album-30x80-200', type: 'check' },
-  { id: 'album-maries-offert-25x50-100', type: 'check' },
-  { id: 'album-parents1-25x50-100', type: 'check' },
-  { id: 'album-parents2-100', type: 'check' },
-  { id: 'album-mairie-henné-25x50-150', type: 'check' },
-  { id: 'album-mairie-henne-30x60-150', type: 'check' },
-  { id: 'album-30x60-150', type: 'check' },
-  { id: 'album-25x50-100', type: 'check' },
-  { id: 'posters-30x45', type: 'qty' },
-  { id: 'agrandissements-20x30', type: 'qty' },
-];
-
-function sanitizePackages(input) {
-  const src = (input && typeof input === 'object' && !Array.isArray(input)) ? input : {};
-  const out = {};
-  for (const def of PACKAGE_DEFS) {
-    if (def.type === 'check') {
-      if (src[def.id]) out[def.id] = true;
-    } else {
-      const n = Math.max(0, Math.min(999, parseInt(src[def.id], 10) || 0));
-      if (n > 0) out[def.id] = n;
-    }
-  }
-  return out;
-}
-
 /** Capacités d'albums dérivées des packages vendus (suffixe -100/-150/-200 de l'id).
     Un package album coché ⇒ la sélection des photos côté client est activée
     pour cette capacité. Posters/agrandissements (suffixes -45/-30) ne comptent pas. */
@@ -1690,6 +1662,15 @@ app.get('/api/admin/galleries', requireAdmin, (req, res) => {
     albumTypes: (g.albums && Array.isArray(g.albums.types) && g.albums.types.length)
       ? g.albums.types
       : ((g.albums && g.albums.enabled) ? ALBUM_TYPES.map((t) => t.id) : null),
+    // Descriptifs exacts des albums vendus (packages cochés) — pour la carte galerie.
+    albumPackages: (function () {
+      const pk = g.packages || {};
+      const out = [];
+      for (const def of PACKAGE_DEFS) {
+        if (def.type === 'check' && pk[def.id]) out.push(def.label);
+      }
+      return out;
+    })(),
     clientsCount: (g.clients || []).length,
     cover: g.files && g.files.length
       ? `/api/admin/galleries/${g.id}/photo/${encodeURIComponent(g.files[0].id)}/thumb?size=400`
@@ -1772,9 +1753,18 @@ app.get('/api/admin/galleries/:id', requireAdmin, async (req, res) => {
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
   await syncGallery(g);
   const { passwordHash, ...safeGallery } = g;
+  // Descriptif exact de chaque album/impression des sélections (package ou
+  // ancien format générique) — l'admin n'a plus à deviner le typeId.
+  const enrichSel = (sel) => Object.assign({}, sel, {
+    albums: (sel.albums || []).map((a) => Object.assign({}, a, { label: packageLabel(a.typeId) })),
+  });
+  if (Array.isArray(safeGallery.selections)) {
+    safeGallery.selections = safeGallery.selections.map(enrichSel);
+  }
   if (Array.isArray(safeGallery.clients)) {
     safeGallery.clients = safeGallery.clients.map((c) => {
       const { pinHash, ...rest } = c;
+      if (Array.isArray(rest.selections)) rest.selections = rest.selections.map(enrichSel);
       return rest;
     });
   }

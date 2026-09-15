@@ -457,7 +457,10 @@
     if (pkCount) meta.appendChild(badge('📦 ' + pkCount + ' package' + (pkCount > 1 ? 's' : '') + ' vendu' + (pkCount > 1 ? 's' : ''), 'ok'));
     if (g.downloadsEnabled === false) meta.appendChild(badge('Sans téléchargement', 'warn'));
     if (g.albumsEnabled) {
-      var albLabel = (g.albumTypes || []).join(' · ');
+      // Descriptifs exacts des albums vendus (packages) ; ids génériques en rétro-compat.
+      var albLabel = (g.albumPackages && g.albumPackages.length)
+        ? g.albumPackages.join(' · ')
+        : (g.albumTypes || []).join(' · ');
       meta.appendChild(badge('▣ Albums' + (albLabel ? ' ' + albLabel : ''), 'gold'));
       meta.appendChild(badge('👥 ' + (g.clientsCount || 0) + ' client(s)', 'ok'));
     }
@@ -787,7 +790,8 @@
       (sel.albums || []).forEach(function (a) {
         var line = document.createElement('div');
         line.className = 'sel-album';
-        var label = (a.typeId === '200' ? 'Album 200 photos' : a.typeId === '150' ? 'Album 150 photos' : 'Album 100 photos');
+        // Descriptif exact fourni par le serveur (package ou format générique).
+        var label = a.label || (a.typeId === '200' ? 'Album 200 photos' : a.typeId === '150' ? 'Album 150 photos' : 'Album 100 photos');
         var b = document.createElement('b');
         b.textContent = label + ' — ' + a.photoIds.length + ' photo(s)';
         line.appendChild(b);

@@ -3,7 +3,25 @@
   'use strict';
 
   var slug = window.location.pathname.split('/').filter(Boolean)[1] || '';
-  var ALBUM_COLORS = { '200': '#ffffff', '150': '#b8b8b8', '100': '#7d7d7d', 'posters-30x45': '#e8c66a', 'agrandissements-20x30': '#d9a05b' };
+  // Un point + une barre de progression par carte. Ids « 200/150/100 » =
+  // anciens formats génériques ; ids packages = descriptif exact du package.
+  var ALBUM_COLORS = {
+    '200': '#ffffff', '150': '#b8b8b8', '100': '#7d7d7d',
+    'album-30x80-200': '#ffffff',
+    'album-maries-offert-25x50-100': '#9a9a9a',
+    'album-parents1-25x50-100': '#8a8a8a',
+    'album-parents2-100': '#6a6a6a',
+    'album-mairie-henn\u00e9-25x50-150': '#a8a8a8',
+    'album-mairie-henne-30x60-150': '#c8c8c8',
+    'album-30x60-150': '#b8b8b8',
+    'album-25x50-100': '#7d7d7d',
+    'posters-30x45': '#e8c66a',
+    'agrandissements-20x30': '#d9a05b'
+  };
+  var ALBUM_PALETTE = ['#e0e0e0', '#c4c4c4', '#a8a8a8', '#8c8c8c', '#707070'];
+  function albumColor(id, i) {
+    return ALBUM_COLORS[id] || ALBUM_PALETTE[(i || 0) % ALBUM_PALETTE.length];
+  }
 
   var state = {
     photos: [],
@@ -354,7 +372,7 @@
     hint.className = 'alb-cover-hint';
     hint.innerHTML = '🖼 <b>Couverture d\u2019album</b> : choisissez pour chaque album photo une photo en format <b>horizontal (paysage)</b>.';
     wrap.appendChild(hint);
-    state.albums.types.forEach(function (t) {
+    state.albums.types.forEach(function (t, ti) {
       var card = document.createElement('button');
       card.type = 'button';
       card.className = 'alb-card';
@@ -369,7 +387,7 @@
       var head = document.createElement('div');
       head.className = 'alb-card-head';
       head.innerHTML =
-        '<span class="dot-c" style="background:' + ALBUM_COLORS[t.id] + '"></span>' +
+        '<span class="dot-c" style="background:' + albumColor(t.id, ti) + '"></span>' +
         '<b>' + t.label + '</b>' +
         (locked ? '<span class="alb-locked-badge">✓ Envoyé à Mews Studio</span>' : '<span class="alb-check">✓</span>');
 
@@ -386,7 +404,7 @@
       bar.className = 'alb-bar';
       bar.innerHTML = locked
         ? '<i style="width:100%;background:#86c994"></i>'
-        : '<i style="width:' + Math.min(100, (photos.length / t.capacity) * 100) + '%;background:' + ALBUM_COLORS[t.id] + '"></i>';
+        : '<i style="width:' + Math.min(100, (photos.length / t.capacity) * 100) + '%;background:' + albumColor(t.id, ti) + '"></i>';
 
       card.appendChild(head);
       card.appendChild(count);
