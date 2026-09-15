@@ -576,7 +576,7 @@
     $('ng-password').value = '';
     $('ng-expiry').value = '';
     $('ng-mode').value = 'drive';
-    $('ng-dl').checked = true;
+    $('ng-dl').checked = false;
     document.querySelectorAll('#m-new .pk').forEach(function (el) { el.checked = false; });
     document.querySelectorAll('#m-new .pk-qty').forEach(function (el) { el.value = ''; });
     // Mémorise les packages de la galerie précédente
@@ -587,9 +587,9 @@
         document.querySelectorAll('#m-new .pk-qty').forEach(function (el) { el.value = lastP[el.dataset.id] || ''; });
       }
     } catch (e) { /* ignore */ }
-    $('ng-wm').checked = false;
+    $('ng-wm').checked = true;
     $('ng-wm-text').value = 'Mews Studio';
-    $('ng-wm-field').classList.add('hidden');
+    $('ng-wm-field').classList.remove('hidden');
     $('ng-folder').value = '';
     $('ng-folder-preview').textContent = '';
     refreshFolderSelect();

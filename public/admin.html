@@ -7,7 +7,7 @@
 <title>Espace photographe — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915b">
+<link rel="stylesheet" href="/styles.css?v=20260915c">
 <style>
   /* ---------- Espace photographe ---------- */
   .a-shell { display: none; min-height: 100vh; }
@@ -284,7 +284,7 @@
         <h3 class="display-3" style="margin-bottom:18px">Téléchargements</h3>
         <div class="field">
           <label class="check"><input type="checkbox" id="set-global-dl" checked> Autoriser le téléchargement de toutes les photos</label>
-          <div class="field-hint">Interrupteur global : décochez pour couper immédiatement le téléchargement sur <b>toutes vos galeries</b>, quel que soit leur réglage individuel. À la création d'une galerie, le téléchargement est activé par défaut (modifiable galerie par galerie).</div>
+          <div class="field-hint">Interrupteur global : décochez pour couper immédiatement le téléchargement sur <b>toutes vos galeries</b>, quel que soit leur réglage individuel. À la création d'une galerie, le téléchargement est désactivé par défaut (modifiable galerie par galerie).</div>
         </div>
         <button class="btn btn--gold" id="btn-save-defaults" style="margin-bottom:40px">Enregistrer</button>
 
@@ -436,7 +436,7 @@
       <input class="input" id="ng-password" placeholder="Au moins 4 caractères">
     </div>
     <div class="field">
-      <label class="check"><input type="checkbox" id="ng-dl" checked> Autoriser le téléchargement des photos</label>
+      <label class="check"><input type="checkbox" id="ng-dl"> Autoriser le téléchargement des photos</label>
       <div class="field-hint">Si décoché, vos clients voient les photos mais ne peuvent pas les télécharger.</div>
     </div>
     <div class="field">
@@ -456,7 +456,7 @@
       <div class="field-hint">Cochez les packages vendus, indiquez les quantités pour les posters et agrandissements. <b>Chaque package coché = une carte côté client avec son descriptif exact</b> (ex : « Album 30x60 — 150 photos »). <b>Les quantités posters/agrandissements créent aussi une carte</b> (2 posters → le client choisit 2 photos, triées sur le Drive, verrouillées une fois envoyées). Le récapitulatif s'affiche sur la carte de la galerie.</div>
     </div>
     <div class="field">
-      <label class="check"><input type="checkbox" id="ng-wm"> Afficher un watermark sur les photos</label>
+      <label class="check"><input type="checkbox" id="ng-wm" checked> Afficher un watermark sur les photos</label>
       <div class="mt-8 hidden" id="ng-wm-field">
         <input class="input" id="ng-wm-text" placeholder="Texte du watermark (ex : Mews Studio)">
         <div class="field-hint">Affiché au centre gauche de chaque photo (les téléchargements restent sans watermark).</div>
@@ -613,6 +613,6 @@
 </div>
 
 <script src="/app.js"></script>
-<script src="/admin.js?v=20260915b"></script>
+<script src="/admin.js?v=20260915c"></script>
 </body>
 </html>
