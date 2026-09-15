@@ -377,6 +377,9 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .albums-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .albums-panel h2 { font-size: 1.05rem; margin-bottom: 2px; }
 .albums-panel .sub { color: var(--muted); font-size: 0.85rem; max-width: 460px; }
+.albums-steps { margin: 6px 0 0; padding-left: 20px; font-size: 0.85rem; line-height: 1.65; color: var(--ink-2); }
+.albums-steps-note { margin: 6px 0 0; font-size: 0.78rem; color: var(--muted); }
+.albums-steps-note b { color: var(--ink-2); }
 .albums-send { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .albums-send .input { width: 220px; }
 .albums-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
