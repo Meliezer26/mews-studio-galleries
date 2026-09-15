@@ -37,6 +37,29 @@ function galleryAlbumTypes(g) {
   return ALBUM_TYPES.filter((t) => g.albums.types.includes(t.id));
 }
 
+/** Options d'impression vendues (posters, agrandissements) : sélection de
+    photos côté client comme les albums (envoi, verrou, tri Drive).
+    Capacité = quantité commandée (ex : 2 posters → choisir 2 photos). */
+const PRINT_PACKAGES = [
+  { id: 'posters-30x45', label: 'Posters 30\u00d745' },
+  { id: 'agrandissements-20x30', label: 'Agrandissements 20\u00d730' },
+];
+
+function printOptionTypes(g) {
+  const pk = (g && g.packages) || {};
+  const out = [];
+  PRINT_PACKAGES.forEach((p) => {
+    const qty = Number(pk[p.id]) || 0;
+    if (qty > 0) out.push({ id: p.id, label: p.label, capacity: Math.min(999, qty), print: true });
+  });
+  return out;
+}
+
+/** Tous les formats sélectionnables côté client : albums photo + impressions. */
+function allSelectableTypes(g) {
+  return galleryAlbumTypes(g).concat(printOptionTypes(g));
+}
+
 /** Nettoie la liste des formats envoyée par l'admin (ids valides, pas de doublons). */
 function sanitizeAlbumTypes(input) {
   const list = Array.isArray(input) ? input : [];
@@ -214,7 +237,7 @@ function buildNotificationInfo(req, g, clientName, albums) {
     galleryName: g.name,
     clientName: clientName || null,
     galleryUrl: `${req.protocol}://${req.get('host')}/g/${g.slug}`,
-    albums: galleryAlbumTypes(g).map((t) => {
+    albums: allSelectableTypes(g).map((t) => {
       const entry = (albums || []).find((a) => a.typeId === t.id) || { photoIds: [] };
       const coverIdx = files.findIndex((f) => f.id === (entry.coverId || ''));
       return {
@@ -259,14 +282,20 @@ async function notifyClientSelection(req, g, client, sel) {
       galleryName: g.name,
       galleryUrl: `${req.protocol}://${req.get('host')}/g/${g.slug}`,
       albums: (sel.albums || []).map((a) => {
-        const t = galleryAlbumTypes(g).find((x) => x.id === a.typeId);
-        const coverIdx = (g.files || []).findIndex((f) => f.id === (a.coverId || ''));
+        const t = allSelectableTypes(g).find((x) => x.id === a.typeId);
+        const files = g.files || [];
+        const coverIdx = files.findIndex((f) => f.id === (a.coverId || ''));
         return {
           label: t ? t.label : a.typeId,
           count: (a.photoIds || []).length,
           cover: a.coverId
-            ? { index: coverIdx > -1 ? coverIdx + 1 : null, name: coverIdx > -1 ? (g.files || [])[coverIdx].name : a.coverId }
+            ? { index: coverIdx > -1 ? coverIdx + 1 : null, name: coverIdx > -1 ? files[coverIdx].name : a.coverId }
             : null,
+          // Liste des numéros choisis (demande explicite du client)
+          photos: (a.photoIds || []).map((id) => {
+            const idx = files.findIndex((f) => f.id === id);
+            return { index: idx > -1 ? idx + 1 : null, name: idx > -1 ? files[idx].name : id };
+          }),
         };
       }),
       options: galleryOptions(g),
@@ -551,7 +580,7 @@ app.get('/api/g/:slug/photos', async (req, res) => {
       ? { text: (g.watermark.text || 'Mews Studio').slice(0, 60) }
       : null,
     albums: (function () {
-      const types = g.albums && g.albums.enabled ? galleryAlbumTypes(g) : [];
+      const types = g.albums && g.albums.enabled ? allSelectableTypes(g) : [];
       return types.length
         ? { types, email: store.config().photographerEmail || 'mewstudiofrance@gmail.com' }
         : null;
@@ -592,13 +621,13 @@ app.post('/api/g/:slug/selection', async (req, res) => {
   }
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  const albums = galleryAlbumTypes(g).map((t) => {
+  const albums = allSelectableTypes(g).map((t) => {
     const incoming = ((req.body && req.body.albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
     const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
     // La couverture est libre : n'importe quelle photo de la galerie (pas
     // besoin qu'elle soit dans la sélection de l'album).
-    const coverId = (incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
+    const coverId = (!t.print && incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
       ? incoming.coverId : null;
     return { typeId: t.id, photoIds, coverId };
   });
@@ -652,7 +681,7 @@ function sentStateForClient(g, client) {
   const byType = {};
   (client.selections || []).forEach((s) => {
     (s.albums || []).forEach((a) => {
-      const t = galleryAlbumTypes(g).find((x) => x.id === a.typeId);
+      const t = allSelectableTypes(g).find((x) => x.id === a.typeId);
       if (!t) return;
       (a.photoIds || []).forEach((id) => all.add(id));
       if (!byType[t.id]) byType[t.id] = { count: 0, lastDate: 0, albumsSent: 0 };
@@ -675,7 +704,7 @@ function sentStateForGallery(g) {
   (g.clients || []).forEach((c) => {
     (c.selections || []).forEach((s) => {
       (s.albums || []).forEach((a) => {
-        const t = galleryAlbumTypes(g).find((x) => x.id === a.typeId);
+        const t = allSelectableTypes(g).find((x) => x.id === a.typeId);
         if (!t) return;
         (a.photoIds || []).forEach((id) => all.add(id));
         if (!byType[t.id]) byType[t.id] = { count: 0, lastDate: 0, albumsSent: 0 };
@@ -701,6 +730,7 @@ function clientAlbumState(albumTypes, body, validIds) {
   albumTypes.forEach((t) => { checked[t.id] = !!((body.checked || {})[t.id]); });
   const covers = {};
   albumTypes.forEach((t) => {
+    if (t.print) return; // les impressions (posters, agrandissements) n'ont pas de couverture
     const c = (body.covers || {})[t.id];
     // Couverture libre : n'importe quelle photo de la galerie.
     if (typeof c === 'string' && validIds.has(c)) covers[t.id] = c;
@@ -788,7 +818,7 @@ app.post('/api/g/:slug/client/albums', async (req, res) => {
   if (!client) return res.status(401).json({ error: 'Non identifié.' });
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  client.albums = clientAlbumState(galleryAlbumTypes(g), req.body || {}, valid);
+  client.albums = clientAlbumState(allSelectableTypes(g), req.body || {}, valid);
   client.lastSeenAt = Date.now();
   const all = store.galleries();
   const idx = all.findIndex((x) => x.id === g.id);
@@ -817,13 +847,13 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   const sentState = sentStateForGallery(g);
   const lockedTypes = new Set(Object.keys(sentState.byType).filter((t) => sentState.byType[t].albumsSent > 0));
   let lockedRejected = null;
-  const albums = galleryAlbumTypes(g).map((t) => {
+  const albums = allSelectableTypes(g).map((t) => {
     const incoming = (((req.body || {}).albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
     if (lockedTypes.has(t.id) && ids.length) lockedRejected = t;
     const photoIds = lockedTypes.has(t.id) ? [] : ids.filter((id) => valid.has(id)).slice(0, t.capacity);
     // Couverture libre : n'importe quelle photo de la galerie.
-    const coverId = (incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
+    const coverId = (!t.print && incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
       ? incoming.coverId : null;
     return { typeId: t.id, photoIds, coverId };
   });
@@ -1565,7 +1595,7 @@ app.get('/api/admin/clients', requireAdmin, (req, res) => {
       // Formats déjà envoyés (par qui) — verrou par galerie.
       gallerySentByType: (function () {
         const s = sentStateForGallery(g);
-        const types = galleryAlbumTypes(g);
+        const types = allSelectableTypes(g);
         const out = {};
         Object.keys(s.byType).forEach((t) => {
           if (s.byType[t].albumsSent > 0) {

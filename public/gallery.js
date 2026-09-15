@@ -3,7 +3,7 @@
   'use strict';
 
   var slug = window.location.pathname.split('/').filter(Boolean)[1] || '';
-  var ALBUM_COLORS = { '200': '#ffffff', '150': '#b8b8b8', '100': '#7d7d7d' };
+  var ALBUM_COLORS = { '200': '#ffffff', '150': '#b8b8b8', '100': '#7d7d7d', 'posters-30x45': '#e8c66a', 'agrandissements-20x30': '#d9a05b' };
 
   var state = {
     photos: [],
@@ -19,7 +19,6 @@
     client: null,              // { token, name, history } — profil identifié
     sentInAlbums: [],          // photos déjà dans un album envoyé (tous clients) → ✦
     gallerySentByType: {},     // formats d'album déjà envoyés (tous clients) → verrou global
-    options: {},               // options vendues avec quantité (posters, agrandissements)
     saveTimer: null,
     sending: false,            // verrou anti double-envoi de sélection
   };
@@ -353,20 +352,8 @@
     }
     var hint = document.createElement('div');
     hint.className = 'alb-cover-hint';
-    hint.innerHTML = '🖼 <b>Couverture d\u2019album</b> : choisissez pour chaque album une photo en format <b>horizontal (paysage)</b>.';
+    hint.innerHTML = '🖼 <b>Couverture d\u2019album</b> : choisissez pour chaque album photo une photo en format <b>horizontal (paysage)</b>.';
     wrap.appendChild(hint);
-    // Options vendues avec quantité (posters, agrandissements) — récapitulatif simple
-    var optWrap = $('albums-options');
-    var optKeys = Object.keys(state.options);
-    if (optKeys.length) {
-      var optLabels = { 'posters-30x45': 'Posters 30\u00d745', 'agrandissements-20x30': 'Agrandissements 20\u00d730' };
-      optWrap.classList.remove('hidden');
-      optWrap.innerHTML = '<b>\ud83d\udce6 Vos options</b> : ' + optKeys.map(function (id) {
-        return (optLabels[id] || id) + ' (\u00d7 ' + state.options[id] + ')';
-      }).join(' \u00b7 ');
-    } else {
-      optWrap.classList.add('hidden');
-    }
     state.albums.types.forEach(function (t) {
       var card = document.createElement('button');
       card.type = 'button';
@@ -404,7 +391,7 @@
       card.appendChild(head);
       card.appendChild(count);
       card.appendChild(bar);
-      if (checked && !locked) card.appendChild(buildCoverRow(t.id, photos));
+      if (checked && !locked && !t.print) card.appendChild(buildCoverRow(t.id, photos));
       var sentInfo = sentMap()[t.id];
       if (locked && sentInfo && sentInfo.lastDate) {
         var line = document.createElement('div');
@@ -1167,8 +1154,6 @@
         state.sentInAlbums = data.sentInAlbums || [];
         // Formats déjà envoyés (tous clients) → verrou global, visible aussi non identifié
         state.gallerySentByType = data.sentByType || {};
-        // Options vendues avec quantité (posters, agrandissements) → récapitulatif
-        state.options = data.options || {};
     state.albumMode = !!state.albums;
     $('albums-panel').classList.toggle('hidden', !state.albums);
         document.title = state.galleryMeta.name + ' — Mews Studio Galleries';
