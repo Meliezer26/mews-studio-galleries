@@ -230,6 +230,15 @@ function buildNotificationInfo(req, g, clientName, albums) {
         }),
       };
     }),
+    // Options vendues avec quantité (posters, agrandissements) — rappelées dans l'e-mail.
+    options: (function () {
+      const labels = { 'posters-30x45': 'Posters 30\u00d745', 'agrandissements-20x30': 'Agrandissements 20\u00d730' };
+      const out = [];
+      Object.entries(g.packages || {}).forEach(([id, n]) => {
+        if (typeof n === 'number' && n > 0) out.push({ label: labels[id] || id, qty: n });
+      });
+      return out;
+    })(),
   };
 }
 
