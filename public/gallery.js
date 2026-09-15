@@ -247,7 +247,7 @@
       // Un album envoyé est définitif pour toute la galerie (verrou par album).
       var note = document.createElement('p');
       note.className = 'hist-note';
-      note.textContent = 'Ces albums sont définitifs pour toute la galerie — pour un autre album, faites une nouvelle sélection ci-dessus.';
+      note.textContent = 'Ces albums sont définitifs pour toute la galerie.';
       wrap.appendChild(note);
 
       list.appendChild(wrap);
