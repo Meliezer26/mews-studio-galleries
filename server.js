@@ -330,19 +330,31 @@ function scheduleDriveApply(galleryId, selId) {
     if (!g) return;
     const sel = (g.selections || []).find((s) => s.id === selId);
     if (!sel) return;
+    // Les opérations Drive durent des dizaines de secondes : un envoi
+    // client peut avoir lieu ENTRE-TEMPS. Chaque écriture de statut est
+    // donc réappliquée sur l'état FRAIS (updateGalleries) — réécrire le
+    // snapshot lu au début écraserait ces envois (perte de données).
+    const setStatusFresh = (status, extra) => store.updateGalleries((cur) => {
+      const cg = cur.find((x) => x.id === galleryId);
+      const cs = cg && (cg.selections || []).find((s) => s.id === selId);
+      if (!cs) return false;
+      cs.driveStatus = status;
+      Object.assign(cs, extra);
+    });
     driveSort.setStatus(sel, 'pending');
-    store.saveGalleries(all);
+    setStatusFresh('pending', {});
     try {
       const result = await driveSort.applySelection(g, sel);
-      driveSort.setStatus(sel, result.errors.length ? 'partial' : 'ok', {
+      const extra = {
         driveFolderId: result.folderId,
         driveFolderName: result.folderName,
         driveFolderUrl: result.folderUrl,
         driveMode: result.mode,
         driveError: result.errors.length ? result.errors.map((e) => e.name + ' : ' + e.message).join(' ; ').slice(0, 400) : null,
         driveAppliedAt: Date.now(),
-      });
-      store.saveGalleries(all);
+      };
+      driveSort.setStatus(sel, result.errors.length ? 'partial' : 'ok', extra);
+      setStatusFresh(result.errors.length ? 'partial' : 'ok', extra);
       if (mailer.isConfigured()) {
         mailer.sendDriveFolderNotification({
           galleryName: g.name,
@@ -354,11 +366,9 @@ function scheduleDriveApply(galleryId, selId) {
         }).catch((err) => console.error('[drive-sort][mail]', err.message));
       }
     } catch (err) {
-      driveSort.setStatus(sel, 'error', {
-        driveError: String(err.message).slice(0, 200),
-        driveAppliedAt: Date.now(),
-      });
-      store.saveGalleries(all);
+      const extra = { driveError: String(err.message).slice(0, 200), driveAppliedAt: Date.now() };
+      driveSort.setStatus(sel, 'error', extra);
+      setStatusFresh('error', extra);
       console.error('[drive-sort]', err.message);
       // Connexion expirée ? On prévient le photographe par e-mail (1 alerte max / 6 h).
       if (/GOOGLE_USER_NOT_CONNECTED|invalid_grant|401|refresh|expired/i.test(String(err.message))) {
@@ -419,9 +429,14 @@ async function syncGallery(g, force) {
       thumb: f.thumbnailLink || null,
     }));
     g.syncedAt = Date.now();
-    const all = store.galleries();
-    const idx = all.findIndex((x) => x.id === g.id);
-    if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
+    // Ne re-sauvegarde QUE les champs modifiés (files + syncedAt) sur
+    // l'état FRAIS : réécrire l'objet `g` (lu au début de la requête,
+    // avant l'await ci-dessus) écraserait les saves concurrents
+    // (un envoi client arrivé pendant la listImages Drive, etc.).
+    store.updateGalleries((all) => {
+      const cur = all.find((x) => x.id === g.id);
+      if (cur) { cur.files = g.files; cur.syncedAt = g.syncedAt; }
+    });
   } catch (err) {
     console.error('[sync]', g.slug, err.message);
   }
@@ -640,12 +655,14 @@ app.post('/api/g/:slug/selection', async (req, res) => {
     name: String((req.body && req.body.name) || '').trim().slice(0, 80) || null,
     albums,
   };
-  g.selections = g.selections || [];
-  g.selections.unshift(sel);
-  g.selections = g.selections.slice(0, 100);
-  const all = store.galleries();
-  const idx = all.findIndex((x) => x.id === g.id);
-  if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
+  // Écriture atomique sur l'état FRAIS : l'objet `g` a été lu avant le
+  // syncGallery (await) — le réécrire tel quel écraserait un envoi
+  // concurrent arrivé entre-temps.
+  store.updateGalleries((all) => {
+    const cur = all.find((x) => x.id === g.id);
+    if (!cur) return false;
+    cur.selections = [sel, ...((cur.selections || []))].slice(0, 100);
+  });
   const emailSent = await notifySelection(req, g, sel.name, albums);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
   res.json({ ok: true, emailSent });
@@ -818,11 +835,16 @@ app.post('/api/g/:slug/client/albums', async (req, res) => {
   if (!client) return res.status(401).json({ error: 'Non identifié.' });
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  client.albums = clientAlbumState(allSelectableTypes(g), req.body || {}, valid);
-  client.lastSeenAt = Date.now();
-  const all = store.galleries();
-  const idx = all.findIndex((x) => x.id === g.id);
-  if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
+  const newState = clientAlbumState(allSelectableTypes(g), req.body || {}, valid);
+  // Écriture atomique sur l'état FRAIS (idem syncGallery) : l'objet
+  // `client` a été lu avant le syncGallery (await).
+  store.updateGalleries((all) => {
+    const cur = all.find((x) => x.id === g.id);
+    const curClient = cur && (cur.clients || []).find((c) => c.id === client.id);
+    if (!cur || !curClient) return false;
+    curClient.albums = newState;
+    curClient.lastSeenAt = Date.now();
+  });
   res.json({ ok: true });
 });
 
@@ -865,17 +887,19 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
     });
   }
   const sel = { id: sec.randomToken(8), date: Date.now(), albums };
-  client.selections = client.selections || [];
-  client.selections.unshift(sel);
-  client.selections = client.selections.slice(0, 50);
-  client.lastSeenAt = Date.now();
-  // Boîte de réception du photographe (vue admin)
-  g.selections = g.selections || [];
-  g.selections.unshift({ id: sel.id, date: sel.date, name: client.name, albums: sel.albums });
-  g.selections = g.selections.slice(0, 100);
-  const all = store.galleries();
-  const idx = all.findIndex((x) => x.id === g.id);
-  if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
+  // Écriture atomique sur l'état FRAIS : `g` et `client` ont été lus au
+  // début de la requête (avant le syncGallery, await) — les réécrire tels
+  // quels écraserait un envoi concurrent arrivé entre-temps.
+  const clientName = client.name;
+  store.updateGalleries((all) => {
+    const cur = all.find((x) => x.id === g.id);
+    const curClient = cur && (cur.clients || []).find((c) => c.id === client.id);
+    if (!cur || !curClient) return false;
+    curClient.selections = [sel, ...((curClient.selections || []))].slice(0, 50);
+    curClient.lastSeenAt = Date.now();
+    // Boîte de réception du photographe (vue admin)
+    cur.selections = [{ id: sel.id, date: sel.date, name: clientName, albums: sel.albums }, ...((cur.selections || []))].slice(0, 100);
+  });
   const emailSent = await notifySelection(req, g, client.name, albums);
   // Récapitulatif au client (sa propre adresse e-mail) — ne bloque pas l'envoi au photographe.
   const clientEmailSent = await notifyClientSelection(req, g, client, sel);
@@ -1162,23 +1186,36 @@ app.post('/api/admin/galleries/:id/selections/:selId/drive-apply', requireAdmin,
   if (!drive.isUserConnected()) {
     return res.status(400).json({ error: 'Compte Google non connecté : Admin → Réglages → Se connecter avec Google.' });
   }
+  const galleryId = g.id;
+  const selId = req.params.selId;
+  // Statuts écrits sur l'état FRAIS (le tri Drive dure des dizaines de
+  // secondes : un envoi client peut survenir entre-temps).
+  const setStatusFresh = (status, extra) => store.updateGalleries((cur) => {
+    const cg = cur.find((x) => x.id === galleryId);
+    const cs = cg && (cg.selections || []).find((s) => s.id === selId);
+    if (!cs) return false;
+    cs.driveStatus = status;
+    Object.assign(cs, extra);
+  });
   driveSort.setStatus(sel, 'pending');
-  store.saveGalleries(all);
+  setStatusFresh('pending', {});
   try {
     const result = await driveSort.applySelection(g, sel);
-    driveSort.setStatus(sel, result.errors.length ? 'partial' : 'ok', {
+    const extra = {
       driveFolderId: result.folderId,
       driveFolderName: result.folderName,
       driveFolderUrl: result.folderUrl,
       driveMode: result.mode,
       driveError: result.errors.length ? result.errors.map((e) => e.name + ' : ' + e.message).join(' ; ').slice(0, 400) : null,
       driveAppliedAt: Date.now(),
-    });
-    store.saveGalleries(all);
+    };
+    driveSort.setStatus(sel, result.errors.length ? 'partial' : 'ok', extra);
+    setStatusFresh(result.errors.length ? 'partial' : 'ok', extra);
     res.json({ ok: true, folderUrl: result.folderUrl, folderName: result.folderName, total: result.total, mode: result.mode, errors: result.errors.length });
   } catch (err) {
-    driveSort.setStatus(sel, 'error', { driveError: String(err.message).slice(0, 200), driveAppliedAt: Date.now() });
-    store.saveGalleries(all);
+    const extra = { driveError: String(err.message).slice(0, 200), driveAppliedAt: Date.now() };
+    driveSort.setStatus(sel, 'error', extra);
+    setStatusFresh('error', extra);
     res.status(502).json({ error: err.message });
   }
 });
