@@ -347,7 +347,7 @@
     if (state.sentInAlbums && state.sentInAlbums.length) {
       var legend = document.createElement('div');
       legend.className = 'alb-legend';
-      legend.innerHTML = '<span class="alb-legend-star">✦</span> Photo déjà choisie pour un album (le vôtre ou celui d\u2019une autre personne). <b>Aucune inquiétude :</b> elle reste bien disponible — vous pouvez tout à fait la choisir aussi pour votre album.';
+      legend.innerHTML = '<span class="alb-legend-star">✦</span> Déjà choisie pour un album — elle reste disponible, vous pouvez la choisir aussi pour le vôtre.';
       wrap.appendChild(legend);
     }
     var hint = document.createElement('div');
@@ -522,7 +522,7 @@
           var sentTag = document.createElement('span');
           sentTag.className = 'alb-sent-star';
           sentTag.textContent = '✦';
-          sentTag.title = 'Cette photo figure déjà dans un album — vous pouvez tout à fait la choisir aussi pour le vôtre.';
+          sentTag.title = 'Déjà choisie pour un album — vous pouvez la choisir aussi pour le vôtre.';
           tile.appendChild(sentTag);
         }
         var activeT = albumById(state.alb.active);
