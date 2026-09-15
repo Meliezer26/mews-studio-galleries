@@ -505,7 +505,9 @@ app.post('/api/g/:slug/selection', async (req, res) => {
     const incoming = ((req.body && req.body.albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
     const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
-    const coverId = (incoming && typeof incoming.coverId === 'string' && photoIds.includes(incoming.coverId))
+    // La couverture est libre : n'importe quelle photo de la galerie (pas
+    // besoin qu'elle soit dans la sélection de l'album).
+    const coverId = (incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
       ? incoming.coverId : null;
     return { typeId: t.id, photoIds, coverId };
   });
@@ -562,7 +564,8 @@ function clientAlbumState(body, validIds) {
   const covers = {};
   ALBUM_TYPES.forEach((t) => {
     const c = (body.covers || {})[t.id];
-    if (typeof c === 'string' && validIds.has(c) && photos[t.id].includes(c)) covers[t.id] = c;
+    // Couverture libre : n'importe quelle photo de la galerie.
+    if (typeof c === 'string' && validIds.has(c)) covers[t.id] = c;
   });
   return { checked, photos, covers };
 }
@@ -657,7 +660,8 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
     const incoming = (((req.body || {}).albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
     const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
-    const coverId = (incoming && typeof incoming.coverId === 'string' && photoIds.includes(incoming.coverId))
+    // Couverture libre : n'importe quelle photo de la galerie.
+    const coverId = (incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
       ? incoming.coverId : null;
     return { typeId: t.id, photoIds, coverId };
   });

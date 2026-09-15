@@ -217,7 +217,7 @@
     (sel.albums || []).forEach(function (a) {
       checked[a.typeId] = true;
       photos[a.typeId] = (a.photoIds || []).slice();
-      if (a.coverId && photos[a.typeId].indexOf(a.coverId) > -1) covers[a.typeId] = a.coverId;
+      if (a.coverId) covers[a.typeId] = a.coverId; // peut être hors de la sélection de l'album
     });
     state.alb.checked = checked;
     state.alb.photos = photos;
@@ -243,13 +243,13 @@
   }
 
   /* --- Couverture d'album ------------------------------------- */
-  function buildCoverRow(typeId, photos) {
+  // La couverture peut être une photo de la galerie, même EN DEHORS de la
+  // sélection de l'album (choix libre du client).
+  function buildCoverRow(typeId) {
     var row = document.createElement('div');
     row.className = 'alb-cover';
     var coverId = state.alb.covers[typeId];
-    var cover = photos.indexOf(coverId) > -1
-      ? state.photos.find(function (p) { return p.id === coverId; })
-      : null;
+    var cover = state.photos.find(function (p) { return p.id === coverId; }) || null;
     if (cover) {
       var img = document.createElement('img');
       img.className = 'alb-cover-img';
@@ -290,9 +290,7 @@
       var choose = document.createElement('span');
       choose.className = 'alb-cover-btn alb-cover-btn--pick';
       choose.setAttribute('role', 'button');
-      choose.textContent = photos.length
-        ? '🖼 Choisir la couverture'
-        : '🖼 Ajoutez des photos, puis choisissez la couverture';
+      choose.textContent = '🖼 Choisir la couverture';
       choose.addEventListener('click', function (e) { e.stopPropagation(); openCoverPicker(typeId); });
       row.appendChild(choose);
     }
@@ -302,19 +300,17 @@
   function openCoverPicker(typeId) {
     var t = albumById(typeId);
     if (!t) return;
-    var ids = albPhotos(typeId);
-    if (!ids.length) {
-      window.toast('Ajoutez d\u2019abord des photos à cet album.', 'err');
+    if (!state.photos.length) {
+      window.toast('La galerie est vide.', 'err');
       return;
     }
     var grid = $('cov-grid');
     grid.innerHTML = '';
     $('cov-title').textContent = 'Couverture — ' + t.label;
-    ids.forEach(function (fid) {
-      var p = state.photos.find(function (x) { return x.id === fid; });
-      if (!p) return;
+    // Toutes les photos de la galerie sont proposées (pas seulement celles de l'album).
+    state.photos.forEach(function (p) {
       var tile = document.createElement('div');
-      tile.className = 'cov-tile' + (state.alb.covers[typeId] === fid ? ' current' : '');
+      tile.className = 'cov-tile' + (state.alb.covers[typeId] === p.id ? ' current' : '');
       var img = document.createElement('img');
       img.loading = 'lazy';
       img.src = photoUrl(p, 'thumb');
@@ -333,7 +329,7 @@
       tile.appendChild(badge);
       tile.appendChild(cap);
       tile.addEventListener('click', function () {
-        state.alb.covers[typeId] = fid;
+        state.alb.covers[typeId] = p.id;
         saveAlbums();
         closeCoverPicker();
         renderAlbumsPanel();
@@ -561,7 +557,8 @@
     if (idx > -1) {
       list.splice(idx, 1);
       state.alb.photos[typeId] = list;
-      if (state.alb.covers[typeId] === p.id) delete state.alb.covers[typeId];
+      // NB : la couverture peut être hors de la sélection de l'album → on ne
+      // l'efface pas quand on retire une photo de l'album.
       saveAlbums();
       renderAlbumsPanel();
       render();
