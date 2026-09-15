@@ -78,6 +78,9 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 }
 .btn--gold { background: var(--accent); color: #000000; }
 .btn--gold:hover { background: var(--accent-2); transform: translateY(-1px); box-shadow: 0 10px 26px rgba(255, 255, 255, 0.28); }
+/* Vert identique aux badges « ✓ Envoyé à Mews Studio » (galerie/album envoyée) */
+.btn--sent { background: #86c994; color: #000000; }
+.btn--sent:hover { background: #97d3a6; transform: translateY(-1px); box-shadow: 0 10px 26px rgba(134, 201, 148, 0.35); }
 .btn--ghost { background: transparent; color: var(--ink); border-color: var(--line-2); }
 .btn--ghost:hover { border-color: var(--accent); color: var(--accent); }
 .btn--soft { background: var(--accent-soft); color: var(--accent-2); }
