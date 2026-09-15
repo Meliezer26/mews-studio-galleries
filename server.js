@@ -231,14 +231,7 @@ function buildNotificationInfo(req, g, clientName, albums) {
       };
     }),
     // Options vendues avec quantité (posters, agrandissements) — rappelées dans l'e-mail.
-    options: (function () {
-      const labels = { 'posters-30x45': 'Posters 30\u00d745', 'agrandissements-20x30': 'Agrandissements 20\u00d730' };
-      const out = [];
-      Object.entries(g.packages || {}).forEach(([id, n]) => {
-        if (typeof n === 'number' && n > 0) out.push({ label: labels[id] || id, qty: n });
-      });
-      return out;
-    })(),
+    options: galleryOptions(g),
   };
 }
 
@@ -254,6 +247,47 @@ async function notifySelection(req, g, clientName, albums) {
     noteNotify(false, err.message);
     return false;
   }
+}
+
+/** Récapitulatif de la sélection envoyé AU CLIENT (sa propre adresse e-mail). */
+async function notifyClientSelection(req, g, client, sel) {
+  if (!mailer.isConfigured() || !client || !client.email) return false;
+  try {
+    await mailer.sendClientSelectionConfirmation({
+      clientName: client.name,
+      clientEmail: client.email,
+      galleryName: g.name,
+      galleryUrl: `${req.protocol}://${req.get('host')}/g/${g.slug}`,
+      albums: (sel.albums || []).map((a) => {
+        const t = galleryAlbumTypes(g).find((x) => x.id === a.typeId);
+        const coverIdx = (g.files || []).findIndex((f) => f.id === (a.coverId || ''));
+        return {
+          label: t ? t.label : a.typeId,
+          count: (a.photoIds || []).length,
+          cover: a.coverId
+            ? { index: coverIdx > -1 ? coverIdx + 1 : null, name: coverIdx > -1 ? (g.files || [])[coverIdx].name : a.coverId }
+            : null,
+        };
+      }),
+      options: galleryOptions(g),
+    });
+    noteNotify(true);
+    return true;
+  } catch (err) {
+    console.error('[notify-client]', err.message);
+    noteNotify(false, err.message);
+    return false;
+  }
+}
+
+/** Options vendues avec quantité (posters, agrandissements) de la galerie. */
+function galleryOptions(g) {
+  const labels = { 'posters-30x45': 'Posters 30\u00d745', 'agrandissements-20x30': 'Agrandissements 20\u00d730' };
+  const out = [];
+  Object.entries((g && g.packages) || {}).forEach(([id, n]) => {
+    if (typeof n === 'number' && n > 0) out.push({ label: labels[id] || id, qty: n });
+  });
+  return out;
 }
 
 /* --- Tri automatique des sélections sur Drive ---------------- */
@@ -813,9 +847,11 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   const emailSent = await notifySelection(req, g, client.name, albums);
+  // Récapitulatif au client (sa propre adresse e-mail) — ne bloque pas l'envoi au photographe.
+  const clientEmailSent = await notifyClientSelection(req, g, client, sel);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
   const sentNow = sentStateForGallery(g);
-  res.json({ ok: true, emailSent, sentIds: sentNow.all, sentByType: sentNow.byType });
+  res.json({ ok: true, emailSent, clientEmailSent, sentIds: sentNow.all, sentByType: sentNow.byType });
 });
 
 /* --- Proxys photo (vignette / téléchargement) --------------- */

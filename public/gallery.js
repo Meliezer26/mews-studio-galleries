@@ -823,6 +823,7 @@
     // Enregistrement (côté photographe + historique du client)
     var albums = currentSelectionAlbums();
     var sent = null;
+    var sentClient = false;
     var req;
     if (state.client) {
       req = window.api('/api/g/' + slug + '/client/selection', {
@@ -831,6 +832,7 @@
         body: { albums: albums },
       }).then(function (res) {
         sent = res && res.emailSent;
+        sentClient = !!(res && res.clientEmailSent);
         return window.api('/api/g/' + slug + '/client/me', { headers: clientHeaders() });
       }).then(function (data) {
         state.client.history = data.client.selections;
@@ -863,7 +865,9 @@
     req.then(function () {
       if (sent) {
         // L'e-mail est parti automatiquement du serveur : rien d'autre à faire.
-        window.toast('Sélection envoyée par e-mail au photographe ✓', 'ok');
+        window.toast(sentClient
+          ? 'Sélection envoyée au photographe — récapitulatif envoyé à votre e-mail ✓'
+          : 'Sélection envoyée par e-mail au photographe ✓', 'ok');
         return;
       }
       openSendFallback();
