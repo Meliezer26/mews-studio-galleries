@@ -729,8 +729,9 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   const albums = galleryAlbumTypes(g).map((t) => {
     const incoming = (((req.body || {}).albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
-    const photoIds = ids.filter((id) => valid.has(id) && !sentSet.has(id)).slice(0, t.capacity);
-    dupes += ids.length - photoIds.length;
+    const validIncoming = ids.filter((id) => valid.has(id));
+    dupes += validIncoming.filter((id) => sentSet.has(id)).length;
+    const photoIds = validIncoming.filter((id) => !sentSet.has(id)).slice(0, t.capacity);
     // Couverture libre : n'importe quelle photo de la galerie.
     const coverId = (incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
       ? incoming.coverId : null;
@@ -1449,6 +1450,19 @@ app.post('/api/admin/galleries/:id/clients/:clientId/reset-selections', requireA
   const client = (g.clients || []).find((c) => c.id === req.params.clientId);
   if (!client) return res.status(404).json({ error: 'Client introuvable.' });
   client.selections = [];
+  const idx = all.findIndex((x) => x.id === g.id);
+  if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
+  res.json({ ok: true });
+});
+
+/* Supprime un client identifié (profil + historique). */
+app.delete('/api/admin/galleries/:id/clients/:clientId', requireAdmin, (req, res) => {
+  const all = store.galleries();
+  const g = all.find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
+  const before = (g.clients || []).length;
+  g.clients = (g.clients || []).filter((c) => c.id !== req.params.clientId);
+  if (g.clients.length === before) return res.status(404).json({ error: 'Client introuvable.' });
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   res.json({ ok: true });

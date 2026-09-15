@@ -166,6 +166,18 @@
               });
               rhead.appendChild(resetBtn);
             }
+            var delBtn = document.createElement('button');
+            delBtn.className = 'btn btn--ghost btn--sm';
+            delBtn.textContent = '🗑';
+            delBtn.type = 'button';
+            delBtn.title = 'Supprimer ce client (profil et historique)';
+            delBtn.addEventListener('click', function () {
+              if (!window.confirm('Supprimer définitivement le client ' + c.name + ' (et son historique de sélections) ?')) return;
+              window.api('/api/admin/galleries/' + g.id + '/clients/' + c.id, { method: 'DELETE' })
+                .then(function () { window.toast('Client supprimé ✓', 'ok'); loadClients(); })
+                .catch(function (err) { window.toast(err.message, 'err'); });
+            });
+            rhead.appendChild(delBtn);
             row.appendChild(rhead);
             var chips = document.createElement('div');
             chips.className = 'client-albums';
