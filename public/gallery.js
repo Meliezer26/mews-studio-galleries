@@ -18,6 +18,7 @@
     alb: { name: '', checked: {}, active: null, photos: {}, covers: {} }, // par typeId ; covers: { typeId: photoId }
     client: null,              // { token, name, history } — profil identifié
     saveTimer: null,
+    sending: false,            // verrou anti double-envoi de sélection
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -682,7 +683,36 @@
     var senderName = state.client ? state.client.name : (state.alb.name || '');
     state.alb.name = senderName;
     saveAlbumsLocal();
+    openSendConfirm();
+  }
 
+  /* Confirmation avant envoi définitif */
+  function openSendConfirm() {
+    var albums = currentSelectionAlbums();
+    var withPhotos = albums.filter(function (a) { return a.photoIds.length > 0; });
+    var nAlbums = withPhotos.length;
+    var total = withPhotos.reduce(function (n, a) { return n + a.photoIds.length; }, 0);
+    $('confirm-what').textContent = nAlbums > 1 ? 'vos sélections' : 'votre sélection';
+    $('confirm-summary').textContent = nAlbums + ' album' + (nAlbums > 1 ? 's' : '') + ' · ' + total + ' photo' + (total > 1 ? 's' : '') + ' en tout';
+    var ok = $('confirm-send-ok');
+    ok.disabled = false;
+    ok.textContent = 'Je confirme';
+    $('confirm-send-modal').classList.add('open');
+  }
+
+  function closeSendConfirm() {
+    $('confirm-send-modal').classList.remove('open');
+  }
+
+  function confirmSendSelection() {
+    if (state.sending) return;
+    state.sending = true;
+    var ok = $('confirm-send-ok');
+    ok.disabled = true;
+    ok.textContent = 'Envoi en cours…';
+    closeSendConfirm();
+
+    var senderName = state.client ? state.client.name : (state.alb.name || '');
     // Enregistrement (côté photographe + historique du client)
     var albums = currentSelectionAlbums();
     var sent = null;
@@ -720,6 +750,8 @@
         // L'enregistrement a échoué mais l'e-mail reste possible.
         openSendFallback();
       }
+    }).then(function () {
+      state.sending = false;
     });
   }
 
@@ -871,6 +903,13 @@
     });
     $('btn-send-selection').addEventListener('click', sendSelection);
 
+    /* Confirmation avant envoi définitif */
+    $('confirm-send-ok').addEventListener('click', confirmSendSelection);
+    $('confirm-send-cancel').addEventListener('click', closeSendConfirm);
+    $('confirm-send-modal').addEventListener('click', function (e) {
+      if (e.target === $('confirm-send-modal') && !state.sending) closeSendConfirm();
+    });
+
     /* Fenêtre d'aide à l'envoi */
     $('send-retry').addEventListener('click', openMailApp);
     $('send-gmail').addEventListener('click', function () {
@@ -912,6 +951,10 @@
     $('cov').addEventListener('click', function (e) { if (e.target === $('cov')) closeCoverPicker(); });
 
     document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && $('confirm-send-modal').classList.contains('open') && !state.sending) {
+        closeSendConfirm();
+        return;
+      }
       if (e.key === 'Escape' && $('send-modal').classList.contains('open')) {
         $('send-modal').classList.remove('open');
         return;
