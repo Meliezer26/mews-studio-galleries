@@ -526,10 +526,6 @@
           ? 'Mot de passe actuel : ' + full.passwordRef + '  (laisser vide pour le conserver)'
           : 'Mot de passe actuel : non mémorisé — saisissez-le ici pour le retrouver ensuite dans « Envoyer l\u2019accès ».';
         $('eg-dl').checked = full.downloadsEnabled !== false;
-        var egTypes = (full.albums && Array.isArray(full.albums.types) && full.albums.types.length)
-          ? full.albums.types
-          : ((full.albums && full.albums.enabled) ? ['200', '150', '100'] : []);
-        document.querySelectorAll('.eg-alb-pick').forEach(function (el) { el.checked = egTypes.indexOf(el.value) > -1; });
         $('eg-wm').checked = !!(full.watermark && full.watermark.enabled);
         $('eg-wm-text').value = (full.watermark && full.watermark.text) || 'Mews Studio';
         $('eg-wm-field').classList.toggle('hidden', !$('eg-wm').checked);
@@ -959,7 +955,8 @@
         downloadsEnabled: $('eg-dl').checked,
         watermarkEnabled: $('eg-wm').checked,
         watermarkText: $('eg-wm-text').value.trim() || 'Mews Studio',
-        albumTypes: Array.prototype.slice.call(document.querySelectorAll('.eg-alb-pick:checked')).map(function (el) { return el.value; }),
+        // albumTypes : plus de champ séparé — la sélection d'albums côté client
+        // est dérivée des packages album cochés (gérée côté serveur).
         packages: (function () {
           var p = {};
           document.querySelectorAll('#m-edit .pk').forEach(function (el) { if (el.checked) p[el.dataset.id] = true; });

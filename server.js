@@ -1277,6 +1277,21 @@ function sanitizePackages(input) {
   return out;
 }
 
+/** Capacités d'albums dérivées des packages vendus (suffixe -100/-150/-200 de l'id).
+    Un package album coché ⇒ la sélection des photos côté client est activée
+    pour cette capacité. Posters/agrandissements (suffixes -45/-30) ne comptent pas. */
+function albumTypesFromPackages(packages) {
+  const out = [];
+  for (const [id, v] of Object.entries(packages || {})) {
+    if (!v) continue;
+    const m = id.match(/-(\d+)$/);
+    if (!m) continue;
+    const n = Number(m[1]);
+    if ([100, 150, 200].includes(n) && out.indexOf(String(n)) === -1) out.push(String(n));
+  }
+  return out.sort((a, b) => Number(b) - Number(a)); // 200 → 150 → 100
+}
+
 app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
   const all = store.galleries();
   const g = all.find((x) => x.id === req.params.id);
@@ -1498,13 +1513,13 @@ app.post('/api/admin/galleries', requireAdmin, (req, res) => {
       enabled: !!body.watermarkEnabled,
       text: String(body.watermarkText || 'Mews Studio').trim().slice(0, 60),
     },
-    albums: (function () {
-      const types = sanitizeAlbumTypes(body.albumTypes);
-      return { enabled: types.length > 0, types };
-    })(),
-    packages: sanitizePackages(body.packages),
     selections: [],
   };
+  const packages = sanitizePackages(body.packages);
+  const explicitTypes = sanitizeAlbumTypes(body.albumTypes);
+  const albumTypes = explicitTypes.length ? explicitTypes : albumTypesFromPackages(packages);
+  gallery.packages = packages;
+  gallery.albums = { enabled: albumTypes.length > 0, types: albumTypes };
   all.push(gallery);
   store.saveGalleries(all);
 
@@ -1570,6 +1585,12 @@ app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {
   }
   if (body.packages !== undefined) {
     g.packages = sanitizePackages(body.packages);
+    // Les packages cochés pilotent la sélection d'albums côté client.
+    // (Sauf si la demande porte aussi un choix explicite de formats.)
+    if (body.albumTypes === undefined) {
+      const types = albumTypesFromPackages(g.packages);
+      g.albums = { enabled: types.length > 0, types };
+    }
   }
   if (body.folderId !== undefined && body.folderId !== '') {
     g.mode = 'drive';

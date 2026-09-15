@@ -7,7 +7,7 @@
 <title>Espace photographe — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915e">
+<link rel="stylesheet" href="/styles.css?v=20260915f">
 <style>
   /* ---------- Espace photographe ---------- */
   .a-shell { display: none; min-height: 100vh; }
@@ -59,8 +59,6 @@
   /* Packages vendus (modale Modifier) */
   .pk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; }
   .pk-grid .check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
-  .alb-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; }
-  .alb-picks .check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
   .pk-qty-row { flex-wrap: nowrap; }
   .pk-qty-row span { flex: 1; }
   .pk-qty {
@@ -125,7 +123,7 @@
   .login-card .sub { color: var(--muted); font-size: 0.92rem; margin-bottom: 26px; }
 
   @media (max-width: 860px) {
-    .pk-grid, .alb-picks { grid-template-columns: 1fr; }
+    .pk-grid { grid-template-columns: 1fr; }
     .a-shell.on { grid-template-columns: 1fr; }
     .a-side { position: static; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; padding: 14px 16px; }
     .a-nav { flex-direction: row; margin-top: 0; flex-wrap: wrap; }
@@ -450,7 +448,7 @@
         <label class="check pk-qty-row"><span>Posters 30x45 — quantité</span><input type="number" class="pk-qty" data-id="posters-30x45" min="0" max="999" placeholder="0"></label>
         <label class="check pk-qty-row"><span>Agrandissements 20x30 — quantité</span><input type="number" class="pk-qty" data-id="agrandissements-20x30" min="0" max="999" placeholder="0"></label>
       </div>
-      <div class="field-hint">Cochez les packages vendus, indiquez les quantités pour les posters et agrandissements. Le récapitulatif s'affiche sur la carte de la galerie.</div>
+      <div class="field-hint">Cochez les packages vendus, indiquez les quantités pour les posters et agrandissements. <b>Chaque album coché active la sélection des photos côté client</b> (ex : « Album 30x60 — 150 photos » → le client verra la carte « Album 150 photos »). Le récapitulatif s'affiche sur la carte de la galerie.</div>
     </div>
     <div class="field">
       <label class="check"><input type="checkbox" id="ng-wm"> Afficher un watermark sur les photos</label>
@@ -522,15 +520,6 @@
       <label class="check"><input type="checkbox" id="eg-dl" checked> Autoriser le téléchargement des photos</label>
     </div>
     <div class="field">
-      <label>Albums proposés aux clients</label>
-      <div class="alb-picks">
-        <label class="check"><input type="checkbox" class="eg-alb-pick" value="200"> Album 200 photos</label>
-        <label class="check"><input type="checkbox" class="eg-alb-pick" value="150"> Album 150 photos</label>
-        <label class="check"><input type="checkbox" class="eg-alb-pick" value="100"> Album 100 photos</label>
-      </div>
-      <div class="field-hint">Cochez les formats proposés : vos clients ne verront que ces albums. Aucun format coché = pas de sélection d'albums.</div>
-    </div>
-    <div class="field">
       <label>Packages vendus au client</label>
       <div class="pk-grid">
         <label class="check"><input type="checkbox" class="pk" data-id="album-30x80-200"> Album 30x80 — 200 photos</label>
@@ -544,7 +533,7 @@
         <label class="check pk-qty-row"><span>Posters 30x45 — quantité</span><input type="number" class="pk-qty" data-id="posters-30x45" min="0" max="999" placeholder="0"></label>
         <label class="check pk-qty-row"><span>Agrandissements 20x30 — quantité</span><input type="number" class="pk-qty" data-id="agrandissements-20x30" min="0" max="999" placeholder="0"></label>
       </div>
-      <div class="field-hint">Cochez les packages vendus, indiquez les quantités pour les posters et agrandissements. Le récapitulatif s'affiche sur la carte de la galerie.</div>
+      <div class="field-hint">Cochez les packages vendus, indiquez les quantités pour les posters et agrandissements. <b>Chaque album coché active la sélection des photos côté client</b> (ex : « Album 30x60 — 150 photos » → le client verra la carte « Album 150 photos »). Le récapitulatif s'affiche sur la carte de la galerie.</div>
     </div>
     <div class="field">
       <label class="check"><input type="checkbox" id="eg-wm"> Afficher un watermark sur les photos</label>
@@ -618,6 +607,6 @@
 </div>
 
 <script src="/app.js"></script>
-<script src="/admin.js?v=20260915e"></script>
+<script src="/admin.js?v=20260915f"></script>
 </body>
 </html>
