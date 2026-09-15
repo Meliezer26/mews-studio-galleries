@@ -501,11 +501,6 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 }
 .g-grid.albums-mode .alb-add { display: grid; }
 .g-grid.albums-mode .alb-add.in { background: var(--red); border-color: var(--red); color: #ffffff; }
-@media (hover: hover) {
-  .g-grid.albums-mode .alb-add { opacity: 0; transition: opacity 0.15s; }
-  .g-grid.albums-mode .alb-add.in { opacity: 1; }
-  .g-grid.albums-mode .g-item:hover .alb-add { opacity: 1; }
-}
 .alb-badge-num {
   position: absolute; left: 8px; bottom: 8px; z-index: 6;
   font-size: 0.7rem; font-weight: 800; letter-spacing: 0.03em;

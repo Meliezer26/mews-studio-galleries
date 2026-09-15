@@ -518,8 +518,14 @@
           sentTag.title = 'Cette photo figure déjà dans un album — vous pouvez tout à fait la choisir aussi pour le vôtre.';
           tile.appendChild(sentTag);
         }
-        var activeT = albumById(state.alb.active) || (state.albums.types[0] ? albumById(state.albums.types[0].id) : null);
-        if (activeT && typeIsSent(activeT.id)) activeT = null; // album clos : pas de bouton +
+        var activeT = albumById(state.alb.active);
+        if (!activeT || typeIsSent(activeT.id)) {
+          // Album actif absent ou clos → le bouton + vise le premier album encore ouvert
+          activeT = null;
+          for (var j = 0; j < state.albums.types.length; j++) {
+            if (!typeIsSent(state.albums.types[j].id)) { activeT = state.albums.types[j]; break; }
+          }
+        }
         if (activeT) {
           var inAlb = albPhotos(activeT.id).indexOf(p.id) > -1;
           if (inAlb) tile.classList.add('in-album');
