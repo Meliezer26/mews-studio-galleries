@@ -393,7 +393,13 @@ app.get('/admin', (req, res) => {
 
 app.get('/api/g/:slug/info', async (req, res) => {
   const g = findGallery(req.params.slug);
-  if (!g) return res.json({ exists: false });
+  const contactEmail = store.config().photographerEmail || 'mewstudiofrance@gmail.com';
+  if (!g) {
+    // Galerie inexistante OU désactivée : le client doit rester sur l'écran
+    // de connexion avec un message de contact — jamais renvoyé sur l'accueil.
+    const raw = store.galleries().find((x) => x.slug === req.params.slug);
+    return res.json({ exists: false, disabled: !!raw, contactEmail });
+  }
   const unlocked = isUnlocked(req, req.params.slug);
   res.json({
     exists: true,
@@ -401,6 +407,7 @@ app.get('/api/g/:slug/info', async (req, res) => {
     expired: isExpired(g),
     unlocked,
     meta: publicMeta(g),
+    contactEmail,
   });
 });
 
@@ -408,13 +415,14 @@ app.post('/api/g/:slug/unlock', (req, res) => {
   const ip = req.ip || 'unknown';
   if (!unlockLimiter(ip)) return res.status(429).json({ error: 'Trop de tentatives, réessayez plus tard.' });
   const g = findGallery(req.params.slug);
-  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
-  if (isExpired(g)) return res.status(403).json({ error: 'Cette galerie a expiré.' });
+  const contactEmail = store.config().photographerEmail || 'mewstudiofrance@gmail.com';
+  if (!g) return res.status(404).json({ error: 'Galerie introuvable.', contactEmail });
+  if (isExpired(g)) return res.status(403).json({ error: 'Cette galerie a expiré.', contactEmail });
   if (sec.verifyPassword(req.body.password || '', g.passwordHash)) {
     setUnlocked(req, res, req.params.slug);
     return res.json({ ok: true });
   }
-  res.status(403).json({ error: 'Mot de passe incorrect.' });
+  res.status(403).json({ error: 'Mot de passe incorrect.', contactEmail });
 });
 
 /* --- Connexion client : le visiteur tape le mot de passe de sa galerie,
@@ -456,7 +464,11 @@ app.post('/api/connexion', (req, res) => {
   }
 
   if (!matches.length) {
-    return res.status(403).json({ error: 'Mot de passe incorrect. Vérifiez-le ou contactez votre photographe.' });
+    return res.status(403).json({
+      error: 'Mot de passe incorrect. Vérifiez-le ou contactez Mews Studio à ' +
+        (store.config().photographerEmail || 'mewstudiofrance@gmail.com') + '.',
+      contactEmail: store.config().photographerEmail || 'mewstudiofrance@gmail.com',
+    });
   }
 
   matches.forEach((g) => setUnlocked(req, res, g.slug));

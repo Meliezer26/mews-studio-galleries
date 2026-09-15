@@ -43,7 +43,9 @@
     let data = null;
     try { data = await res.json(); } catch { /* réponse sans JSON */ }
     if (!res.ok) {
-      throw new Error((data && data.error) || ('Erreur serveur (' + res.status + ')'));
+      const err = new Error((data && data.error) || ('Erreur serveur (' + res.status + ')'));
+      if (data && data.contactEmail) err.contactEmail = data.contactEmail;
+      throw err;
     }
     return data;
   };

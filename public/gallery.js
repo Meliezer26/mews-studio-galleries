@@ -90,6 +90,23 @@
   function showLock(meta) {
     $('lock-name').textContent = meta.name;
     $('lock-sub').textContent = 'Bienvenue dans votre espace privé. Veuillez entrer votre mot de passe communiqué par Mew\'s Studio.';
+    $('lock-contact').classList.add('hidden');
+    show('lock');
+    setTimeout(function () { $('lock-pass').focus(); }, 60);
+  }
+
+  /* Galerie désactivée ou introuvable : on reste sur l'écran de connexion
+     avec un message de contact — jamais de renvoi vers la page d'accueil. */
+  function showUnavailable(info) {
+    var email = (info && info.contactEmail) || 'mewstudiofrance@gmail.com';
+    $('lock-name').textContent = (info && info.disabled) ? 'Galerie indisponible' : 'Galerie introuvable';
+    $('lock-sub').textContent = (info && info.disabled)
+      ? 'Cette galerie est désactivée pour le moment.'
+      : 'Ce lien ne correspond à aucune galerie active.';
+    $('lock-contact').textContent = 'Si vous pensez que c\u2019est une erreur, ou si vous venez de recevoir un nouveau mot de passe, saisissez-le ci-dessous. ' +
+      'Sinon, contactez Mews Studio à ' + email + ' pour rétablir votre accès.';
+    $('lock-contact').classList.remove('hidden');
+    $('lock-error').textContent = '';
     show('lock');
     setTimeout(function () { $('lock-pass').focus(); }, 60);
   }
@@ -874,7 +891,10 @@
       btn.disabled = true;
       window.api('/api/g/' + slug + '/unlock', { method: 'POST', body: { password: $('lock-pass').value } })
         .then(function () { loadPhotos(); })
-        .catch(function (err) { $('lock-error').textContent = err.message; })
+        .catch(function (err) {
+          $('lock-error').textContent = err.message +
+            (err.contactEmail ? ' Si vous avez reçu un nouveau mot de passe, saisissez-le ici. Sinon, contactez Mews Studio à ' + err.contactEmail + '.' : '');
+        })
         .finally(function () { btn.disabled = false; });
     });
 
@@ -1005,8 +1025,8 @@
     // Info galerie
     window.api('/api/g/' + slug + '/info')
       .then(function (info) {
-        if (!info.exists) return showDead('Galerie introuvable', 'Ce lien ne correspond à aucune galerie. Vérifiez l\u2019adresse ou contactez votre photographe.');
-        if (info.expired) return showDead('Galerie fermée', 'Cette galerie a expiré et n\u2019est plus consultable. Contactez votre photographe pour plus d\u2019informations.');
+        if (!info.exists) return showUnavailable(info);
+        if (info.expired) return showDead('Galerie fermée', 'Cette galerie a expiré et n\u2019est plus consultable. Contactez Mews Studio à ' + (info.contactEmail || 'mewstudiofrance@gmail.com') + ' pour plus d\u2019informations.');
         if (info.locked) return showLock(info.meta);
         loadPhotos();
       })
@@ -1082,9 +1102,10 @@
         }
       })
       .catch(function (err) {
-        if (err.message === 'Verrouillé.' || err.message === 'Galerie expirée.') {
+        if (err.message === 'Verrouillé.' || err.message === 'Galerie expirée.' || err.message === 'Galerie introuvable.') {
           return window.api('/api/g/' + slug + '/info').then(function (info) {
-            if (info.expired) showDead('Galerie fermée', 'Cette galerie a expiré et n\u2019est plus consultable.');
+            if (!info.exists) showUnavailable(info);
+            else if (info.expired) showDead('Galerie fermée', 'Cette galerie a expiré et n\u2019est plus consultable. Contactez Mews Studio à ' + (info.contactEmail || 'mewstudiofrance@gmail.com') + '.');
             else if (info.locked) showLock(info.meta);
           });
         }
