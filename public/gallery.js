@@ -300,7 +300,9 @@
       row.appendChild(rm);
     } else {
       var choose = document.createElement('span');
-      choose.className = 'alb-cover-btn alb-cover-btn--pick';
+      // Couverture OBLIGATOIRE avant envoi : si l'album contient déjà des
+      // photos, le bouton passe en rouge pour signaler ce qui manque.
+      choose.className = 'alb-cover-btn alb-cover-btn--pick' + (albPhotos(typeId).length > 0 ? ' alb-cover-btn--required' : '');
       choose.setAttribute('role', 'button');
       choose.textContent = '🖼 Choisir la couverture';
       choose.addEventListener('click', function (e) { e.stopPropagation(); openCoverPicker(typeId); });
@@ -370,7 +372,7 @@
     }
     var hint = document.createElement('div');
     hint.className = 'alb-cover-hint';
-    hint.innerHTML = '🖼 <b>Couverture d\u2019album</b> : choisissez pour chaque album photo une photo en format <b>horizontal (paysage)</b>.';
+    hint.innerHTML = '🖼 <b>Couverture d\u2019album (obligatoire)</b> : choisissez pour chaque album photo une photo en format <b>horizontal (paysage)</b> avant l\u2019envoi.';
     wrap.appendChild(hint);
     state.albums.types.forEach(function (t, ti) {
       var card = document.createElement('button');
@@ -403,7 +405,7 @@
       var bar = document.createElement('div');
       bar.className = 'alb-bar';
       bar.innerHTML = locked
-        ? '<i style="width:100%;background:#86c994"></i>'
+        ? '<i style="width:100%;background:#e5484d"></i>'
         : '<i style="width:' + Math.min(100, (photos.length / t.capacity) * 100) + '%;background:' + albumColor(t.id, ti) + '"></i>';
 
       card.appendChild(head);
@@ -806,6 +808,22 @@
     var total = withPhotos.reduce(function (n, a) { return n + a.photoIds.length; }, 0);
     $('confirm-what').textContent = nAlbums > 1 ? 'vos sélections' : 'votre sélection';
     $('confirm-summary').textContent = nAlbums + ' album' + (nAlbums > 1 ? 's' : '') + ' · ' + total + ' photo' + (total > 1 ? 's' : '') + ' en tout';
+    // Alertes « couverture manquante » (albums photo seulement)
+    var types = state.albums ? state.albums.types : [];
+    var noCover = withPhotos.filter(function (a) {
+      var t = types.find(function (x) { return x.id === a.typeId; });
+      return t && !t.print && !a.coverId;
+    }).map(function (a) {
+      var t = types.find(function (x) { return x.id === a.typeId; });
+      return t.label;
+    });
+    var warn = $('confirm-cover-warn');
+    if (warn) {
+      warn.textContent = noCover.length
+        ? '⚠ Couverture manquante : ' + noCover.join(' · ') + ' — choisissez une couverture avant de confirmer.'
+        : '';
+      warn.classList.toggle('hidden', !noCover.length);
+    }
     var ok = $('confirm-send-ok');
     ok.disabled = false;
     ok.textContent = 'Je confirme';
@@ -827,6 +845,30 @@
     var senderName = state.client ? state.client.name : (state.alb.name || '');
     // Enregistrement (côté photographe + historique du client)
     var albums = currentSelectionAlbums();
+    // Couverture OBLIGATOIRE pour chaque album photo (les impressions n'en ont pas)
+    var types = state.albums ? state.albums.types : [];
+    var noCoverLabels = [];
+    albums.forEach(function (a) {
+      if (!a.photoIds.length) return;
+      var t = types.find(function (x) { return x.id === a.typeId; });
+      if (t && !t.print && !a.coverId) noCoverLabels.push({ label: t.label, typeId: a.typeId });
+    });
+    if (noCoverLabels.length) {
+      state.sending = false;
+      ok.disabled = false;
+      ok.textContent = 'Je confirme';
+      window.toast(
+        'Couverture obligatoire : « ' + noCoverLabels[0].label +
+        (noCoverLabels.length > 1 ? ' » et ' + (noCoverLabels.length - 1) + ' autre(s) album(s)' : '') +
+        ' n\u2019' + (noCoverLabels.length > 1 ? 'ont' : 'a') + ' pas encore de couverture. Choisissez une couverture avant l\u2019envoi.', 'err'
+      );
+      var first = noCoverLabels[0];
+      state.alb.active = first.typeId;
+      renderAlbumsPanel();
+      var el = document.querySelector('.alb-card.active');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     var sent = null;
     var sentClient = false;
     var req;

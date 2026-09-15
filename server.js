@@ -649,6 +649,18 @@ app.post('/api/g/:slug/selection', async (req, res) => {
   if (albums.every((a) => a.photoIds.length === 0)) {
     return res.status(400).json({ error: 'La sélection est vide.' });
   }
+  // Couverture OBLIGATOIRE pour chaque album photo (les impressions n'en ont pas).
+  const missingCover = albums
+    .map((a) => allSelectableTypes(g).find((x) => x.id === a.typeId))
+    .filter((t, i) => t && !t.print && albums[i].photoIds.length > 0 && !albums[i].coverId)
+    .map((t) => t.label);
+  if (missingCover.length) {
+    return res.status(400).json({
+      error: 'Couverture obligatoire : « ' + missingCover[0] +
+        (missingCover.length > 1 ? ' » et ' + (missingCover.length - 1) + ' autre(s) album(s)' : '') +
+        ' n\u2019' + (missingCover.length > 1 ? 'ont' : 'a') + ' pas encore de couverture. Choisissez une photo de couverture pour chacun avant l\u2019envoi.',
+    });
+  }
   const sel = {
     id: sec.randomToken(8),
     date: Date.now(),
@@ -884,6 +896,19 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
       error: lockedRejected
         ? 'L\u2019album « ' + lockedRejected.label + ' » a déjà été envoyé à Mews Studio.'
         : 'La sélection est vide.',
+    });
+  }
+  // Couverture OBLIGATOIRE : chaque album photo envoyé doit avoir sa couverture
+  // (les impressions — posters, agrandissements — n'en ont pas).
+  const missingCover = albums
+    .map((a) => allSelectableTypes(g).find((x) => x.id === a.typeId))
+    .filter((t, i) => t && !t.print && albums[i].photoIds.length > 0 && !albums[i].coverId)
+    .map((t) => t.label);
+  if (missingCover.length) {
+    return res.status(400).json({
+      error: 'Couverture obligatoire : « ' + missingCover[0] +
+        (missingCover.length > 1 ? ' » et ' + (missingCover.length - 1) + ' autre(s) album(s)' : '') +
+        ' n\u2019' + (missingCover.length > 1 ? 'ont' : 'a') + ' pas encore de couverture. Choisissez une photo de couverture pour chacun avant l\u2019envoi.',
     });
   }
   const sel = { id: sec.randomToken(8), date: Date.now(), albums };

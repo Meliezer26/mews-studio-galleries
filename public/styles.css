@@ -17,7 +17,7 @@
   --accent-soft: rgba(255, 255, 255, 0.14);
   --danger: #e06c5a;
   --red: #e5484d;
-  --ok: #8fbf7f;
+  --ok: #e5484d;
   --radius: 14px;
   --radius-lg: 22px;
   --font-display: 'Fraunces', Georgia, serif;
@@ -78,9 +78,9 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
 }
 .btn--gold { background: var(--accent); color: #000000; }
 .btn--gold:hover { background: var(--accent-2); transform: translateY(-1px); box-shadow: 0 10px 26px rgba(255, 255, 255, 0.28); }
-/* Vert identique aux badges « ✓ Envoyé à Mews Studio » (galerie/album envoyée) */
-.btn--sent { background: #86c994; color: #000000; }
-.btn--sent:hover { background: #97d3a6; transform: translateY(-1px); box-shadow: 0 10px 26px rgba(134, 201, 148, 0.35); }
+/* Rouge identique aux badges « ✓ Envoyé à Mews Studio » (galerie/album envoyés) */
+.btn--sent { background: var(--red); color: #ffffff; }
+.btn--sent:hover { background: #f2555a; transform: translateY(-1px); box-shadow: 0 10px 26px rgba(229, 72, 77, 0.35); }
 .btn--ghost { background: transparent; color: var(--ink); border-color: var(--line-2); }
 .btn--ghost:hover { border-color: var(--accent); color: var(--accent); }
 .btn--soft { background: var(--accent-soft); color: var(--accent-2); }
@@ -101,7 +101,7 @@ h1, h2, h3, .display { font-family: var(--font-display); font-weight: 500; lette
   border: 1px solid var(--line-2); color: var(--muted);
 }
 .badge--gold { color: var(--accent-2); border-color: rgba(255, 255, 255, 0.4); background: var(--accent-soft); }
-.badge--ok { color: var(--ok); border-color: rgba(143, 191, 127, 0.4); background: rgba(143, 191, 127, 0.1); }
+.badge--ok { color: var(--ok); border-color: rgba(229, 72, 77, 0.4); background: rgba(229, 72, 77, 0.1); }
 .badge--warn { color: var(--danger); border-color: rgba(224, 108, 90, 0.4); background: rgba(224, 108, 90, 0.1); }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; }
 
@@ -309,7 +309,7 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 /* --- Alertes / toasts -------------------------------------- */
 .alert { border-radius: 12px; padding: 13px 16px; font-size: 0.9rem; border: 1px solid; margin-bottom: 16px; }
 .alert--err { background: rgba(224, 108, 90, 0.1); border-color: rgba(224, 108, 90, 0.4); color: #f0a497; }
-.alert--ok { background: rgba(143, 191, 127, 0.1); border-color: rgba(143, 191, 127, 0.4); color: #b7d8ad; }
+.alert--ok { background: rgba(229, 72, 77, 0.1); border-color: rgba(229, 72, 77, 0.4); color: #f0a497; }
 .alert--info { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.35); color: var(--accent-2); }
 
 #toasts { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 300; display: grid; gap: 10px; justify-items: center; pointer-events: none; }
@@ -318,8 +318,10 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
   padding: 12px 22px; border-radius: 999px; font-size: 0.9rem; box-shadow: var(--shadow);
   animation: toast-in 0.3s ease; max-width: 92vw;
 }
-.toast--ok { border-color: rgba(143, 191, 127, 0.5); }
+.toast--ok { border-color: rgba(229, 72, 77, 0.5); }
 .toast--err { border-color: rgba(224, 108, 90, 0.6); color: #f0a497; }
+/* Avertissement « couverture manquante » dans la modale de confirmation */
+.confirm-warn { color: var(--red); font-weight: 600; margin-bottom: 16px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(14px); } }
 
 /* --- Modales ----------------------------------------------- */
@@ -462,6 +464,9 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 }
 .alb-cover-btn:hover { background: var(--accent); color: #000000; border-color: var(--accent); }
 .alb-cover-btn--pick { margin-left: 0; }
+/* Couverture manquante sur un album qui contient déjà des photos : rouge */
+.alb-cover-btn--required { color: var(--red); border-color: var(--red); }
+.alb-cover-btn--required:hover { background: var(--red); color: #ffffff; border-color: var(--red); }
 .alb-cover-btn--rm { padding: 5px 9px; color: var(--muted); }
 .alb-cover-btn--rm:hover { background: var(--danger); border-color: var(--danger); color: #000; }
 .hist-cover { font-size: 0.8rem; color: var(--accent-2); padding-left: 12px; }
@@ -551,14 +556,14 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
   background: rgba(240, 200, 120, 0.92);
 }
 /* Carte d'album : ligne « déjà envoyé à Mews Studio » */
-.alb-sentline { margin-top: 4px; font-size: 0.74rem; font-weight: 600; color: #86c994; white-space: nowrap; }
+.alb-sentline { margin-top: 4px; font-size: 0.74rem; font-weight: 600; color: var(--red); white-space: nowrap; }
 /* Carte d'album verrouillée : ce client a déjà envoyé un album de ce format */
 .alb-card.locked { opacity: 0.62; cursor: default; }
 .alb-card.locked:hover { border-color: var(--line, rgba(255,255,255,0.16)); }
 .alb-locked-badge {
   display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 99px;
   font-size: 0.6rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
-  color: #000; background: #86c994; vertical-align: middle; white-space: nowrap;
+  color: #ffffff; background: var(--red); vertical-align: middle; white-space: nowrap;
 }
 /* Historique : sélection envoyée = figée et grisée */
 .hist-wrap.sent { opacity: 0.72; }
@@ -566,7 +571,7 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .hist-sent-badge {
   display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 99px;
   font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
-  color: #000; background: #86c994; vertical-align: middle;
+  color: #ffffff; background: var(--red); vertical-align: middle;
 }
 .hist-note { margin-top: 6px; font-size: 0.72rem; color: var(--muted); font-style: italic; }
 .g-grid.albums-mode .g-actions { display: none; }
