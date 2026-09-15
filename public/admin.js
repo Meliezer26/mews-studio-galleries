@@ -543,7 +543,7 @@
           $('eg-folder-field').classList.remove('hidden');
           populateFolderSelect($('eg-folder'), full.folderId || null, function (hasFolders) {
             $('eg-folder-field').classList.toggle('hidden', !hasFolders);
-          });
+          }, $('eg-folder-search'));
         } else {
           $('eg-folder-field').classList.add('hidden');
         }
@@ -554,7 +554,19 @@
     setTimeout(function () { $('eg-name').focus(); }, 60);
   }
 
-  function populateFolderSelect(sel, selectedId, cb) {
+  function bindFolderSearch(searchEl, sel) {
+    if (!searchEl) return;
+    searchEl.value = '';
+    searchEl.oninput = function () {
+      var q = searchEl.value.trim().toLowerCase();
+      Array.prototype.forEach.call(sel.options, function (o) {
+        if (!o.value) return;
+        o.hidden = q && o.textContent.toLowerCase().indexOf(q) === -1;
+      });
+    };
+  }
+
+  function populateFolderSelect(sel, selectedId, cb, searchEl) {
     sel.innerHTML = '<option value="">Chargement des dossiers…</option>';
     window.api('/api/admin/drive-folders')
       .then(function (data) {
@@ -574,6 +586,7 @@
           if (selectedId && f.id === selectedId) o.selected = true;
           sel.appendChild(o);
         });
+        bindFolderSearch(searchEl, sel);
         if (cb) cb(true);
       })
       .catch(function () {
@@ -590,7 +603,7 @@
     populateFolderSelect($('ng-folder'), null, function (hasFolders) {
       $('ng-mode').value = hasFolders ? 'drive' : 'demo';
       $('ng-folder-field').classList.toggle('hidden', !hasFolders);
-    });
+    }, $('ng-folder-search'));
   }
 
   /* --- Modale : photos ---------------------------------------- */
