@@ -141,6 +141,10 @@
   function albumById(typeId) {
     return (state.albums && state.albums.types || []).find(function (t) { return t.id === typeId; });
   }
+  /* Un album de CE format a-t-il déjà été envoyé par CE client ? (⇒ verrouillé) */
+  function typeIsSent(typeId) {
+    return !!(state.client && state.client.sentByType && state.client.sentByType[typeId] && state.client.sentByType[typeId].albumsSent > 0);
+  }
   function albPhotos(typeId) { return state.alb.photos[typeId] || []; }
   function albTotal() {
     var n = 0;
@@ -351,42 +355,50 @@
       var checked = !!state.alb.checked[t.id];
       var active = state.alb.active === t.id;
       var photos = albPhotos(t.id);
+      var locked = typeIsSent(t.id); // ce client a déjà envoyé un album de ce format
       if (checked) card.classList.add('checked');
-      if (active) card.classList.add('active');
+      if (active && !locked) card.classList.add('active');
+      if (locked) card.classList.add('locked');
 
       var head = document.createElement('div');
       head.className = 'alb-card-head';
       head.innerHTML =
         '<span class="dot-c" style="background:' + ALBUM_COLORS[t.id] + '"></span>' +
         '<b>' + t.label + '</b>' +
-        '<span class="alb-check">✓</span>';
+        (locked ? '<span class="alb-locked-badge">✓ Envoyé à Mews Studio</span>' : '<span class="alb-check">✓</span>');
 
       var count = document.createElement('div');
       count.className = 'alb-count';
-      count.innerHTML = '<b>' + photos.length + '</b> / ' + t.capacity + ' photo(s)' +
-        (photos.length >= t.capacity ? ' — album complet ✓' : '');
+      if (locked) {
+        count.innerHTML = '<b>Album clos</b> — envoyé à Mews Studio';
+      } else {
+        count.innerHTML = '<b>' + photos.length + '</b> / ' + t.capacity + ' photo(s)' +
+          (photos.length >= t.capacity ? ' — album complet ✓' : '');
+      }
 
       var bar = document.createElement('div');
       bar.className = 'alb-bar';
-      bar.innerHTML = '<i style="width:' + Math.min(100, (photos.length / t.capacity) * 100) + '%;background:' + ALBUM_COLORS[t.id] + '"></i>';
-
-      // Albums déjà envoyés pour ce type (grisé « déjà envoyé », sélection libre sinon)
-      if (state.client && state.client.sentByType && state.client.sentByType[t.id] && state.client.sentByType[t.id].albumsSent) {
-        var st = state.client.sentByType[t.id];
-        var line = document.createElement('div');
-        line.className = 'alb-sentline';
-        line.textContent = '✓ ' + st.albumsSent + ' album' + (st.albumsSent > 1 ? 's' : '') + ' déjà envoyé' + (st.albumsSent > 1 ? 's' : '') +
-          ' à Mews Studio (' + st.count + ' photo' + (st.count > 1 ? 's' : '') + ')' +
-          (st.lastDate ? ' — dernier le ' + new Date(st.lastDate).toLocaleDateString('fr-FR') : '');
-        card.appendChild(line);
-      }
+      bar.innerHTML = locked
+        ? '<i style="width:100%;background:#86c994"></i>'
+        : '<i style="width:' + Math.min(100, (photos.length / t.capacity) * 100) + '%;background:' + ALBUM_COLORS[t.id] + '"></i>';
 
       card.appendChild(head);
       card.appendChild(count);
       card.appendChild(bar);
-      if (checked) card.appendChild(buildCoverRow(t.id, photos));
+      if (checked && !locked) card.appendChild(buildCoverRow(t.id, photos));
+      if (locked && state.client && state.client.sentByType[t.id] && state.client.sentByType[t.id].lastDate) {
+        var line = document.createElement('div');
+        line.className = 'alb-sentline';
+        line.textContent = state.client.sentByType[t.id].count + ' photo(s) · envoyé le ' +
+          new Date(state.client.sentByType[t.id].lastDate).toLocaleDateString('fr-FR');
+        card.appendChild(line);
+      }
 
       card.addEventListener('click', function () {
+        if (locked) {
+          window.toast('L\u2019album « ' + t.label + ' » a déjà été envoyé à Mews Studio — cette carte est close.', 'err');
+          return;
+        }
         if (state.alb.checked[t.id]) {
           // Clic sur un album déjà coché → il devient l'album actif
           state.alb.active = t.id;
@@ -399,9 +411,9 @@
         render();
       });
 
-      // La petite case sert à décocher / retirer l'album
+      // La petite case sert à décocher / retirer l'album (inexistante si clos)
       var check = head.querySelector('.alb-check');
-      check.addEventListener('click', function (e) {
+      if (check) check.addEventListener('click', function (e) {
         e.stopPropagation();
         if (state.alb.checked[t.id]) {
           delete state.alb.checked[t.id];
@@ -507,6 +519,7 @@
           tile.appendChild(sentTag);
         }
         var activeT = albumById(state.alb.active) || (state.albums.types[0] ? albumById(state.albums.types[0].id) : null);
+        if (activeT && typeIsSent(activeT.id)) activeT = null; // album clos : pas de bouton +
         if (activeT) {
           var inAlb = albPhotos(activeT.id).indexOf(p.id) > -1;
           if (inAlb) tile.classList.add('in-album');
@@ -556,20 +569,34 @@
 
   /* --- Mode albums -------------------------------------------- */
   function toggleInAlbum(p) {
+    // Identification obligatoire AVANT toute sélection (sinon la connexion
+    // suivante écraserait le travail local)
+    if (!state.client) {
+      var em = $('cl-email');
+      if (em) setTimeout(function () { em.focus(); }, 100);
+      window.toast('Identifiez-vous d\u2019abord (nom + e-mail) avant de choisir vos photos — votre sélection sera alors sauvegardée sur votre profil.', 'err');
+      return;
+    }
     var typeId = state.alb.active;
-    if (!typeId) {
-      typeId = Object.keys(state.alb.checked)[0] || null;
-      if (!typeId) {
-        // Aucun album coché : on active automatiquement le premier
-        var first = state.albums.types[0];
-        if (!first) return;
-        state.alb.checked[first.id] = true;
-        state.alb.active = first.id;
-        typeId = first.id;
-        window.toast('Album « ' + first.label + ' » activé automatiquement — la photo y est ajoutée ✓', 'ok');
+    if (!typeId || typeIsSent(typeId)) {
+      // Album actif absent ou déjà envoyé : choisir le premier album encore disponible
+      typeId = null;
+      for (var i = 0; i < state.albums.types.length; i++) {
+        if (!typeIsSent(state.albums.types[i].id)) { typeId = state.albums.types[i].id; break; }
+      }
+      if (!typeId) { window.toast('Tous vos albums ont déjà été envoyés à Mews Studio.', 'err'); return; }
+      if (!state.alb.checked[typeId]) {
+        state.alb.checked[typeId] = true;
+        state.alb.active = typeId;
+        var tAuto = albumById(typeId);
+        window.toast('Album « ' + tAuto.label + ' » activé automatiquement — la photo y est ajoutée ✓', 'ok');
       } else {
         state.alb.active = typeId;
       }
+    }
+    if (typeIsSent(typeId)) {
+      window.toast('L\u2019album « ' + (albumById(typeId) || {}).label + ' » a déjà été envoyé à Mews Studio.', 'err');
+      return;
     }
     var list = state.alb.photos[typeId] || [];
     var idx = list.indexOf(p.id);
@@ -628,11 +655,23 @@
           sentByType: data.client.sentByType || {},
         };
         saveClientToken();
-        state.alb.checked = data.client.albums.checked || {};
-        state.alb.photos = data.client.albums.photos || {};
+        // FUSION (jamais d'écrasement) : la sélection locale éventuelle est
+        // conservée et complétée par celle du serveur (autre appareil, etc.)
+        var srvAlb = data.client.albums || {};
+        var mergedPhotos = {};
+        var mergedChecked = {};
+        (state.albums ? state.albums.types : []).forEach(function (t) {
+          var local = state.alb.photos[t.id] || [];
+          var srv = (srvAlb.photos || {})[t.id] || [];
+          mergedPhotos[t.id] = local.concat(srv.filter(function (id) { return local.indexOf(id) === -1; }));
+          if (state.alb.checked[t.id] || (srvAlb.checked || {})[t.id]) mergedChecked[t.id] = true;
+        });
+        state.alb.checked = mergedChecked;
+        state.alb.photos = mergedPhotos;
+        state.alb.covers = Object.assign({}, srvAlb.covers || {}, state.alb.covers || {});
         if (!state.alb.name) state.alb.name = data.client.name;
         $('cl-name').value = '';
-        saveAlbumsLocal();
+        saveAlbums();
         renderAlbumsPanel();
         render();
         window.toast('Bienvenue ' + data.client.name + ' ✓ Vos albums sont sauvegardés.', 'ok');
@@ -645,7 +684,9 @@
     state.albumMode = on;
     if (on) {
       if (state.selecting) { state.selecting = false; state.selected.clear(); }
-      if (!state.alb.active) state.alb.active = Object.keys(state.alb.checked)[0] || null;
+      if (!state.alb.active || typeIsSent(state.alb.active)) {
+        state.alb.active = Object.keys(state.alb.checked).filter(function (k) { return !typeIsSent(k); })[0] || null;
+      }
     }
     $('albums-panel').classList.toggle('hidden', !state.albums);
     render();
@@ -778,6 +819,10 @@
             if (state.sentInAlbums.indexOf(id) === -1) state.sentInAlbums.push(id);
           });
         });
+        // L'album actif ne doit plus être un album clos
+        if (typeIsSent(state.alb.active)) {
+          state.alb.active = Object.keys(state.alb.checked).filter(function (k) { return !typeIsSent(k); })[0] || null;
+        }
         saveAlbumsLocal();
         renderAlbumsPanel();
         render();

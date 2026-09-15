@@ -543,6 +543,14 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 }
 /* Carte d'album : ligne « déjà envoyé à Mews Studio » */
 .alb-sentline { margin-top: 4px; font-size: 0.74rem; font-weight: 600; color: #86c994; white-space: nowrap; }
+/* Carte d'album verrouillée : ce client a déjà envoyé un album de ce format */
+.alb-card.locked { opacity: 0.62; cursor: default; }
+.alb-card.locked:hover { border-color: var(--line, rgba(255,255,255,0.16)); }
+.alb-locked-badge {
+  display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 99px;
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  color: #000; background: #86c994; vertical-align: middle; white-space: nowrap;
+}
 /* Historique : sélection envoyée = figée et grisée */
 .hist-wrap.sent { opacity: 0.72; }
 .hist-wrap.sent details { background: rgba(255, 255, 255, 0.045); }

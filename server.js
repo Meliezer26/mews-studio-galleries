@@ -729,19 +729,28 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   }
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  // Une même photo peut figurer dans plusieurs albums du client :
-  // le seul verrou, c'est qu'une sélection envoyée n'est plus modifiable/renvoyable.
+  // Verrou : un format d'album déjà envoyé par CE client ne peut plus être renvoyé.
+  // (Une même photo peut en revanche figurer dans les albums de DIFFÉRENTS clients,
+  //  ex. mariés + parents — et chaque client ne verrouille que ses propres albums.)
+  const sentState = sentStateForClient(g, client);
+  const lockedTypes = new Set(Object.keys(sentState.byType).filter((t) => sentState.byType[t].albumsSent > 0));
+  let lockedRejected = null;
   const albums = galleryAlbumTypes(g).map((t) => {
     const incoming = (((req.body || {}).albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
-    const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
+    if (lockedTypes.has(t.id) && ids.length) lockedRejected = t;
+    const photoIds = lockedTypes.has(t.id) ? [] : ids.filter((id) => valid.has(id)).slice(0, t.capacity);
     // Couverture libre : n'importe quelle photo de la galerie.
     const coverId = (incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
       ? incoming.coverId : null;
     return { typeId: t.id, photoIds, coverId };
   });
   if (albums.every((a) => a.photoIds.length === 0)) {
-    return res.status(400).json({ error: 'La sélection est vide.' });
+    return res.status(400).json({
+      error: lockedRejected
+        ? 'L\u2019album « ' + lockedRejected.label + ' » a déjà été envoyé à Mews Studio.'
+        : 'La sélection est vide.',
+    });
   }
   const sel = { id: sec.randomToken(8), date: Date.now(), albums };
   client.selections = client.selections || [];
