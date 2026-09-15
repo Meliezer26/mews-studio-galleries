@@ -673,6 +673,13 @@
         var b = document.createElement('b');
         b.textContent = label + ' — ' + a.photoIds.length + ' photo(s)';
         line.appendChild(b);
+        if (a.coverId) {
+          var cidx = files.findIndex(function (f) { return f.id === a.coverId; });
+          var cb = document.createElement('b');
+          cb.className = 'sel-cover';
+          cb.textContent = '🖼 Couverture : n°' + (cidx > -1 ? cidx + 1 : '?') + ' · ' + (cidx > -1 ? files[cidx].name : a.coverId);
+          line.appendChild(cb);
+        }
         if (a.photoIds.length) {
           var chips = document.createElement('div');
           chips.className = 'sel-photos';

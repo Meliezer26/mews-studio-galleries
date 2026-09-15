@@ -15,7 +15,7 @@
     watermark: null,           // { text } ou null
     albums: null,              // { types, email } ou null
     albumMode: false,
-    alb: { name: '', checked: {}, active: null, photos: {} }, // par typeId
+    alb: { name: '', checked: {}, active: null, photos: {}, covers: {} }, // par typeId ; covers: { typeId: photoId }
     client: null,              // { token, name, history } — profil identifié
     saveTimer: null,
   };
@@ -27,7 +27,7 @@
     try {
       var raw = localStorage.getItem('mews_albums_' + slug);
       var d = raw ? JSON.parse(raw) : null;
-      if (d && d.photos) state.alb = { name: d.name || '', checked: d.checked || {}, active: null, photos: d.photos };
+      if (d && d.photos) state.alb = { name: d.name || '', checked: d.checked || {}, active: null, photos: d.photos, covers: d.covers || {} };
     } catch {}
   }
   function saveAlbums() {
@@ -38,7 +38,7 @@
   function saveAlbumsLocal() {
     try {
       localStorage.setItem('mews_albums_' + slug, JSON.stringify({
-        name: state.alb.name, checked: state.alb.checked, photos: state.alb.photos,
+        name: state.alb.name, checked: state.alb.checked, photos: state.alb.photos, covers: state.alb.covers,
       }));
     } catch {}
   }
@@ -71,7 +71,7 @@
       window.api('/api/g/' + slug + '/client/albums', {
         method: 'POST',
         headers: clientHeaders(),
-        body: { checked: state.alb.checked, photos: state.alb.photos },
+        body: { checked: state.alb.checked, photos: state.alb.photos, covers: state.alb.covers },
       }).catch(function () { /* silencieux */ });
     }, 900);
   }
@@ -180,6 +180,13 @@
         line.className = 'hist-album';
         line.textContent = (t ? t.label : a.typeId) + ' — ' + a.photoIds.length + ' photo(s)';
         body.appendChild(line);
+        if (a.coverId) {
+          var cp = state.photos.find(function (x) { return x.id === a.coverId; });
+          var cov = document.createElement('div');
+          cov.className = 'hist-cover';
+          cov.textContent = '🖼 Couverture : n°' + (cp ? cp.index + 1 : '?') + ' · ' + (cp ? cp.name : a.coverId);
+          body.appendChild(cov);
+        }
       });
       item.appendChild(body);
       wrap.appendChild(item);
@@ -205,13 +212,16 @@
   function reloadSelection(sel) {
     var checked = {};
     var photos = {};
+    var covers = {};
     (state.albums ? state.albums.types : []).forEach(function (t) { photos[t.id] = []; });
     (sel.albums || []).forEach(function (a) {
       checked[a.typeId] = true;
       photos[a.typeId] = (a.photoIds || []).slice();
+      if (a.coverId && photos[a.typeId].indexOf(a.coverId) > -1) covers[a.typeId] = a.coverId;
     });
     state.alb.checked = checked;
     state.alb.photos = photos;
+    state.alb.covers = covers;
     state.alb.active = Object.keys(checked)[0] || null;
     saveAlbums();
     renderAlbumsPanel();
@@ -232,11 +242,121 @@
     window.toast('Votre application mail s\u2019ouvre avec la sélection ✓', 'ok');
   }
 
+  /* --- Couverture d'album ------------------------------------- */
+  function buildCoverRow(typeId, photos) {
+    var row = document.createElement('div');
+    row.className = 'alb-cover';
+    var coverId = state.alb.covers[typeId];
+    var cover = photos.indexOf(coverId) > -1
+      ? state.photos.find(function (p) { return p.id === coverId; })
+      : null;
+    if (cover) {
+      var img = document.createElement('img');
+      img.className = 'alb-cover-img';
+      img.src = photoUrl(cover, 'thumb');
+      img.onload = function () {
+        var w = row.querySelector('.alb-cover-warn');
+        if (w) w.style.display = (img.naturalWidth < img.naturalHeight) ? '' : 'none';
+      };
+      var meta = document.createElement('span');
+      meta.className = 'alb-cover-meta';
+      meta.textContent = '🖼 n°' + (cover.index + 1) + ' · ' + cover.name;
+      var warn = document.createElement('span');
+      warn.className = 'alb-cover-warn';
+      warn.style.display = 'none';
+      warn.textContent = '⚠ verticale — la couverture doit être horizontale';
+      var change = document.createElement('span');
+      change.className = 'alb-cover-btn';
+      change.setAttribute('role', 'button');
+      change.textContent = 'Changer';
+      change.addEventListener('click', function (e) { e.stopPropagation(); openCoverPicker(typeId); });
+      var rm = document.createElement('span');
+      rm.className = 'alb-cover-btn alb-cover-btn--rm';
+      rm.setAttribute('role', 'button');
+      rm.title = 'Retirer la couverture';
+      rm.textContent = '✕';
+      rm.addEventListener('click', function (e) {
+        e.stopPropagation();
+        delete state.alb.covers[typeId];
+        saveAlbums();
+        renderAlbumsPanel();
+      });
+      row.appendChild(img);
+      row.appendChild(meta);
+      row.appendChild(warn);
+      row.appendChild(change);
+      row.appendChild(rm);
+    } else {
+      var choose = document.createElement('span');
+      choose.className = 'alb-cover-btn alb-cover-btn--pick';
+      choose.setAttribute('role', 'button');
+      choose.textContent = photos.length
+        ? '🖼 Choisir la couverture'
+        : '🖼 Ajoutez des photos, puis choisissez la couverture';
+      choose.addEventListener('click', function (e) { e.stopPropagation(); openCoverPicker(typeId); });
+      row.appendChild(choose);
+    }
+    return row;
+  }
+
+  function openCoverPicker(typeId) {
+    var t = albumById(typeId);
+    if (!t) return;
+    var ids = albPhotos(typeId);
+    if (!ids.length) {
+      window.toast('Ajoutez d\u2019abord des photos à cet album.', 'err');
+      return;
+    }
+    var grid = $('cov-grid');
+    grid.innerHTML = '';
+    $('cov-title').textContent = 'Couverture — ' + t.label;
+    ids.forEach(function (fid) {
+      var p = state.photos.find(function (x) { return x.id === fid; });
+      if (!p) return;
+      var tile = document.createElement('div');
+      tile.className = 'cov-tile' + (state.alb.covers[typeId] === fid ? ' current' : '');
+      var img = document.createElement('img');
+      img.loading = 'lazy';
+      img.src = photoUrl(p, 'thumb');
+      var badge = document.createElement('span');
+      badge.className = 'cov-orient';
+      badge.textContent = '…';
+      img.onload = function () {
+        var portrait = img.naturalWidth < img.naturalHeight;
+        badge.textContent = portrait ? 'Portrait' : 'Paysage ✓';
+        badge.classList.toggle('portrait', portrait);
+      };
+      var cap = document.createElement('span');
+      cap.className = 'cov-cap';
+      cap.textContent = 'n°' + (p.index + 1) + ' · ' + p.name;
+      tile.appendChild(img);
+      tile.appendChild(badge);
+      tile.appendChild(cap);
+      tile.addEventListener('click', function () {
+        state.alb.covers[typeId] = fid;
+        saveAlbums();
+        closeCoverPicker();
+        renderAlbumsPanel();
+        window.toast('Couverture de « ' + t.label + ' » choisie ✓', 'ok');
+      });
+      grid.appendChild(tile);
+    });
+    $('cov').classList.remove('hidden');
+  }
+
+  function closeCoverPicker() {
+    $('cov').classList.add('hidden');
+  }
+
   function renderAlbumsPanel() {
     var wrap = $('albums-cards');
     wrap.innerHTML = '';
     renderIdentity();
     renderHistory();
+    var hint = document.createElement('div');
+    hint.className = 'alb-cover-hint';
+    hint.innerHTML = '🖼 <b>Couverture d\u2019album</b> : choisissez pour chaque album une photo en format <b>horizontal (paysage)</b>.';
+    wrap.appendChild(hint);
     state.albums.types.forEach(function (t) {
       var card = document.createElement('button');
       card.type = 'button';
@@ -266,6 +386,7 @@
       card.appendChild(head);
       card.appendChild(count);
       card.appendChild(bar);
+      if (checked) card.appendChild(buildCoverRow(t.id, photos));
 
       card.addEventListener('click', function () {
         if (state.alb.checked[t.id]) {
@@ -287,6 +408,7 @@
         if (state.alb.checked[t.id]) {
           delete state.alb.checked[t.id];
           state.alb.photos[t.id] = [];
+          delete state.alb.covers[t.id];
           if (state.alb.active === t.id) {
             state.alb.active = Object.keys(state.alb.checked)[0] || null;
           }
@@ -439,6 +561,7 @@
     if (idx > -1) {
       list.splice(idx, 1);
       state.alb.photos[typeId] = list;
+      if (state.alb.covers[typeId] === p.id) delete state.alb.covers[typeId];
       saveAlbums();
       renderAlbumsPanel();
       render();
@@ -501,7 +624,12 @@
   /* --- Récapitulatif + envoi ---------------------------------- */
   function currentSelectionAlbums() {
     return (state.albums ? state.albums.types : []).map(function (t) {
-      return { typeId: t.id, photoIds: state.alb.checked[t.id] ? albPhotos(t.id) : [] };
+      var on = !!state.alb.checked[t.id];
+      return {
+        typeId: t.id,
+        photoIds: on ? albPhotos(t.id) : [],
+        coverId: on ? (state.alb.covers[t.id] || null) : null,
+      };
     });
   }
 
@@ -518,6 +646,10 @@
       var list = entry ? entry.photoIds : [];
       if (!list.length) return;
       lines.push('▸ ' + t.label + ' — ' + list.length + ' photo(s)');
+      if (entry && entry.coverId) {
+        var cp = state.photos.find(function (x) { return x.id === entry.coverId; });
+        lines.push('   🖼 Couverture : n°' + (cp ? cp.index + 1 : '?') + ' — ' + (cp ? cp.name : entry.coverId));
+      }
       list.forEach(function (id) {
         var p = state.photos.find(function (x) { return x.id === id; });
         lines.push('   · n°' + (p ? p.index + 1 : '?') + ' — ' + (p ? p.name : id));
@@ -779,9 +911,16 @@
       if (p) { toggleInAlbum(p); updateLightbox(); }
     });
 
+    $('cov-close').addEventListener('click', closeCoverPicker);
+    $('cov').addEventListener('click', function (e) { if (e.target === $('cov')) closeCoverPicker(); });
+
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && $('send-modal').classList.contains('open')) {
         $('send-modal').classList.remove('open');
+        return;
+      }
+      if (e.key === 'Escape' && !$('cov').classList.contains('hidden')) {
+        closeCoverPicker();
         return;
       }
       if (!$('lb').classList.contains('open')) return;

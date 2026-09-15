@@ -202,10 +202,14 @@ function buildNotificationInfo(req, g, clientName, albums) {
     galleryUrl: `${req.protocol}://${req.get('host')}/g/${g.slug}`,
     albums: ALBUM_TYPES.map((t) => {
       const entry = (albums || []).find((a) => a.typeId === t.id) || { photoIds: [] };
+      const coverIdx = files.findIndex((f) => f.id === (entry.coverId || ''));
       return {
         label: t.label,
         count: entry.photoIds.length,
         photoIds: entry.photoIds,
+        cover: entry.coverId
+          ? { index: coverIdx > -1 ? coverIdx + 1 : null, name: coverIdx > -1 ? files[coverIdx].name : entry.coverId }
+          : null,
         photos: entry.photoIds.map((id) => {
           const idx = files.findIndex((f) => f.id === id);
           return { index: idx > -1 ? idx + 1 : null, name: idx > -1 ? files[idx].name : id };
@@ -500,7 +504,10 @@ app.post('/api/g/:slug/selection', async (req, res) => {
   const albums = ALBUM_TYPES.map((t) => {
     const incoming = ((req.body && req.body.albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
-    return { typeId: t.id, photoIds: ids.filter((id) => valid.has(id)).slice(0, t.capacity) };
+    const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
+    const coverId = (incoming && typeof incoming.coverId === 'string' && photoIds.includes(incoming.coverId))
+      ? incoming.coverId : null;
+    return { typeId: t.id, photoIds, coverId };
   });
   if (albums.every((a) => a.photoIds.length === 0)) {
     return res.status(400).json({ error: 'La sélection est vide.' });
@@ -539,7 +546,7 @@ function clientPayload(c) {
   return {
     name: c.name,
     email: c.email || '',
-    albums: c.albums || { checked: {}, photos: {} },
+    albums: c.albums || { checked: {}, photos: {}, covers: {} },
     selections: (c.selections || []).map((s) => ({ date: s.date, albums: s.albums })),
   };
 }
@@ -552,7 +559,12 @@ function clientAlbumState(body, validIds) {
   });
   const checked = {};
   ALBUM_TYPES.forEach((t) => { checked[t.id] = !!((body.checked || {})[t.id]); });
-  return { checked, photos };
+  const covers = {};
+  ALBUM_TYPES.forEach((t) => {
+    const c = (body.covers || {})[t.id];
+    if (typeof c === 'string' && validIds.has(c) && photos[t.id].includes(c)) covers[t.id] = c;
+  });
+  return { checked, photos, covers };
 }
 
 app.post('/api/g/:slug/client/auth', async (req, res) => {
@@ -581,7 +593,7 @@ app.post('/api/g/:slug/client/auth', async (req, res) => {
       email: email || '',
       createdAt: Date.now(),
       lastSeenAt: Date.now(),
-      albums: { checked: {}, photos: {} },
+      albums: { checked: {}, photos: {}, covers: {} },
       selections: [],
     };
     g.clients.push(client);
@@ -644,7 +656,10 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   const albums = ALBUM_TYPES.map((t) => {
     const incoming = (((req.body || {}).albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
-    return { typeId: t.id, photoIds: ids.filter((id) => valid.has(id)).slice(0, t.capacity) };
+    const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
+    const coverId = (incoming && typeof incoming.coverId === 'string' && photoIds.includes(incoming.coverId))
+      ? incoming.coverId : null;
+    return { typeId: t.id, photoIds, coverId };
   });
   if (albums.every((a) => a.photoIds.length === 0)) {
     return res.status(400).json({ error: 'La sélection est vide.' });
