@@ -231,11 +231,12 @@ function noteNotify(ok, error) {
 }
 
 /** Prépare le contenu d'une notification de sélection d'albums. */
-function buildNotificationInfo(req, g, clientName, albums) {
+function buildNotificationInfo(req, g, clientName, albums, clientEmail) {
   const files = g.files || [];
   return {
     galleryName: g.name,
     clientName: clientName || null,
+    clientEmail: clientEmail || null,
     galleryUrl: `${req.protocol}://${req.get('host')}/g/${g.slug}`,
     albums: allSelectableTypes(g).map((t) => {
       const entry = (albums || []).find((a) => a.typeId === t.id) || { photoIds: [] };
@@ -259,10 +260,10 @@ function buildNotificationInfo(req, g, clientName, albums) {
 }
 
 /** Envoie la notification en arrière-plan (n'interrompt jamais la réponse). */
-async function notifySelection(req, g, clientName, albums) {
+async function notifySelection(req, g, clientName, albums, clientEmail) {
   if (!mailer.isConfigured()) return false;
   try {
-    await mailer.sendSelectionNotification(buildNotificationInfo(req, g, clientName, albums));
+    await mailer.sendSelectionNotification(buildNotificationInfo(req, g, clientName, albums, clientEmail));
     noteNotify(true);
     return true;
   } catch (err) {
@@ -925,7 +926,9 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
     // Boîte de réception du photographe (vue admin)
     cur.selections = [{ id: sel.id, date: sel.date, name: clientName, albums: sel.albums }, ...((cur.selections || []))].slice(0, 100);
   });
-  const emailSent = await notifySelection(req, g, client.name, albums);
+  const clientEmail = ((client.emails && client.emails.length ? client.emails : [client.email]) || [])
+    .map((e) => String(e || '').trim()).filter(Boolean).join(', ');
+  const emailSent = await notifySelection(req, g, client.name, albums, clientEmail);
   // Récapitulatif au client (sa propre adresse e-mail) — ne bloque pas l'envoi au photographe.
   const clientEmailSent = await notifyClientSelection(req, g, client, sel);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
