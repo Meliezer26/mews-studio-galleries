@@ -1260,6 +1260,14 @@ app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
   const galleryPassword = String(body.galleryPassword || '').trim().slice(0, 80);
   if (name.length < 2) return res.status(400).json({ error: 'Entrez le nom du client.' });
   if (!emails.length) return res.status(400).json({ error: 'Au moins une adresse e-mail valide est requise.' });
+  // Si un mot de passe est saisi (champ pré-rempli avec l'actuel), il DEVIENT
+  // réellement le mot de passe de la galerie — sinon l'e-mail annoncerait un
+  // mdp que le verrou ne connaît pas.
+  if (galleryPassword) {
+    if (galleryPassword.length < 4) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 4 caractères.' });
+    g.passwordHash = sec.hashPassword(galleryPassword);
+    g.passwordRef = galleryPassword;
+  }
   g.clients = g.clients || [];
   if (g.clients.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
     return res.status(409).json({ error: 'Un client portant ce nom existe déjà sur cette galerie. Utilisez « Envoyer l\'accès » sur sa ligne.' });
@@ -1306,6 +1314,12 @@ app.post('/api/admin/galleries/:id/clients/:clientId/send-access', requireAdmin,
   const emails = parseEmailList(body.emails || body.email);
   const galleryPassword = String(body.galleryPassword || '').trim().slice(0, 80);
   if (!emails.length) return res.status(400).json({ error: 'Au moins une adresse e-mail valide est requise.' });
+  // Même règle que « Nouveau client » : un mdp saisi devient le mdp réel de la galerie.
+  if (galleryPassword) {
+    if (galleryPassword.length < 4) return res.status(400).json({ error: 'Le mot de passe doit faire au moins 4 caractères.' });
+    g.passwordHash = sec.hashPassword(galleryPassword);
+    g.passwordRef = galleryPassword;
+  }
   if (emails[0].toLowerCase() !== String(client.email || '').toLowerCase()) client.email = emails[0];
   client.emails = Array.from(new Set([...(client.emails || (client.email ? [client.email] : [])), ...emails].map((x) => String(x).toLowerCase())));
   const idx = all.findIndex((x) => x.id === g.id);
