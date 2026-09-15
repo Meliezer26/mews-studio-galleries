@@ -521,6 +521,9 @@ app.get('/api/g/:slug/photos', async (req, res) => {
         (sel.albums || []).forEach((a) => (a.photoIds || []).forEach((id) => s.add(id)))));
       return Array.from(s);
     })(),
+    // Formats d'album déjà envoyés (TOUS clients confondus) — le verrou,
+    // visible même pour un visiteur non identifié.
+    sentByType: sentStateForGallery(g).byType,
   });
 });
 
@@ -610,6 +613,33 @@ function sentStateForClient(g, client) {
   return { all: Array.from(all), byType };
 }
 
+/** Photos déjà envoyées dans la galerie (TOUS les clients confondus),
+    par type d'album — c'est le verrou : un format d'album ne peut être
+    envoyé qu'UNE FOIS par galerie, par qui que ce soit (même avec une
+    autre adresse e-mail). (Une même photo reste libre entre albums.) */
+function sentStateForGallery(g) {
+  const all = new Set();
+  const byType = {};
+  const sendersByType = {};
+  (g.clients || []).forEach((c) => {
+    (c.selections || []).forEach((s) => {
+      (s.albums || []).forEach((a) => {
+        const t = galleryAlbumTypes(g).find((x) => x.id === a.typeId);
+        if (!t) return;
+        (a.photoIds || []).forEach((id) => all.add(id));
+        if (!byType[t.id]) byType[t.id] = { count: 0, lastDate: 0, albumsSent: 0 };
+        if ((a.photoIds || []).length) {
+          byType[t.id].albumsSent++;
+          sendersByType[t.id] = Array.from(new Set([...(sendersByType[t.id] || []), c.name || c.email || 'inconnu']));
+        }
+        byType[t.id].count += (a.photoIds || []).length;
+        if ((s.date || 0) > byType[t.id].lastDate) byType[t.id].lastDate = s.date || 0;
+      });
+    });
+  });
+  return { all: Array.from(all), byType, sendersByType };
+}
+
 function clientAlbumState(albumTypes, body, validIds) {
   const photos = {};
   albumTypes.forEach((t) => {
@@ -674,7 +704,7 @@ app.post('/api/g/:slug/client/auth', async (req, res) => {
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   const token = sec.sign({ slug: req.params.slug, clientId: client.id, iat: Date.now() }, secret());
   const payload = clientPayload(client);
-  const sent = sentStateForClient(g, client);
+  const sent = sentStateForGallery(g);
   payload.sentIds = sent.all;
   payload.sentByType = sent.byType;
   res.json({ ok: true, token, client: payload });
@@ -690,7 +720,7 @@ app.get('/api/g/:slug/client/me', async (req, res) => {
   const client = clientFromToken(req, g);
   if (!client) return res.status(401).json({ error: 'Non identifié.' });
   const payload = clientPayload(client);
-  const sent = sentStateForClient(g, client);
+  const sent = sentStateForGallery(g);
   payload.sentIds = sent.all;
   payload.sentByType = sent.byType;
   res.json({ client: payload });
@@ -729,10 +759,11 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   }
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  // Verrou : un format d'album déjà envoyé par CE client ne peut plus être renvoyé.
-  // (Une même photo peut en revanche figurer dans les albums de DIFFÉRENTS clients,
-  //  ex. mariés + parents — et chaque client ne verrouille que ses propres albums.)
-  const sentState = sentStateForClient(g, client);
+  // Verrou strict PAR GALERIE : un format d'album déjà envoyé par QUELQU'UN
+  // ne peut plus être envoyé — même avec une autre adresse e-mail.
+  // (Une même photo peut en revanche figurer dans des albums de formats
+  //  DIFFÉRENTS, ex. 150 photos + 200 photos.)
+  const sentState = sentStateForGallery(g);
   const lockedTypes = new Set(Object.keys(sentState.byType).filter((t) => sentState.byType[t].albumsSent > 0));
   let lockedRejected = null;
   const albums = galleryAlbumTypes(g).map((t) => {
@@ -766,7 +797,7 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   const emailSent = await notifySelection(req, g, client.name, albums);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
-  const sentNow = sentStateForClient(g, client);
+  const sentNow = sentStateForGallery(g);
   res.json({ ok: true, emailSent, sentIds: sentNow.all, sentByType: sentNow.byType });
 });
 
@@ -1478,6 +1509,19 @@ app.get('/api/admin/clients', requireAdmin, (req, res) => {
       slug: g.slug,
       name: g.name,
       passwordRef: g.passwordRef || null,
+      // Formats déjà envoyés (par qui) — verrou par galerie.
+      gallerySentByType: (function () {
+        const s = sentStateForGallery(g);
+        const types = galleryAlbumTypes(g);
+        const out = {};
+        Object.keys(s.byType).forEach((t) => {
+          if (s.byType[t].albumsSent > 0) {
+            const tt = types.find((x) => x.id === t);
+            out[t] = { label: tt ? tt.label : t, date: s.byType[t].lastDate, senders: s.sendersByType[t] || [] };
+          }
+        });
+        return out;
+      })(),
       clients: (g.clients || []).map((c) => {
         let sentPhotos = 0;
         (c.selections || []).forEach((s) => (s.albums || []).forEach((a) => { sentPhotos += (a.photoIds || []).length; }));

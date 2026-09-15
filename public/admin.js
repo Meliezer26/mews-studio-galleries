@@ -122,6 +122,19 @@
           addBtn.addEventListener('click', function () { openClientAccessModal(g.id, g.slug, g.name, null, g.passwordRef); });
           head.appendChild(addBtn);
           card.appendChild(head);
+          // Envois de la galerie — verrou : 1 format = 1 envoi, pour toute la galerie.
+          var gsKeys = Object.keys(g.gallerySentByType || {});
+          if (gsKeys.length) {
+            var gs = document.createElement('div');
+            gs.className = 'client-gallery-sends small';
+            gs.innerHTML = '<b>✓ Albums déjà envoyés</b> (clos pour tous, même avec une autre e-mail) : ' +
+              gsKeys.map(function (t) {
+                var e = g.gallerySentByType[t];
+                return escapeHtml(e.label) + ' — par ' + escapeHtml((e.senders || []).join(', ')) +
+                  ' le ' + window.fmtDate(e.date);
+              }).join(' · ');
+            card.appendChild(gs);
+          }
           if (!g.clients.length) {
             var p = document.createElement('p');
             p.className = 'small muted';
@@ -157,9 +170,9 @@
               resetBtn.className = 'btn btn--ghost btn--sm';
               resetBtn.textContent = '↺ Réinitialiser les envois';
               resetBtn.type = 'button';
-              resetBtn.title = 'Efface l\u2019historique des envois de ce client (à utiliser si un envoi a été confirmé par erreur)';
+              resetBtn.title = 'Ré-ouvre les formats d\u2019album envoyés par ce client (ils redeviennent envoyables par tout le monde) — à utiliser si un envoi a été confirmé par erreur';
               resetBtn.addEventListener('click', function () {
-                if (!window.confirm('Réinitialiser les envois de ' + c.name + ' ? Son historique de sélections envoyées sera effacé (les photos, elles, étaient toujours libres).')) return;
+                if (!window.confirm('Réinitialiser les envois de ' + c.name + ' ? Les formats d\u2019album qu\u2019il a envoyés seront ré-ouverts pour toute la galerie.')) return;
                 window.api('/api/admin/galleries/' + g.id + '/clients/' + c.id + '/reset-selections', { method: 'POST' })
                   .then(function () { window.toast('Envois de ' + c.name + ' réinitialisés ✓', 'ok'); loadClients(); })
                   .catch(function (err) { window.toast(err.message, 'err'); });

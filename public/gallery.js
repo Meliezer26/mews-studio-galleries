@@ -18,6 +18,7 @@
     alb: { name: '', checked: {}, active: null, photos: {}, covers: {} }, // par typeId ; covers: { typeId: photoId }
     client: null,              // { token, name, history } — profil identifié
     sentInAlbums: [],          // photos déjà dans un album envoyé (tous clients) → ✦
+    gallerySentByType: {},     // formats d'album déjà envoyés (tous clients) → verrou global
     saveTimer: null,
     sending: false,            // verrou anti double-envoi de sélection
   };
@@ -142,8 +143,13 @@
     return (state.albums && state.albums.types || []).find(function (t) { return t.id === typeId; });
   }
   /* Un album de CE format a-t-il déjà été envoyé par CE client ? (⇒ verrouillé) */
+  // Verrou PAR GALERIE : un format d'album déjà envoyé par quelqu'un est clos
+  // pour tous (même avec une autre adresse e-mail). Carte grisée + badge.
+  function sentMap() {
+    return (state.client && state.client.sentByType) || state.gallerySentByType || {};
+  }
   function typeIsSent(typeId) {
-    return !!(state.client && state.client.sentByType && state.client.sentByType[typeId] && state.client.sentByType[typeId].albumsSent > 0);
+    return !!(sentMap()[typeId] && sentMap()[typeId].albumsSent > 0);
   }
   function albPhotos(typeId) { return state.alb.photos[typeId] || []; }
   function albTotal() {
@@ -355,7 +361,7 @@
       var checked = !!state.alb.checked[t.id];
       var active = state.alb.active === t.id;
       var photos = albPhotos(t.id);
-      var locked = typeIsSent(t.id); // ce client a déjà envoyé un album de ce format
+      var locked = typeIsSent(t.id); // format déjà envoyé par quelqu'un → clos pour toute la galerie
       if (checked) card.classList.add('checked');
       if (active && !locked) card.classList.add('active');
       if (locked) card.classList.add('locked');
@@ -386,11 +392,12 @@
       card.appendChild(count);
       card.appendChild(bar);
       if (checked && !locked) card.appendChild(buildCoverRow(t.id, photos));
-      if (locked && state.client && state.client.sentByType[t.id] && state.client.sentByType[t.id].lastDate) {
+      var sentInfo = sentMap()[t.id];
+      if (locked && sentInfo && sentInfo.lastDate) {
         var line = document.createElement('div');
         line.className = 'alb-sentline';
-        line.textContent = state.client.sentByType[t.id].count + ' photo(s) · envoyé le ' +
-          new Date(state.client.sentByType[t.id].lastDate).toLocaleDateString('fr-FR');
+        line.textContent = sentInfo.count + ' photo(s) · envoyé le ' +
+          new Date(sentInfo.lastDate).toLocaleDateString('fr-FR');
         card.appendChild(line);
       }
 
@@ -1141,6 +1148,8 @@
         state.albums = data.albums || null;
         // Photos déjà dans un album envoyé (tous clients) → ✦ informatif
         state.sentInAlbums = data.sentInAlbums || [];
+        // Formats déjà envoyés (tous clients) → verrou global, visible aussi non identifié
+        state.gallerySentByType = data.sentByType || {};
     state.albumMode = !!state.albums;
     $('albums-panel').classList.toggle('hidden', !state.albums);
         document.title = state.galleryMeta.name + ' — Mews Studio Galleries';
