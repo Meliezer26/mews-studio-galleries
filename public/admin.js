@@ -141,7 +141,9 @@
             em.textContent = c.email ? ('✉ ' + c.email + extraEmails + ' · ') : '';
             var meta = document.createElement('span');
             meta.className = 'muted small';
-            meta.textContent = em.textContent + c.selections + ' sélection(s) · dernière activité le ' + (c.lastSeenAt ? window.fmtDate(c.lastSeenAt) : '—');
+            meta.textContent = em.textContent + c.selections + ' sélection(s)' +
+              (c.sentPhotos ? ' · ' + c.sentPhotos + ' photo(s) envoyée(s)' : '') +
+              ' · dernière activité le ' + (c.lastSeenAt ? window.fmtDate(c.lastSeenAt) : '—');
             rhead.appendChild(b);
             rhead.appendChild(meta);
             var sendBtn = document.createElement('button');
@@ -150,6 +152,20 @@
             sendBtn.type = 'button';
             sendBtn.addEventListener('click', function () { openClientAccessModal(g.id, g.slug, g.name, c, g.passwordRef); });
             rhead.appendChild(sendBtn);
+            if (c.selections) {
+              var resetBtn = document.createElement('button');
+              resetBtn.className = 'btn btn--ghost btn--sm';
+              resetBtn.textContent = '↺ Réinitialiser les envois';
+              resetBtn.type = 'button';
+              resetBtn.title = 'Déverrouille toutes les photos de ce client (à utiliser si un envoi a été confirmé mais l\u2019e-mail n\u2019est pas parti)';
+              resetBtn.addEventListener('click', function () {
+                if (!window.confirm('Réinitialiser les envois de ' + c.name + ' ? Toutes ses photos reviendront disponibles (l\u2019historique de ses sélections sera effacé).')) return;
+                window.api('/api/admin/galleries/' + g.id + '/clients/' + c.id + '/reset-selections', { method: 'POST' })
+                  .then(function () { window.toast('Envois de ' + c.name + ' réinitialisés ✓', 'ok'); loadClients(); })
+                  .catch(function (err) { window.toast(err.message, 'err'); });
+              });
+              rhead.appendChild(resetBtn);
+            }
             row.appendChild(rhead);
             var chips = document.createElement('div');
             chips.className = 'client-albums';

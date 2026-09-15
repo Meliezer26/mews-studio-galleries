@@ -7,7 +7,7 @@
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/styles.css?v=20260915i">
 <style>
   /* ---------- Galerie client ---------- */
   .g-page { min-height: 100vh; display: flex; flex-direction: column; }
@@ -201,7 +201,7 @@
           <input class="input" id="cl-email" type="email" placeholder="Adresse e-mail" autocomplete="off">
           <input class="input" id="cl-name" placeholder="Votre nom" autocomplete="off">
           <button class="btn btn--gold btn--sm" type="submit">S'identifier</button>
-          <div class="field-hint">Première visite ? Votre profil se crée tout seul : vos choix sont sauvegardés automatiquement.</div>
+          <div class="field-hint">Votre nom et e-mail sont requis pour envoyer une sélection. Ils servent à retrouver vos albums sur n'importe quel appareil — et les photos déjà envoyées restent verrouillées pour éviter les doublons.</div>
           <div class="lock-error" id="cl-error"></div>
         </form>
         <div class="ident-logged hidden" id="ident-logged">
@@ -295,7 +295,7 @@
   </div>
 </div>
 
-<script src="/app.js"></script>
-<script src="/gallery.js"></script>
+<script src="/app.js?v=20260915i"></script>
+<script src="/gallery.js?v=20260915i"></script>
 </body>
 </html>

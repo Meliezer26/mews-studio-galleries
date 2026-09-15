@@ -161,6 +161,8 @@
       $('cl-name-out').textContent = state.client.name;
       $('cl-hist-count').textContent = state.client.history.length;
       if (state.client.email && !$('cl-email').value) $('cl-email').value = state.client.email;
+    } else if (state.alb.name && !$('cl-name').value) {
+      $('cl-name').value = state.alb.name; // pré-rempli depuis la saisie antérieure
     }
   }
 
@@ -397,6 +399,16 @@
       bar.className = 'alb-bar';
       bar.innerHTML = '<i style="width:' + Math.min(100, (photos.length / t.capacity) * 100) + '%;background:' + ALBUM_COLORS[t.id] + '"></i>';
 
+      // Photos déjà envoyées pour ce type (verrouillées)
+      if (state.client && state.client.sentByType && state.client.sentByType[t.id]) {
+        var st = state.client.sentByType[t.id];
+        var line = document.createElement('div');
+        line.className = 'alb-sentline';
+        line.textContent = '✓ ' + st.count + ' photo' + (st.count > 1 ? 's' : '') + ' déjà envoyée' + (st.count > 1 ? 's' : '') +
+          (st.lastDate ? ' le ' + new Date(st.lastDate).toLocaleDateString('fr-FR') : '');
+        card.appendChild(line);
+      }
+
       card.appendChild(head);
       card.appendChild(count);
       card.appendChild(bar);
@@ -457,6 +469,13 @@
 
     if (state.albumMode && state.albums) renderAlbumsPanel();
 
+    // Photos déjà envoyées par le client identifié : verrouillées.
+    var sentSet = null;
+    if (state.albumMode && state.albums && state.client && state.client.sentIds && state.client.sentIds.length) {
+      sentSet = {};
+      state.client.sentIds.forEach(function (id) { sentSet[id] = 1; });
+    }
+
     var vis = visiblePhotos();
     if (!vis.length) {
       var empty = document.createElement('div');
@@ -504,6 +523,8 @@
 
       /* Mode albums : bouton +/✓ et compteur décroissant de l'album actif */
       if (state.albumMode && state.albums) {
+        var isSent = !!(sentSet && sentSet[p.id]);
+        if (isSent) tile.classList.add('alb-sent');
         var activeT = albumById(state.alb.active) || (state.albums.types[0] ? albumById(state.albums.types[0].id) : null);
         if (activeT) {
           var inAlb = albPhotos(activeT.id).indexOf(p.id) > -1;
@@ -511,18 +532,30 @@
 
           var addBtn = document.createElement('button');
           addBtn.type = 'button';
-          addBtn.className = 'alb-add' + (inAlb ? ' in' : '');
-          addBtn.textContent = inAlb ? '✓' : '＋';
-          addBtn.title = inAlb ? 'Retirer de l\u2019album « ' + activeT.label + ' »' : 'Ajouter à l\u2019album « ' + activeT.label + ' »';
-          addBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleInAlbum(p); });
+          if (isSent) {
+            addBtn.className = 'alb-add sent';
+            addBtn.textContent = '✓';
+            addBtn.title = 'Photo déjà envoyée';
+          } else {
+            addBtn.className = 'alb-add' + (inAlb ? ' in' : '');
+            addBtn.textContent = inAlb ? '✓' : '＋';
+            addBtn.title = inAlb ? 'Retirer de l\u2019album « ' + activeT.label + ' »' : 'Ajouter à l\u2019album « ' + activeT.label + ' »';
+          }
+          addBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (isSent) { window.toast('Cette photo a déjà été envoyée — choisissez une autre photo.', 'err'); return; }
+            toggleInAlbum(p);
+          });
           tile.appendChild(addBtn);
 
-          var rest = activeT.capacity - albPhotos(activeT.id).length;
-          var num = document.createElement('span');
-          num.className = 'alb-badge-num' + (inAlb ? ' in' : '');
-          num.textContent = rest;
-          num.title = 'Album « ' + activeT.label + ' » : ' + rest + ' photo(s) restante(s)';
-          tile.appendChild(num);
+          if (!isSent) {
+            var rest = activeT.capacity - albPhotos(activeT.id).length;
+            var num = document.createElement('span');
+            num.className = 'alb-badge-num' + (inAlb ? ' in' : '');
+            num.textContent = rest;
+            num.title = 'Album « ' + activeT.label + ' » : ' + rest + ' photo(s) restante(s)';
+            tile.appendChild(num);
+          }
         }
       }
 
@@ -604,14 +637,23 @@
   function identifyClient(e) {
     e.preventDefault();
     $('cl-error').textContent = '';
+    var name = $('cl-name').value.trim();
+    var email = $('cl-email').value.trim();
+    if (name.length < 2) { $('cl-error').textContent = 'Entrez votre nom.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { $('cl-error').textContent = 'Entrez une adresse e-mail valide — elle permet de retrouver vos sélections.'; return; }
     var btn = $('ident-form').querySelector('button');
     btn.disabled = true;
     window.api('/api/g/' + slug + '/client/auth', {
       method: 'POST',
-      body: { name: $('cl-name').value.trim(), email: $('cl-email').value.trim() },
+      body: { name: name, email: email },
     })
       .then(function (data) {
-        state.client = { token: data.token, name: data.client.name, email: data.client.email || '', history: data.client.selections };
+        state.client = {
+          token: data.token, name: data.client.name, email: data.client.email || '',
+          history: data.client.selections,
+          sentIds: data.client.sentIds || [],
+          sentByType: data.client.sentByType || {},
+        };
         saveClientToken();
         state.alb.checked = data.client.albums.checked || {};
         state.alb.photos = data.client.albums.photos || {};
@@ -692,6 +734,14 @@
 
   function sendSelection() {
     if (!state.albums) return;
+    if (!state.client) {
+      setAlbumMode(true);
+      render();
+      var em = $('cl-email');
+      if (em) setTimeout(function () { em.focus(); }, 150);
+      window.toast('Pour envoyer, indiquez d\u2019abord votre nom et votre e-mail (une seule fois).', 'err');
+      return;
+    }
     var hasPhotos = state.albums.types.some(function (t) { return albPhotos(t.id).length > 0; });
     if (!hasPhotos) {
       window.toast('Ajoutez au moins une photo à un album avant d\u2019envoyer.', 'err');
@@ -744,7 +794,13 @@
         return window.api('/api/g/' + slug + '/client/me', { headers: clientHeaders() });
       }).then(function (data) {
         state.client.history = data.client.selections;
+        state.client.sentIds = data.client.sentIds || [];
+        state.client.sentByType = data.client.sentByType || {};
+        // Les photos envoyées quittent le panier (synchronisé côté serveur).
+        state.alb.photos = data.client.albums.photos || {};
+        saveAlbumsLocal();
         renderAlbumsPanel();
+        render();
       });
     } else {
       req = window.api('/api/g/' + slug + '/selection', {
@@ -760,9 +816,14 @@
         return;
       }
       openSendFallback();
-    }).catch(function () {
+    }).catch(function (err) {
       if (sent) {
         window.toast('Sélection envoyée par e-mail au photographe ✓', 'ok');
+      } else if (err && /déjà été envoyées/.test(err.message)) {
+        // Doublon refusé : pas de repli mailto (ça enverrait la même sélection).
+        window.toast(err.message, 'err');
+        if (state.albumMode) renderAlbumsPanel();
+        render();
       } else {
         // L'enregistrement a échoué mais l'e-mail reste possible.
         openSendFallback();
@@ -1078,6 +1139,8 @@
           window.api('/api/g/' + slug + '/client/me', { headers: clientHeaders() })
             .then(function (data) {
               state.client.history = data.client.selections;
+              state.client.sentIds = data.client.sentIds || [];
+              state.client.sentByType = data.client.sentByType || {};
               state.alb.checked = data.client.albums.checked || {};
               state.alb.photos = data.client.albums.photos || {};
               saveAlbumsLocal();

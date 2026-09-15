@@ -582,6 +582,24 @@ function clientPayload(c) {
   };
 }
 
+/** Photos déjà envoyées par un client (toutes sélections confondues),
+    par type d'album et au total — pour bloquer les doublons. */
+function sentStateForClient(g, client) {
+  const all = new Set();
+  const byType = {};
+  (client.selections || []).forEach((s) => {
+    (s.albums || []).forEach((a) => {
+      const t = galleryAlbumTypes(g).find((x) => x.id === a.typeId);
+      if (!t) return;
+      (a.photoIds || []).forEach((id) => all.add(id));
+      if (!byType[t.id]) byType[t.id] = { count: 0, lastDate: 0 };
+      byType[t.id].count += (a.photoIds || []).length;
+      if ((s.date || 0) > byType[t.id].lastDate) byType[t.id].lastDate = s.date || 0;
+    });
+  });
+  return { all: Array.from(all), byType };
+}
+
 function clientAlbumState(albumTypes, body, validIds) {
   const photos = {};
   albumTypes.forEach((t) => {
@@ -613,31 +631,43 @@ app.post('/api/g/:slug/client/auth', async (req, res) => {
   }
   const name = String((req.body && req.body.name) || '').trim().slice(0, 60);
   if (name.length < 2) return res.status(400).json({ error: 'Entrez votre nom.' });
-  const email = String((req.body && req.body.email) || '').trim().slice(0, 120);
+  const email = String((req.body && req.body.email) || '').trim().slice(0, 120).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return res.status(400).json({ error: 'Entrez une adresse e-mail valide (elle sert à retrouver vos sélections).' });
+  }
 
   g.clients = g.clients || [];
-  const norm = name.toLowerCase();
-  let client = g.clients.find((c) => c.name.toLowerCase() === norm);
+  // L'e-mail est la clé d'identité : le client retrouve ses sélections
+  // (et ses photos déjà envoyées) quel que soit l'appareil.
+  let client = g.clients.find((c) => (c.email || '').toLowerCase() === email);
+  if (!client) client = g.clients.find((c) => c.name.toLowerCase() === name.toLowerCase());
   if (!client) {
     client = {
       id: sec.randomToken(10),
       name,
-      email: email || '',
+      email,
+      emails: [email],
       createdAt: Date.now(),
       lastSeenAt: Date.now(),
       albums: { checked: {}, photos: {}, covers: {} },
       selections: [],
     };
     g.clients.push(client);
-  } else if (email) {
-    client.email = email;
+  } else {
+    if ((client.email || '').toLowerCase() !== email) client.email = email;
+    client.emails = Array.from(new Set([...(client.emails || []), email]));
+    if (name && name.toLowerCase() !== client.name.toLowerCase()) client.name = name;
   }
   client.lastSeenAt = Date.now();
   const all = store.galleries();
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   const token = sec.sign({ slug: req.params.slug, clientId: client.id, iat: Date.now() }, secret());
-  res.json({ ok: true, token, client: clientPayload(client) });
+  const payload = clientPayload(client);
+  const sent = sentStateForClient(g, client);
+  payload.sentIds = sent.all;
+  payload.sentByType = sent.byType;
+  res.json({ ok: true, token, client: payload });
 });
 
 app.get('/api/g/:slug/client/me', async (req, res) => {
@@ -649,7 +679,11 @@ app.get('/api/g/:slug/client/me', async (req, res) => {
   }
   const client = clientFromToken(req, g);
   if (!client) return res.status(401).json({ error: 'Non identifié.' });
-  res.json({ client: clientPayload(client) });
+  const payload = clientPayload(client);
+  const sent = sentStateForClient(g, client);
+  payload.sentIds = sent.all;
+  payload.sentByType = sent.byType;
+  res.json({ client: payload });
 });
 
 app.post('/api/g/:slug/client/albums', async (req, res) => {
@@ -664,6 +698,11 @@ app.post('/api/g/:slug/client/albums', async (req, res) => {
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
   client.albums = clientAlbumState(galleryAlbumTypes(g), req.body || {}, valid);
+  // Un panier reçu d'un autre appareil ne doit pas recontenir de photos déjà envoyées.
+  const sentSet = new Set(sentStateForClient(g, client).all);
+  Object.keys(client.albums.photos).forEach((tid) => {
+    client.albums.photos[tid] = (client.albums.photos[tid] || []).filter((id) => !sentSet.has(id));
+  });
   client.lastSeenAt = Date.now();
   const all = store.galleries();
   const idx = all.findIndex((x) => x.id === g.id);
@@ -685,23 +724,38 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   }
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
+  const sentSet = new Set(sentStateForClient(g, client).all);
+  let dupes = 0;
   const albums = galleryAlbumTypes(g).map((t) => {
     const incoming = (((req.body || {}).albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
-    const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
+    const photoIds = ids.filter((id) => valid.has(id) && !sentSet.has(id)).slice(0, t.capacity);
+    dupes += ids.length - photoIds.length;
     // Couverture libre : n'importe quelle photo de la galerie.
     const coverId = (incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
       ? incoming.coverId : null;
     return { typeId: t.id, photoIds, coverId };
   });
   if (albums.every((a) => a.photoIds.length === 0)) {
-    return res.status(400).json({ error: 'La sélection est vide.' });
+    return res.status(400).json({
+      error: dupes
+        ? 'Toutes ces photos ont déjà été envoyées. Choisissez d\u2019autres photos, ou contactez Mews Studio si vous pensez qu\u2019il y a une erreur.'
+        : 'La sélection est vide.',
+    });
   }
   const sel = { id: sec.randomToken(8), date: Date.now(), albums };
   client.selections = client.selections || [];
   client.selections.unshift(sel);
   client.selections = client.selections.slice(0, 50);
   client.lastSeenAt = Date.now();
+  // Le panier du client : les photos envoyées quittent la sélection en cours
+  // (elles sont verrouillées définitivement pour ce client).
+  const freshSent = new Set(sentStateForClient(g, client).all);
+  if (client.albums && client.albums.photos) {
+    Object.keys(client.albums.photos).forEach((tid) => {
+      client.albums.photos[tid] = (client.albums.photos[tid] || []).filter((id) => !freshSent.has(id));
+    });
+  }
   // Boîte de réception du photographe (vue admin)
   g.selections = g.selections || [];
   g.selections.unshift({ id: sel.id, date: sel.date, name: client.name, albums: sel.albums });
@@ -711,7 +765,8 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
   const emailSent = await notifySelection(req, g, client.name, albums);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
-  res.json({ ok: true, emailSent });
+  const sentNow = sentStateForClient(g, client);
+  res.json({ ok: true, emailSent, sentIds: sentNow.all, sentByType: sentNow.byType });
 });
 
 /* --- Proxys photo (vignette / téléchargement) --------------- */
@@ -1385,6 +1440,20 @@ app.post('/api/admin/galleries/:id/clients/:clientId/send-access', requireAdmin,
   res.json({ ok: true, sent: sentCount > 0, sentCount, failedCount, sendError, mailto });
 });
 
+/* Réinitialise les envois d'un client (déverrouille ses photos) —
+   à utiliser si un envoi a été confirmé mais l'e-mail n'est pas parti. */
+app.post('/api/admin/galleries/:id/clients/:clientId/reset-selections', requireAdmin, (req, res) => {
+  const all = store.galleries();
+  const g = all.find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
+  const client = (g.clients || []).find((c) => c.id === req.params.clientId);
+  if (!client) return res.status(404).json({ error: 'Client introuvable.' });
+  client.selections = [];
+  const idx = all.findIndex((x) => x.id === g.id);
+  if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
+  res.json({ ok: true });
+});
+
 /* --- Récapitulatif des profils clients ----------------------- */
 
 app.get('/api/admin/clients', requireAdmin, (req, res) => {
@@ -1395,16 +1464,21 @@ app.get('/api/admin/clients', requireAdmin, (req, res) => {
       slug: g.slug,
       name: g.name,
       passwordRef: g.passwordRef || null,
-      clients: (g.clients || []).map((c) => ({
-        id: c.id,
-        name: c.name,
-        email: c.email || null,
-        emails: c.emails || (c.email ? [c.email] : []),
-        createdAt: c.createdAt,
-        lastSeenAt: c.lastSeenAt,
-        selections: (c.selections || []).length,
-        albums: c.albums || { checked: {}, photos: {} },
-      })),
+      clients: (g.clients || []).map((c) => {
+        let sentPhotos = 0;
+        (c.selections || []).forEach((s) => (s.albums || []).forEach((a) => { sentPhotos += (a.photoIds || []).length; }));
+        return {
+          id: c.id,
+          name: c.name,
+          email: c.email || null,
+          emails: c.emails || (c.email ? [c.email] : []),
+          createdAt: c.createdAt,
+          lastSeenAt: c.lastSeenAt,
+          selections: (c.selections || []).length,
+          sentPhotos,
+          albums: c.albums || { checked: {}, photos: {} },
+        };
+      }),
     }));
   res.json({ galleries: out });
 });
