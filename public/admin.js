@@ -551,8 +551,15 @@
     refreshFolderSelect();
     openModal('m-new');
     setTimeout(function () {
-      if (opts.fromDrive) { $('ng-folder-search').focus(); }
-      else { $('ng-name').focus(); }
+      if (opts.fromDrive) {
+        var f = $('ng-folder-field');
+        f.classList.remove('hidden');
+        f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        f.classList.add('field--pulse');
+        setTimeout(function () { $('ng-folder-search').focus(); }, 350);
+      } else {
+        $('ng-name').focus();
+      }
     }, 60);
     // La case « téléchargement » est activée par défaut (modifiable avant création).
   }
@@ -597,24 +604,12 @@
     setTimeout(function () { $('eg-name').focus(); }, 60);
   }
 
-  function bindFolderSearch(searchEl, sel) {
-    if (!searchEl) return;
-    searchEl.value = '';
-    searchEl.oninput = function () {
-      var q = searchEl.value.trim().toLowerCase();
-      Array.prototype.forEach.call(sel.options, function (o) {
-        if (!o.value) return;
-        o.hidden = q && o.textContent.toLowerCase().indexOf(q) === -1;
-      });
-    };
-  }
-
   function populateFolderSelect(sel, selectedId, cb, searchEl) {
     sel.innerHTML = '<option value="">Chargement des dossiers…</option>';
     window.api('/api/admin/drive-folders')
       .then(function (data) {
-        sel.innerHTML = '';
         if (data.error || !data.folders.length) {
+          sel.innerHTML = '';
           var o = document.createElement('option');
           o.value = '';
           o.textContent = data.error || 'Aucun dossier trouvé dans ce Drive';
@@ -622,14 +617,33 @@
           if (cb) cb(false);
           return;
         }
-        data.folders.forEach(function (f) {
-          var o = document.createElement('option');
-          o.value = f.id;
-          o.textContent = f.name;
-          if (selectedId && f.id === selectedId) o.selected = true;
-          sel.appendChild(o);
-        });
-        bindFolderSearch(searchEl, sel);
+        var all = data.folders;
+        function render(list) {
+          sel.innerHTML = '';
+          if (!list.length) {
+            var o = document.createElement('option');
+            o.value = '';
+            o.textContent = 'Aucun dossier ne correspond à « ' + searchEl.value.trim() + ' »';
+            sel.appendChild(o);
+            return;
+          }
+          list.forEach(function (f) {
+            var o = document.createElement('option');
+            o.value = f.id;
+            o.textContent = f.name;
+            if (selectedId && f.id === selectedId) o.selected = true;
+            sel.appendChild(o);
+          });
+        }
+        if (searchEl) {
+          searchEl.value = '';
+          searchEl.placeholder = '🔍 Rechercher parmi ' + all.length + ' dossiers…';
+          searchEl.oninput = function () {
+            var q = searchEl.value.trim().toLowerCase();
+            render(q ? all.filter(function (f) { return f.name.toLowerCase().indexOf(q) > -1; }) : all);
+          };
+        }
+        render(all);
         if (cb) cb(true);
       })
       .catch(function () {
