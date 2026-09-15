@@ -29,7 +29,6 @@
       window.api('/api/admin/status')
         .then(function (s) {
           if (!$('set-email').value) $('set-email').value = s.photographerEmail || '';
-          $('set-default-dl').checked = s.defaultDownloadsEnabled !== false;
           $('set-global-dl').checked = s.globalDownloadsEnabled !== false;
           fillNotifyForm(s.notifications || {});
           $('set-drive-mode').value = s.selectionDriveMode || 'off';
@@ -502,12 +501,7 @@
     refreshFolderSelect();
     openModal('m-new');
     setTimeout(function () { $('ng-name').focus(); }, 60);
-    // La case « téléchargement » suit le réglage par défaut du photographe
-    window.api('/api/admin/status')
-      .then(function (s) {
-        $('ng-dl').checked = s.defaultDownloadsEnabled !== false;
-      })
-      .catch(function () {});
+    // La case « téléchargement » est activée par défaut (modifiable avant création).
   }
 
   /* --- Modale : modifier une galerie --------------------------- */
@@ -1050,12 +1044,10 @@
       window.api('/api/admin/settings', {
         method: 'POST',
         body: {
-          defaultDownloadsEnabled: $('set-default-dl').checked,
           globalDownloadsEnabled: $('set-global-dl').checked,
         },
       })
         .then(function (data) {
-          $('set-default-dl').checked = data.defaultDownloadsEnabled !== false;
           $('set-global-dl').checked = data.globalDownloadsEnabled !== false;
           refreshBanners();
           window.toast('Réglages des téléchargements enregistrés ✓', 'ok');

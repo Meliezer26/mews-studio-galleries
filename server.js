@@ -1051,10 +1051,6 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
     cfg.photographerEmail = email;
     changed = true;
   }
-  if (body.defaultDownloadsEnabled !== undefined) {
-    cfg.defaultDownloadsEnabled = !!body.defaultDownloadsEnabled;
-    changed = true;
-  }
   if (body.globalDownloadsEnabled !== undefined) {
     cfg.globalDownloadsEnabled = !!body.globalDownloadsEnabled;
     changed = true;
@@ -1098,7 +1094,6 @@ app.post('/api/admin/settings', requireAdmin, (req, res) => {
   res.json({
     ok: true,
     photographerEmail: cfg.photographerEmail,
-    defaultDownloadsEnabled: cfg.defaultDownloadsEnabled !== false,
     globalDownloadsEnabled: cfg.globalDownloadsEnabled !== false,
     notifications: {
       enabled: !!(cfg.notifications && cfg.notifications.enabled),
@@ -1167,7 +1162,6 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
     galleriesCount: all.length,
     photosCount: all.reduce((n, g) => n + (g.files ? g.files.length : 0), 0),
     photographerEmail: store.config().photographerEmail || '',
-    defaultDownloadsEnabled: store.config().defaultDownloadsEnabled !== false,
     globalDownloadsEnabled: store.config().globalDownloadsEnabled !== false,
     notifications: {
       enabled: !!n.enabled,
@@ -1487,9 +1481,7 @@ app.post('/api/admin/galleries', requireAdmin, (req, res) => {
     expiry: body.expiry ? new Date(body.expiry).getTime() : null,
     syncedAt: 0,
     files: [],
-    downloadsEnabled: body.downloadsEnabled !== undefined
-      ? !!body.downloadsEnabled
-      : store.config().defaultDownloadsEnabled !== false,
+    downloadsEnabled: body.downloadsEnabled !== false, // activé par défaut, modifiable à la création
     watermark: {
       enabled: !!body.watermarkEnabled,
       text: String(body.watermarkText || 'Mews Studio').trim().slice(0, 60),
