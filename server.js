@@ -524,6 +524,14 @@ app.get('/api/g/:slug/photos', async (req, res) => {
     // Formats d'album déjà envoyés (TOUS clients confondus) — le verrou,
     // visible même pour un visiteur non identifié.
     sentByType: sentStateForGallery(g).byType,
+    // Options vendues avec quantité (posters, agrandissements) — récapitulatif côté client.
+    options: (function () {
+      const out = {};
+      Object.entries(g.packages || {}).forEach(([id, n]) => {
+        if (typeof n === 'number' && n > 0) out[id] = n;
+      });
+      return out;
+    })(),
   });
 });
 

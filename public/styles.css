@@ -430,6 +430,13 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
   font-size: 0.82rem; color: var(--ink-2);
 }
+/* Récapitulatif des options vendues avec quantité (posters, agrandissements) */
+.albums-options {
+  padding: 10px 14px; border-radius: 10px;
+  font-size: 0.82rem; color: var(--ink-2);
+  background: rgba(240, 200, 120, 0.06); border: 1px solid var(--line-2);
+}
+.albums-options b { color: var(--ink); }
 .alb-cover {
   flex: 1 1 100%; display: flex; align-items: center; gap: 8px;
   margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line-2);
