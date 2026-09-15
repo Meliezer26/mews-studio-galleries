@@ -315,11 +315,18 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 #toasts { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 300; display: grid; gap: 10px; justify-items: center; pointer-events: none; }
 .toast {
   background: var(--panel-2); border: 1px solid var(--line-2); color: var(--ink);
-  padding: 12px 22px; border-radius: 999px; font-size: 0.9rem; box-shadow: var(--shadow);
+  padding: 12px 22px; border-radius: 12px; font-size: 0.9rem; box-shadow: var(--shadow);
   animation: toast-in 0.3s ease; max-width: 92vw;
 }
 .toast--ok { border-color: rgba(229, 72, 77, 0.5); }
 .toast--err { border-color: rgba(224, 108, 90, 0.6); color: #f0a497; }
+/* Flash discret sur la carte d'identification quand le client tente de
+   choisir des photos sans s'être identifié (remplace l'ancien toast rouge). */
+.ident-flash { animation: ident-flash 0.9s ease-in-out 3; border-radius: var(--radius); }
+@keyframes ident-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5); }
+}
 /* Avertissement « couverture manquante » dans la modale de confirmation */
 .confirm-warn { color: var(--red); font-weight: 600; margin-bottom: 16px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(14px); } }

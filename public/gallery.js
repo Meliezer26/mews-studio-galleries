@@ -605,9 +605,23 @@
     // Identification obligatoire AVANT toute sélection (sinon la connexion
     // suivante écraserait le travail local)
     if (!state.client) {
+      // Conduite professionnelle : refermer la lightbox, amener la carte
+      // d'identification à l'écran, flash blanc discret, focus sur l'e-mail,
+      // message court et neutre (pas de grosse bulle rouge au milieu de la photo).
+      var lb = $('lb');
+      if (lb && lb.classList.contains('open')) closeLightbox();
       var em = $('cl-email');
-      if (em) setTimeout(function () { em.focus(); }, 100);
-      window.toast('Identifiez-vous d\u2019abord (nom + e-mail) avant de choisir vos photos — votre sélection sera alors sauvegardée sur votre profil.', 'err');
+      var identBox = em && em.closest('.ident');
+      if (identBox) {
+        identBox.classList.remove('ident-flash');
+        void identBox.offsetWidth;
+        identBox.classList.add('ident-flash');
+      }
+      if (em) {
+        em.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(function () { em.focus({ preventScroll: true }); }, 420);
+      }
+      window.toast('Veuillez vous identifier (nom + e-mail) avant de choisir vos photos.');
       return;
     }
     var typeId = state.alb.active;
