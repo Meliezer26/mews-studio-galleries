@@ -494,7 +494,6 @@
     $('ng-expiry').value = '';
     $('ng-mode').value = 'drive';
     $('ng-dl').checked = true;
-    document.querySelectorAll('.ng-alb-pick').forEach(function (el) { el.checked = false; });
     document.querySelectorAll('#m-new .pk').forEach(function (el) { el.checked = false; });
     document.querySelectorAll('#m-new .pk-qty').forEach(function (el) { el.value = ''; });
     $('ng-wm').checked = false;
@@ -916,7 +915,6 @@
         downloadsEnabled: $('ng-dl').checked,
         watermarkEnabled: $('ng-wm').checked,
         watermarkText: $('ng-wm-text').value.trim() || 'Mews Studio',
-        albumTypes: Array.prototype.slice.call(document.querySelectorAll('.ng-alb-pick:checked')).map(function (el) { return el.value; }),
         packages: (function () {
           var p = {};
           document.querySelectorAll('#m-new .pk').forEach(function (el) { if (el.checked) p[el.dataset.id] = true; });
