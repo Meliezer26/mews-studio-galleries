@@ -583,7 +583,8 @@ function clientPayload(c) {
 }
 
 /** Photos déjà envoyées par un client (toutes sélections confondues),
-    par type d'album et au total — pour bloquer les doublons. */
+    par type d'album — pour afficher « déjà envoyé » et marquer les photos.
+    NB : une même photo peut exister dans plusieurs albums (pas de verrou). */
 function sentStateForClient(g, client) {
   const all = new Set();
   const byType = {};
@@ -592,7 +593,8 @@ function sentStateForClient(g, client) {
       const t = galleryAlbumTypes(g).find((x) => x.id === a.typeId);
       if (!t) return;
       (a.photoIds || []).forEach((id) => all.add(id));
-      if (!byType[t.id]) byType[t.id] = { count: 0, lastDate: 0 };
+      if (!byType[t.id]) byType[t.id] = { count: 0, lastDate: 0, albumsSent: 0 };
+      if ((a.photoIds || []).length) byType[t.id].albumsSent++;
       byType[t.id].count += (a.photoIds || []).length;
       if ((s.date || 0) > byType[t.id].lastDate) byType[t.id].lastDate = s.date || 0;
     });
@@ -698,11 +700,6 @@ app.post('/api/g/:slug/client/albums', async (req, res) => {
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
   client.albums = clientAlbumState(galleryAlbumTypes(g), req.body || {}, valid);
-  // Un panier reçu d'un autre appareil ne doit pas recontenir de photos déjà envoyées.
-  const sentSet = new Set(sentStateForClient(g, client).all);
-  Object.keys(client.albums.photos).forEach((tid) => {
-    client.albums.photos[tid] = (client.albums.photos[tid] || []).filter((id) => !sentSet.has(id));
-  });
   client.lastSeenAt = Date.now();
   const all = store.galleries();
   const idx = all.findIndex((x) => x.id === g.id);
@@ -724,39 +721,25 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   }
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  const sentSet = new Set(sentStateForClient(g, client).all);
-  let dupes = 0;
+  // Une même photo peut figurer dans plusieurs albums du client :
+  // le seul verrou, c'est qu'une sélection envoyée n'est plus modifiable/renvoyable.
   const albums = galleryAlbumTypes(g).map((t) => {
     const incoming = (((req.body || {}).albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
-    const validIncoming = ids.filter((id) => valid.has(id));
-    dupes += validIncoming.filter((id) => sentSet.has(id)).length;
-    const photoIds = validIncoming.filter((id) => !sentSet.has(id)).slice(0, t.capacity);
+    const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
     // Couverture libre : n'importe quelle photo de la galerie.
     const coverId = (incoming && typeof incoming.coverId === 'string' && valid.has(incoming.coverId))
       ? incoming.coverId : null;
     return { typeId: t.id, photoIds, coverId };
   });
   if (albums.every((a) => a.photoIds.length === 0)) {
-    return res.status(400).json({
-      error: dupes
-        ? 'Toutes ces photos ont déjà été envoyées. Choisissez d\u2019autres photos, ou contactez Mews Studio si vous pensez qu\u2019il y a une erreur.'
-        : 'La sélection est vide.',
-    });
+    return res.status(400).json({ error: 'La sélection est vide.' });
   }
   const sel = { id: sec.randomToken(8), date: Date.now(), albums };
   client.selections = client.selections || [];
   client.selections.unshift(sel);
   client.selections = client.selections.slice(0, 50);
   client.lastSeenAt = Date.now();
-  // Le panier du client : les photos envoyées quittent la sélection en cours
-  // (elles sont verrouillées définitivement pour ce client).
-  const freshSent = new Set(sentStateForClient(g, client).all);
-  if (client.albums && client.albums.photos) {
-    Object.keys(client.albums.photos).forEach((tid) => {
-      client.albums.photos[tid] = (client.albums.photos[tid] || []).filter((id) => !freshSent.has(id));
-    });
-  }
   // Boîte de réception du photographe (vue admin)
   g.selections = g.selections || [];
   g.selections.unshift({ id: sel.id, date: sel.date, name: client.name, albums: sel.albums });

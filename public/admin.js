@@ -157,9 +157,9 @@
               resetBtn.className = 'btn btn--ghost btn--sm';
               resetBtn.textContent = '↺ Réinitialiser les envois';
               resetBtn.type = 'button';
-              resetBtn.title = 'Déverrouille toutes les photos de ce client (à utiliser si un envoi a été confirmé mais l\u2019e-mail n\u2019est pas parti)';
+              resetBtn.title = 'Efface l\u2019historique des envois de ce client (à utiliser si un envoi a été confirmé par erreur)';
               resetBtn.addEventListener('click', function () {
-                if (!window.confirm('Réinitialiser les envois de ' + c.name + ' ? Toutes ses photos reviendront disponibles (l\u2019historique de ses sélections sera effacé).')) return;
+                if (!window.confirm('Réinitialiser les envois de ' + c.name + ' ? Son historique de sélections envoyées sera effacé (les photos, elles, étaient toujours libres).')) return;
                 window.api('/api/admin/galleries/' + g.id + '/clients/' + c.id + '/reset-selections', { method: 'POST' })
                   .then(function () { window.toast('Envois de ' + c.name + ' réinitialisés ✓', 'ok'); loadClients(); })
                   .catch(function (err) { window.toast(err.message, 'err'); });

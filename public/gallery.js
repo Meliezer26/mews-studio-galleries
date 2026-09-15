@@ -176,7 +176,7 @@
     }
     history.forEach(function (sel) {
       var wrap = document.createElement('div');
-      wrap.className = 'hist-wrap';
+      wrap.className = 'hist-wrap sent';
 
       var item = document.createElement('details');
       item.className = 'hist-item';
@@ -184,10 +184,14 @@
       var sum = document.createElement('summary');
       var title = document.createElement('span');
       title.textContent = 'Sélection du ' + window.fmtDate(sel.date);
+      var badge = document.createElement('span');
+      badge.className = 'hist-sent-badge';
+      badge.textContent = '✓ Déjà envoyé à Mews Studio';
       var cnt = document.createElement('span');
       cnt.className = 'muted';
       cnt.textContent = (sel.albums || []).reduce(function (n, a) { return n + (a.photoIds ? a.photoIds.length : 0); }, 0) + ' photo(s)';
       sum.appendChild(title);
+      sum.appendChild(badge);
       sum.appendChild(cnt);
       item.appendChild(sum);
 
@@ -211,55 +215,14 @@
       item.appendChild(body);
       wrap.appendChild(item);
 
-      var actions = document.createElement('div');
-      actions.className = 'hist-actions';
-      var reload = document.createElement('button');
-      reload.className = 'btn btn--soft btn--sm';
-      reload.textContent = '↺ Recharger dans mes albums';
-      reload.addEventListener('click', function () { reloadSelection(sel); });
-      var resend = document.createElement('button');
-      resend.className = 'btn btn--ghost btn--sm';
-      resend.textContent = '✉ Renvoyer par e-mail';
-      resend.addEventListener('click', function () { resendSelection(sel); });
-      actions.appendChild(reload);
-      actions.appendChild(resend);
-      wrap.appendChild(actions);
+      // Une sélection envoyée est figée : pas de rechargement ni de renvoi.
+      var note = document.createElement('p');
+      note.className = 'hist-note';
+      note.textContent = 'Cette sélection est close — pour un autre album, faites une nouvelle sélection ci-dessus.';
+      wrap.appendChild(note);
 
       list.appendChild(wrap);
     });
-  }
-
-  function reloadSelection(sel) {
-    var checked = {};
-    var photos = {};
-    var covers = {};
-    (state.albums ? state.albums.types : []).forEach(function (t) { photos[t.id] = []; });
-    (sel.albums || []).forEach(function (a) {
-      checked[a.typeId] = true;
-      photos[a.typeId] = (a.photoIds || []).slice();
-      if (a.coverId) covers[a.typeId] = a.coverId; // peut être hors de la sélection de l'album
-    });
-    state.alb.checked = checked;
-    state.alb.photos = photos;
-    state.alb.covers = covers;
-    state.alb.active = Object.keys(checked)[0] || null;
-    saveAlbums();
-    renderAlbumsPanel();
-    render();
-    window.toast('Sélection rechargée dans vos albums ✓', 'ok');
-  }
-
-  function resendSelection(sel) {
-    if (!state.albums || !state.albums.email) {
-      window.toast('L\u2019adresse e-mail du photographe n\u2019est pas encore configurée.', 'err');
-      return;
-    }
-    var a = document.createElement('a');
-    a.href = buildMailtoFor(sel.albums, state.client ? state.client.name : state.alb.name);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.toast('Votre application mail s\u2019ouvre avec la sélection ✓', 'ok');
   }
 
   /* --- Couverture d'album ------------------------------------- */
@@ -399,13 +362,14 @@
       bar.className = 'alb-bar';
       bar.innerHTML = '<i style="width:' + Math.min(100, (photos.length / t.capacity) * 100) + '%;background:' + ALBUM_COLORS[t.id] + '"></i>';
 
-      // Photos déjà envoyées pour ce type (verrouillées)
-      if (state.client && state.client.sentByType && state.client.sentByType[t.id]) {
+      // Albums déjà envoyés pour ce type (grisé « déjà envoyé », sélection libre sinon)
+      if (state.client && state.client.sentByType && state.client.sentByType[t.id] && state.client.sentByType[t.id].albumsSent) {
         var st = state.client.sentByType[t.id];
         var line = document.createElement('div');
         line.className = 'alb-sentline';
-        line.textContent = '✓ ' + st.count + ' photo' + (st.count > 1 ? 's' : '') + ' déjà envoyée' + (st.count > 1 ? 's' : '') +
-          (st.lastDate ? ' le ' + new Date(st.lastDate).toLocaleDateString('fr-FR') : '');
+        line.textContent = '✓ ' + st.albumsSent + ' album' + (st.albumsSent > 1 ? 's' : '') + ' déjà envoyé' + (st.albumsSent > 1 ? 's' : '') +
+          ' à Mews Studio (' + st.count + ' photo' + (st.count > 1 ? 's' : '') + ')' +
+          (st.lastDate ? ' — dernier le ' + new Date(st.lastDate).toLocaleDateString('fr-FR') : '');
         card.appendChild(line);
       }
 
@@ -469,7 +433,8 @@
 
     if (state.albumMode && state.albums) renderAlbumsPanel();
 
-    // Photos déjà envoyées par le client identifié : verrouillées.
+    // Photos déjà envoyées par le client : simples « marquées » (pas de verrou —
+    // une même photo peut figurer dans plusieurs albums).
     var sentSet = null;
     if (state.albumMode && state.albums && state.client && state.client.sentIds && state.client.sentIds.length) {
       sentSet = {};
@@ -524,7 +489,14 @@
       /* Mode albums : bouton +/✓ et compteur décroissant de l'album actif */
       if (state.albumMode && state.albums) {
         var isSent = !!(sentSet && sentSet[p.id]);
-        if (isSent) tile.classList.add('alb-sent');
+        if (isSent) {
+          // Simple mention « déjà envoyée » (informationnelle, pas de blocage)
+          var sentTag = document.createElement('span');
+          sentTag.className = 'alb-sent-tag';
+          sentTag.textContent = '✓ envoyée';
+          sentTag.title = 'Photo déjà envoyée dans un album précédent (elle peut aussi figurer dans un autre album)';
+          tile.appendChild(sentTag);
+        }
         var activeT = albumById(state.alb.active) || (state.albums.types[0] ? albumById(state.albums.types[0].id) : null);
         if (activeT) {
           var inAlb = albPhotos(activeT.id).indexOf(p.id) > -1;
@@ -532,30 +504,18 @@
 
           var addBtn = document.createElement('button');
           addBtn.type = 'button';
-          if (isSent) {
-            addBtn.className = 'alb-add sent';
-            addBtn.textContent = '✓';
-            addBtn.title = 'Photo déjà envoyée';
-          } else {
-            addBtn.className = 'alb-add' + (inAlb ? ' in' : '');
-            addBtn.textContent = inAlb ? '✓' : '＋';
-            addBtn.title = inAlb ? 'Retirer de l\u2019album « ' + activeT.label + ' »' : 'Ajouter à l\u2019album « ' + activeT.label + ' »';
-          }
-          addBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            if (isSent) { window.toast('Cette photo a déjà été envoyée — choisissez une autre photo.', 'err'); return; }
-            toggleInAlbum(p);
-          });
+          addBtn.className = 'alb-add' + (inAlb ? ' in' : '');
+          addBtn.textContent = inAlb ? '✓' : '＋';
+          addBtn.title = inAlb ? 'Retirer de l\u2019album « ' + activeT.label + ' »' : 'Ajouter à l\u2019album « ' + activeT.label + ' »';
+          addBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleInAlbum(p); });
           tile.appendChild(addBtn);
 
-          if (!isSent) {
-            var rest = activeT.capacity - albPhotos(activeT.id).length;
-            var num = document.createElement('span');
-            num.className = 'alb-badge-num' + (inAlb ? ' in' : '');
-            num.textContent = rest;
-            num.title = 'Album « ' + activeT.label + ' » : ' + rest + ' photo(s) restante(s)';
-            tile.appendChild(num);
-          }
+          var rest = activeT.capacity - albPhotos(activeT.id).length;
+          var num = document.createElement('span');
+          num.className = 'alb-badge-num' + (inAlb ? ' in' : '');
+          num.textContent = rest;
+          num.title = 'Album « ' + activeT.label + ' » : ' + rest + ' photo(s) restante(s)';
+          tile.appendChild(num);
         }
       }
 
@@ -796,8 +756,12 @@
         state.client.history = data.client.selections;
         state.client.sentIds = data.client.sentIds || [];
         state.client.sentByType = data.client.sentByType || {};
-        // Les photos envoyées quittent le panier (synchronisé côté serveur).
-        state.alb.photos = data.client.albums.photos || {};
+        // L'album est clos : les photos envoyées quittent le panier,
+        // le client peut ensuite démarrer un autre album (mêmes photos possibles).
+        albums.forEach(function (a) {
+          var list = state.alb.photos[a.typeId] || [];
+          state.alb.photos[a.typeId] = list.filter(function (id) { return a.photoIds.indexOf(id) === -1; });
+        });
         saveAlbumsLocal();
         renderAlbumsPanel();
         render();

@@ -516,19 +516,24 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .alb-badge-num.in { background: var(--red); color: #ffffff; }
 .g-item.in-album { outline: 2px solid var(--red); outline-offset: -2px; }
 
-/* Photo déjà envoyée par le client : verrouillée pour de nouvelles sélections */
-.g-item.alb-sent img { filter: grayscale(0.55) brightness(0.82); }
-.g-item.alb-sent::after {
-  content: 'Déjà envoyée'; position: absolute; right: 8px; bottom: 8px; z-index: 6;
-  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
-  color: #000; background: rgba(134, 201, 148, 0.92); padding: 3px 9px; border-radius: 99px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+/* Mention discrète : photo déjà envoyée dans un album précédent (pas de blocage) */
+.alb-sent-tag {
+  position: absolute; right: 8px; top: 8px; z-index: 6;
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  color: #000; background: rgba(240, 200, 120, 0.88); padding: 3px 8px; border-radius: 99px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
-.g-grid.albums-mode .alb-add.sent { background: rgba(134, 201, 148, 0.95); border-color: transparent; color: #000; opacity: 1; }
-@media (hover: hover) {
-  .g-grid.albums-mode .alb-add.sent { opacity: 1; }
+/* Carte d'album : ligne « déjà envoyé à Mews Studio » */
+.alb-sentline { margin-top: 4px; font-size: 0.74rem; font-weight: 600; color: #86c994; white-space: nowrap; }
+/* Historique : sélection envoyée = figée et grisée */
+.hist-wrap.sent { opacity: 0.72; }
+.hist-wrap.sent details { background: rgba(255, 255, 255, 0.045); }
+.hist-sent-badge {
+  display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 99px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  color: #000; background: #86c994; vertical-align: middle;
 }
-.alb-sentline { margin-top: 2px; font-size: 0.74rem; font-weight: 600; color: #86c994; white-space: nowrap; }
+.hist-note { margin-top: 6px; font-size: 0.72rem; color: var(--muted); font-style: italic; }
 .g-grid.albums-mode .g-actions { display: none; }
 .g-grid.albums-mode .g-sel, .g-grid.albums-mode .g-num { display: none !important; }
 .albums-send { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
