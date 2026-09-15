@@ -59,6 +59,8 @@
   /* Packages vendus (modale Modifier) */
   .pk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; }
   .pk-grid .check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
+  .alb-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; }
+  .alb-picks .check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
   .pk-qty-row { flex-wrap: nowrap; }
   .pk-qty-row span { flex: 1; }
   .pk-qty { width: 72px; padding: 7px 10px; font-size: 0.9rem; text-align: center; }
@@ -415,15 +417,6 @@
       <input class="input" id="ng-name" placeholder="Mariage — Louise &amp; Antoine">
     </div>
     <div class="field">
-      <label>Prénoms des clients</label>
-      <input class="input" id="ng-client" placeholder="Louise &amp; Antoine">
-    </div>
-    <div class="field">
-      <label>Nom de l'événement (utilisé pour nommer les dossiers triés sur Drive)</label>
-      <input class="input" id="ng-event" placeholder="Ex. Mariage Louise &amp; Antoine — facultatif">
-      <div class="field-hint">Le dossier Drive s'appellera « Sélection — <b>nom du client</b> — date ». Sans nom saisi par le client, ce nom d'événement est utilisé.</div>
-    </div>
-    <div class="field">
       <label>Lien de la galerie</label>
       <div class="flex gap-8 center">
         <span class="small muted">/g/</span>
@@ -440,8 +433,13 @@
       <div class="field-hint">Si décoché, vos clients voient les photos mais ne peuvent pas les télécharger.</div>
     </div>
     <div class="field">
-      <label class="check"><input type="checkbox" id="ng-albums"> Activer la sélection d'albums (200 / 150 / 100 photos)</label>
-      <div class="field-hint">Vos clients pourront cocher leurs albums et vous envoyer leurs sélections par e-mail.</div>
+      <label>Albums proposés aux clients</label>
+      <div class="alb-picks">
+        <label class="check"><input type="checkbox" class="ng-alb-pick" value="200"> Album 200 photos</label>
+        <label class="check"><input type="checkbox" class="ng-alb-pick" value="150"> Album 150 photos</label>
+        <label class="check"><input type="checkbox" class="ng-alb-pick" value="100"> Album 100 photos</label>
+      </div>
+      <div class="field-hint">Cochez les formats proposés : vos clients ne verront que ces albums et pourront vous envoyer leurs sélections par e-mail. Aucun format coché = pas de sélection d'albums.</div>
     </div>
     <div class="field">
       <label class="check"><input type="checkbox" id="ng-wm"> Afficher un watermark sur les photos</label>
@@ -511,7 +509,13 @@
       <label class="check"><input type="checkbox" id="eg-dl" checked> Autoriser le téléchargement des photos</label>
     </div>
     <div class="field">
-      <label class="check"><input type="checkbox" id="eg-albums"> Activer la sélection d'albums (200 / 150 / 100 photos)</label>
+      <label>Albums proposés aux clients</label>
+      <div class="alb-picks">
+        <label class="check"><input type="checkbox" class="eg-alb-pick" value="200"> Album 200 photos</label>
+        <label class="check"><input type="checkbox" class="eg-alb-pick" value="150"> Album 150 photos</label>
+        <label class="check"><input type="checkbox" class="eg-alb-pick" value="100"> Album 100 photos</label>
+      </div>
+      <div class="field-hint">Cochez les formats proposés : vos clients ne verront que ces albums. Aucun format coché = pas de sélection d'albums.</div>
     </div>
     <div class="field">
       <label>Packages vendus au client</label>

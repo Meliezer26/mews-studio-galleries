@@ -415,7 +415,11 @@
     var pkCount = Object.keys(g.packages || {}).length;
     if (pkCount) meta.appendChild(badge('📦 ' + pkCount + ' package' + (pkCount > 1 ? 's' : '') + ' vendu' + (pkCount > 1 ? 's' : ''), 'ok'));
     if (g.downloadsEnabled === false) meta.appendChild(badge('Sans téléchargement', 'warn'));
-    if (g.albumsEnabled) meta.appendChild(badge('👥 ' + (g.clientsCount || 0) + ' client(s)', 'ok'));
+    if (g.albumsEnabled) {
+      var albLabel = (g.albumTypes || []).join(' · ');
+      meta.appendChild(badge('▣ Albums' + (albLabel ? ' ' + albLabel : ''), 'gold'));
+      meta.appendChild(badge('👥 ' + (g.clientsCount || 0) + ' client(s)', 'ok'));
+    }
     if (g.expiry) {
       var expired = new Date(g.expiry).getTime() < Date.now();
       meta.appendChild(badge(expired ? 'Expirée' : 'Expire le ' + window.fmtDate(g.expiry), expired ? 'warn' : 'ok'));
@@ -485,13 +489,12 @@
   /* --- Modale : nouvelle galerie ------------------------------ */
   function openNewGalleryModal() {
     $('ng-name').value = '';
-    $('ng-client').value = '';
     $('ng-slug').value = '';
     $('ng-password').value = '';
     $('ng-expiry').value = '';
     $('ng-mode').value = 'drive';
     $('ng-dl').checked = true;
-    $('ng-albums').checked = false;
+    document.querySelectorAll('.ng-alb-pick').forEach(function (el) { el.checked = false; });
     $('ng-wm').checked = false;
     $('ng-wm-text').value = 'Mews Studio';
     $('ng-wm-field').classList.add('hidden');
@@ -528,7 +531,10 @@
           ? 'Mot de passe actuel : ' + full.passwordRef + '  (laisser vide pour le conserver)'
           : 'Mot de passe actuel : non mémorisé — saisissez-le ici pour le retrouver ensuite dans « Envoyer l\u2019accès ».';
         $('eg-dl').checked = full.downloadsEnabled !== false;
-        $('eg-albums').checked = !!(full.albums && full.albums.enabled);
+        var egTypes = (full.albums && Array.isArray(full.albums.types) && full.albums.types.length)
+          ? full.albums.types
+          : ((full.albums && full.albums.enabled) ? ['200', '150', '100'] : []);
+        document.querySelectorAll('.eg-alb-pick').forEach(function (el) { el.checked = egTypes.indexOf(el.value) > -1; });
         $('eg-wm').checked = !!(full.watermark && full.watermark.enabled);
         $('eg-wm-text').value = (full.watermark && full.watermark.text) || 'Mews Studio';
         $('eg-wm-field').classList.toggle('hidden', !$('eg-wm').checked);
@@ -899,8 +905,6 @@
       var mode = $('ng-mode').value;
       var payload = {
         name: $('ng-name').value.trim(),
-        clientName: $('ng-client').value.trim(),
-        eventName: $('ng-event').value.trim(),
         slug: $('ng-slug').value.trim(),
         password: $('ng-password').value,
         mode: mode,
@@ -910,7 +914,7 @@
         downloadsEnabled: $('ng-dl').checked,
         watermarkEnabled: $('ng-wm').checked,
         watermarkText: $('ng-wm-text').value.trim() || 'Mews Studio',
-        albumsEnabled: $('ng-albums').checked,
+        albumTypes: Array.prototype.slice.call(document.querySelectorAll('.ng-alb-pick:checked')).map(function (el) { return el.value; }),
       };
       window.api('/api/admin/galleries', { method: 'POST', body: payload })
         .then(function (data) {
@@ -942,7 +946,7 @@
         downloadsEnabled: $('eg-dl').checked,
         watermarkEnabled: $('eg-wm').checked,
         watermarkText: $('eg-wm-text').value.trim() || 'Mews Studio',
-        albumsEnabled: $('eg-albums').checked,
+        albumTypes: Array.prototype.slice.call(document.querySelectorAll('.eg-alb-pick:checked')).map(function (el) { return el.value; }),
         packages: (function () {
           var p = {};
           document.querySelectorAll('#m-edit .pk').forEach(function (el) { if (el.checked) p[el.dataset.id] = true; });

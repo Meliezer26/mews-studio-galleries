@@ -31,6 +31,20 @@ const backup = require('./lib/backup');
 const driveSort = require('./lib/drive-sort');
 const { ALBUM_TYPES } = demo;
 
+/** Formats d'albums configurés pour une galerie (rétro-compat : pas de types = tous les formats). */
+function galleryAlbumTypes(g) {
+  if (!g || !g.albums || !Array.isArray(g.albums.types) || !g.albums.types.length) return ALBUM_TYPES;
+  return ALBUM_TYPES.filter((t) => g.albums.types.includes(t.id));
+}
+
+/** Nettoie la liste des formats envoyée par l'admin (ids valides, pas de doublons). */
+function sanitizeAlbumTypes(input) {
+  const list = Array.isArray(input) ? input : [];
+  const out = [];
+  ALBUM_TYPES.forEach((t) => { if (list.includes(t.id) && out.indexOf(t.id) === -1) out.push(t.id); });
+  return out;
+}
+
 const PORT = process.env.PORT || 3000;
 const DEMO_PHOTOS_DIR = path.join(__dirname, 'public', 'demo-photos');
 const SESSION_COOKIE = 'mews_admin';
@@ -200,7 +214,7 @@ function buildNotificationInfo(req, g, clientName, albums) {
     galleryName: g.name,
     clientName: clientName || null,
     galleryUrl: `${req.protocol}://${req.get('host')}/g/${g.slug}`,
-    albums: ALBUM_TYPES.map((t) => {
+    albums: galleryAlbumTypes(g).map((t) => {
       const entry = (albums || []).find((a) => a.typeId === t.id) || { photoIds: [] };
       const coverIdx = files.findIndex((f) => f.id === (entry.coverId || ''));
       return {
@@ -481,9 +495,12 @@ app.get('/api/g/:slug/photos', async (req, res) => {
     watermark: g.watermark && g.watermark.enabled
       ? { text: (g.watermark.text || 'Mews Studio').slice(0, 60) }
       : null,
-    albums: g.albums && g.albums.enabled
-      ? { types: ALBUM_TYPES, email: store.config().photographerEmail || 'mewstudiofrance@gmail.com' }
-      : null,
+    albums: (function () {
+      const types = g.albums && g.albums.enabled ? galleryAlbumTypes(g) : [];
+      return types.length
+        ? { types, email: store.config().photographerEmail || 'mewstudiofrance@gmail.com' }
+        : null;
+    })(),
   });
 });
 
@@ -501,7 +518,7 @@ app.post('/api/g/:slug/selection', async (req, res) => {
   }
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  const albums = ALBUM_TYPES.map((t) => {
+  const albums = galleryAlbumTypes(g).map((t) => {
     const incoming = ((req.body && req.body.albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
     const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
@@ -553,16 +570,16 @@ function clientPayload(c) {
   };
 }
 
-function clientAlbumState(body, validIds) {
+function clientAlbumState(albumTypes, body, validIds) {
   const photos = {};
-  ALBUM_TYPES.forEach((t) => {
+  albumTypes.forEach((t) => {
     const ids = Array.isArray((body.photos || {})[t.id]) ? body.photos[t.id] : [];
     photos[t.id] = ids.filter((id) => validIds.has(id)).slice(0, t.capacity);
   });
   const checked = {};
-  ALBUM_TYPES.forEach((t) => { checked[t.id] = !!((body.checked || {})[t.id]); });
+  albumTypes.forEach((t) => { checked[t.id] = !!((body.checked || {})[t.id]); });
   const covers = {};
-  ALBUM_TYPES.forEach((t) => {
+  albumTypes.forEach((t) => {
     const c = (body.covers || {})[t.id];
     // Couverture libre : n'importe quelle photo de la galerie.
     if (typeof c === 'string' && validIds.has(c)) covers[t.id] = c;
@@ -634,7 +651,7 @@ app.post('/api/g/:slug/client/albums', async (req, res) => {
   if (!client) return res.status(401).json({ error: 'Non identifié.' });
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  client.albums = clientAlbumState(req.body || {}, valid);
+  client.albums = clientAlbumState(galleryAlbumTypes(g), req.body || {}, valid);
   client.lastSeenAt = Date.now();
   const all = store.galleries();
   const idx = all.findIndex((x) => x.id === g.id);
@@ -656,7 +673,7 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
   }
   await syncGallery(g);
   const valid = new Set((g.files || []).map((f) => f.id));
-  const albums = ALBUM_TYPES.map((t) => {
+  const albums = galleryAlbumTypes(g).map((t) => {
     const incoming = (((req.body || {}).albums) || []).find((a) => a.typeId === t.id);
     const ids = Array.isArray(incoming && incoming.photoIds) ? incoming.photoIds : [];
     const photoIds = ids.filter((id) => valid.has(id)).slice(0, t.capacity);
@@ -1416,6 +1433,9 @@ app.get('/api/admin/galleries', requireAdmin, (req, res) => {
     packages: g.packages || {},
     downloadsEnabled: g.downloadsEnabled !== false,
     albumsEnabled: !!(g.albums && g.albums.enabled),
+    albumTypes: (g.albums && Array.isArray(g.albums.types) && g.albums.types.length)
+      ? g.albums.types
+      : ((g.albums && g.albums.enabled) ? ALBUM_TYPES.map((t) => t.id) : null),
     clientsCount: (g.clients || []).length,
     cover: g.files && g.files.length
       ? `/api/admin/galleries/${g.id}/photo/${encodeURIComponent(g.files[0].id)}/thumb?size=400`
@@ -1474,7 +1494,10 @@ app.post('/api/admin/galleries', requireAdmin, (req, res) => {
       enabled: !!body.watermarkEnabled,
       text: String(body.watermarkText || 'Mews Studio').trim().slice(0, 60),
     },
-    albums: { enabled: !!body.albumsEnabled },
+    albums: (function () {
+      const types = sanitizeAlbumTypes(body.albumTypes);
+      return { enabled: types.length > 0, types };
+    })(),
     selections: [],
   };
   all.push(gallery);
@@ -1530,8 +1553,9 @@ app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {
       text: String(body.watermarkText || g.watermark?.text || 'Mews Studio').trim().slice(0, 60),
     };
   }
-  if (body.albumsEnabled !== undefined) {
-    g.albums = { ...(g.albums || {}), enabled: !!body.albumsEnabled };
+  if (body.albumTypes !== undefined) {
+    const types = sanitizeAlbumTypes(body.albumTypes);
+    g.albums = { ...(g.albums || {}), enabled: types.length > 0, types };
   }
   if (body.downloadsEnabled !== undefined) {
     g.downloadsEnabled = !!body.downloadsEnabled;
