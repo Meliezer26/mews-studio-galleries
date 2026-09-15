@@ -7,7 +7,7 @@
 <title>Espace photographe — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915f">
+<link rel="stylesheet" href="/styles.css?v=20260915g">
 <style>
   /* ---------- Espace photographe ---------- */
   .a-shell { display: none; min-height: 100vh; }
@@ -180,7 +180,10 @@
           <h1>Vos galeries</h1>
           <p>Créez, partagez et surveillez vos livraisons clients.</p>
         </div>
-        <button class="btn btn--gold" id="btn-new-gallery">+ Nouvelle galerie</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn--gold" id="btn-new-gallery">+ Nouvelle galerie</button>
+          <button class="btn" id="btn-new-from-drive" style="display:none">⚡ Depuis un dossier Drive</button>
+        </div>
       </div>
       <div class="filters" id="g-filter">
         <button class="fchip active" data-filter="all">Toutes <span class="count" id="fc-all">0</span></button>
@@ -469,6 +472,7 @@
       <input class="input" id="ng-folder-search" placeholder="🔍 Rechercher un dossier…" style="margin-bottom:8px">
       <select class="select" id="ng-folder"></select>
       <div class="field-hint">La galerie affiche les photos contenues directement dans ce dossier (un dossier = une galerie).</div>
+      <div class="field-hint" id="ng-folder-preview" style="margin-top:6px"></div>
     </div>
     <div class="field">
       <label>Date d'expiration (facultatif)</label>
@@ -607,6 +611,6 @@
 </div>
 
 <script src="/app.js"></script>
-<script src="/admin.js?v=20260915f"></script>
+<script src="/admin.js?v=20260915g"></script>
 </body>
 </html>

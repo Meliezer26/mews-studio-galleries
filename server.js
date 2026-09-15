@@ -1419,6 +1419,24 @@ app.get('/api/admin/drive-folders', requireAdmin, async (req, res) => {
   }
 });
 
+/* Aperçu d'un dossier Drive (nb de photos directes + sous-dossiers) —
+   permet de repérer AVANT création le mauvais niveau (dossier parent vide). */
+app.get('/api/admin/drive-folder-preview', requireAdmin, async (req, res) => {
+  const id = String(req.query.id || '');
+  if (!id) return res.json({ ok: false, reason: '' });
+  if (!drive.isConnected()) return res.json({ ok: false, reason: 'Google Drive non connecté.' });
+  try {
+    const [images, subfolders] = await Promise.all([drive.listImages(id), drive.listSubfolders(id)]);
+    res.json({
+      ok: true,
+      photos: images.length,
+      subfolders: subfolders.map((f) => f.name),
+    });
+  } catch (err) {
+    res.status(502).json({ ok: false, reason: err.message });
+  }
+});
+
 /* --- CRUD galeries ----------------------------------------- */
 
 app.get('/api/admin/galleries/:id/photo/:fid/thumb', requireAdmin, async (req, res) => {

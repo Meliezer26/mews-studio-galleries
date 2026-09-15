@@ -326,6 +326,7 @@
         window._saMode = !!s.serviceAccount;
         $('drive-banner').classList.toggle('hidden', !s.demoMode);
         $('global-dl-banner').classList.toggle('hidden', s.globalDownloadsEnabled !== false);
+        $('btn-new-from-drive').style.display = s.demoMode ? 'none' : '';
       })
       .catch(function () {});
   }
@@ -486,21 +487,73 @@
   }
 
   /* --- Modale : nouvelle galerie ------------------------------ */
-  function openNewGalleryModal() {
+  var ngNameAuto = '';          // nom auto-rempli depuis le dossier Drive
+  var folderPreviewTimer = null;
+
+  function slugify(s) {
+    return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+
+  /* Aperçu du dossier choisi : nb de photos directes + sous-dossiers
+     (pour repérer avant création le « mauvais niveau »). */
+  function scheduleFolderPreview(folderId) {
+    var el = $('ng-folder-preview');
+    clearTimeout(folderPreviewTimer);
+    if (!folderId) { el.textContent = ''; return; }
+    el.style.color = '';
+    el.textContent = '🔎 Lecture du dossier…';
+    folderPreviewTimer = setTimeout(function () {
+      window.api('/api/admin/drive-folder-preview?id=' + encodeURIComponent(folderId))
+        .then(function (d) {
+          if (!d.ok) { el.textContent = d.reason || ''; return; }
+          if (d.photos > 0) {
+            el.textContent = '📷 ' + d.photos + ' photo(s) directement dans ce dossier' +
+              (d.subfolders.length ? ' (+ ' + d.subfolders.length + ' sous-dossier(s) ignoré(s))' : '') + ' ✓';
+          } else {
+            el.style.color = '#ff9d92';
+            el.textContent = '⚠️ Aucune photo directe dans ce dossier' +
+              (d.subfolders.length
+                ? ' — il contient : ' + d.subfolders.slice(0, 5).map(function (s) { return '« ' + s + ' »'; }).join(', ') +
+                  (d.subfolders.length > 5 ? '…' : '') + '. Choisissez plutôt l\u2019un de ces sous-dossiers.'
+                : ' — choisissez un dossier qui contient les photos.');
+          }
+        })
+        .catch(function () { el.textContent = ''; });
+    }, 300);
+  }
+
+  function openNewGalleryModal(opts) {
+    opts = opts || {};
     $('ng-name').value = '';
     $('ng-slug').value = '';
+    delete $('ng-slug').dataset.touched;
+    ngNameAuto = '';
     $('ng-password').value = '';
     $('ng-expiry').value = '';
     $('ng-mode').value = 'drive';
     $('ng-dl').checked = true;
     document.querySelectorAll('#m-new .pk').forEach(function (el) { el.checked = false; });
     document.querySelectorAll('#m-new .pk-qty').forEach(function (el) { el.value = ''; });
+    // Mémorise les packages de la galerie précédente
+    try {
+      var lastP = JSON.parse(localStorage.getItem('mews_last_packages') || 'null');
+      if (lastP && typeof lastP === 'object') {
+        document.querySelectorAll('#m-new .pk').forEach(function (el) { el.checked = !!lastP[el.dataset.id]; });
+        document.querySelectorAll('#m-new .pk-qty').forEach(function (el) { el.value = lastP[el.dataset.id] || ''; });
+      }
+    } catch (e) { /* ignore */ }
     $('ng-wm').checked = false;
     $('ng-wm-text').value = 'Mews Studio';
     $('ng-wm-field').classList.add('hidden');
+    $('ng-folder').value = '';
+    $('ng-folder-preview').textContent = '';
     refreshFolderSelect();
     openModal('m-new');
-    setTimeout(function () { $('ng-name').focus(); }, 60);
+    setTimeout(function () {
+      if (opts.fromDrive) { $('ng-folder-search').focus(); }
+      else { $('ng-name').focus(); }
+    }, 60);
     // La case « téléchargement » est activée par défaut (modifiable avant création).
   }
 
@@ -796,6 +849,7 @@
         $('drive-disconnected').classList.toggle('hidden', s.demoMode || s.driveConnected);
         $('drive-connected').classList.toggle('hidden', !s.driveConnected);
         $('drive-banner').classList.toggle('hidden', !s.demoMode);
+        $('btn-new-from-drive').style.display = s.demoMode ? 'none' : '';
         if (s.driveConnected) {
           $('drive-account').textContent = s.driveEmail || s.driveName || 'compte Google';
           $('drive-backup-box').hidden = !(s.backupEnabled || s.serviceAccount);
@@ -883,20 +937,33 @@
     });
 
     /* Nouvelle galerie */
-    $('btn-new-gallery').addEventListener('click', openNewGalleryModal);
+    $('btn-new-gallery').addEventListener('click', function () { openNewGalleryModal(); });
+    $('btn-new-from-drive').addEventListener('click', function () { openNewGalleryModal({ fromDrive: true }); });
     $('ng-mode').addEventListener('change', function () {
       var drive = this.value === 'drive';
       $('ng-folder-field').classList.toggle('hidden', !drive);
       if (drive && $('ng-folder').options.length === 0) refreshFolderSelect();
+      if (!drive) $('ng-folder-preview').textContent = '';
     });
     $('ng-name').addEventListener('input', function () {
       var slug = $('ng-slug');
       if (slug.dataset.touched === '1') return;
-      slug.value = this.value.toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      slug.value = slugify(this.value);
     });
     $('ng-slug').addEventListener('input', function () { this.dataset.touched = '1'; });
+    /* Choix du dossier Drive : auto-remplit le nom (si vide) + aperçu du contenu */
+    $('ng-folder').addEventListener('change', function () {
+      var sel = this.selectedOptions[0];
+      if (sel) {
+        var name = $('ng-name');
+        if (!name.value.trim() || name.value === ngNameAuto) {
+          name.value = sel.textContent.trim();
+          ngNameAuto = name.value;
+          if ($('ng-slug').dataset.touched !== '1') $('ng-slug').value = slugify(name.value);
+        }
+      }
+      scheduleFolderPreview(this.value);
+    });
 
     $('ng-wm').addEventListener('change', function () {
       $('ng-wm-field').classList.toggle('hidden', !this.checked);
@@ -927,6 +994,7 @@
       };
       window.api('/api/admin/galleries', { method: 'POST', body: payload })
         .then(function (data) {
+          try { localStorage.setItem('mews_last_packages', JSON.stringify(payload.packages)); } catch (e) { /* ignore */ }
           closeModal('m-new');
           window.toast('Galerie créée ✓');
           loadGalleries();
