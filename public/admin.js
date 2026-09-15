@@ -495,6 +495,8 @@
     $('ng-mode').value = 'drive';
     $('ng-dl').checked = true;
     document.querySelectorAll('.ng-alb-pick').forEach(function (el) { el.checked = false; });
+    document.querySelectorAll('#m-new .pk').forEach(function (el) { el.checked = false; });
+    document.querySelectorAll('#m-new .pk-qty').forEach(function (el) { el.value = ''; });
     $('ng-wm').checked = false;
     $('ng-wm-text').value = 'Mews Studio';
     $('ng-wm-field').classList.add('hidden');
@@ -915,6 +917,12 @@
         watermarkEnabled: $('ng-wm').checked,
         watermarkText: $('ng-wm-text').value.trim() || 'Mews Studio',
         albumTypes: Array.prototype.slice.call(document.querySelectorAll('.ng-alb-pick:checked')).map(function (el) { return el.value; }),
+        packages: (function () {
+          var p = {};
+          document.querySelectorAll('#m-new .pk').forEach(function (el) { if (el.checked) p[el.dataset.id] = true; });
+          document.querySelectorAll('#m-new .pk-qty').forEach(function (el) { var n = parseInt(el.value, 10) || 0; if (n > 0) p[el.dataset.id] = n; });
+          return p;
+        })(),
       };
       window.api('/api/admin/galleries', { method: 'POST', body: payload })
         .then(function (data) {

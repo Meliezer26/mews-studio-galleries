@@ -1498,6 +1498,7 @@ app.post('/api/admin/galleries', requireAdmin, (req, res) => {
       const types = sanitizeAlbumTypes(body.albumTypes);
       return { enabled: types.length > 0, types };
     })(),
+    packages: sanitizePackages(body.packages),
     selections: [],
   };
   all.push(gallery);
