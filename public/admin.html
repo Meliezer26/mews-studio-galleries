@@ -56,6 +56,13 @@
   .client-albums { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
   .client-album { font-size: 0.8rem; background: var(--bg); border: 1px solid var(--line-2); color: var(--ink-2); padding: 4px 12px; border-radius: 999px; }
 
+  /* Packages vendus (modale Modifier) */
+  .pk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; padding: 12px 14px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; }
+  .pk-grid .check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
+  .pk-qty-row { flex-wrap: nowrap; }
+  .pk-qty-row span { flex: 1; }
+  .pk-qty { width: 72px; padding: 7px 10px; font-size: 0.9rem; text-align: center; }
+
   /* Carte galerie */
   .g-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
   .g-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; transition: border-color .25s, transform .25s; }
@@ -505,6 +512,22 @@
     </div>
     <div class="field">
       <label class="check"><input type="checkbox" id="eg-albums"> Activer la sélection d'albums (200 / 150 / 100 photos)</label>
+    </div>
+    <div class="field">
+      <label>Packages vendus au client</label>
+      <div class="pk-grid">
+        <label class="check"><input type="checkbox" class="pk" data-id="album-30x80-200"> Album 30x80 — 200 photos</label>
+        <label class="check"><input type="checkbox" class="pk" data-id="album-maries-offert-25x50-100"> Album Mariés offert — 25x50 — 100 photos</label>
+        <label class="check"><input type="checkbox" class="pk" data-id="album-parents1-25x50-100"> Album Parents 1 — 25x50 — 100 photos</label>
+        <label class="check"><input type="checkbox" class="pk" data-id="album-parents2-100"> Albums Parents 2 — 100 photos</label>
+        <label class="check"><input type="checkbox" class="pk" data-id="album-mairie-henné-25x50-150"> Album Mairie Henné — 25x50 — 150 photos</label>
+        <label class="check"><input type="checkbox" class="pk" data-id="album-mairie-henne-30x60-150"> Album Mairie Henne — 30x60 — 150 photos</label>
+        <label class="check"><input type="checkbox" class="pk" data-id="album-30x60-150"> Album 30x60 — 150 photos</label>
+        <label class="check"><input type="checkbox" class="pk" data-id="album-25x50-100"> Album 25x50 — 100 photos</label>
+        <label class="check pk-qty-row"><span>Posters 30x45 — quantité</span><input type="number" class="pk-qty" data-id="posters-30x45" min="0" max="999" placeholder="0"></label>
+        <label class="check pk-qty-row"><span>Agrandissements 20x30 — quantité</span><input type="number" class="pk-qty" data-id="agrandissements-20x30" min="0" max="999" placeholder="0"></label>
+      </div>
+      <div class="field-hint">Cochez les packages vendus, indiquez les quantités pour les posters et agrandissements. Le récapitulatif s'affiche sur la carte de la galerie.</div>
     </div>
     <div class="field">
       <label class="check"><input type="checkbox" id="eg-wm"> Afficher un watermark sur les photos</label>

@@ -412,6 +412,8 @@
     meta.className = 'g-card-meta';
     meta.appendChild(badge(g.mode === 'drive' ? 'Drive' : 'Stockage local', g.mode === 'drive' ? 'gold' : ''));
     if (g.enabled === false) meta.appendChild(badge('Désactivée', 'warn'));
+    var pkCount = Object.keys(g.packages || {}).length;
+    if (pkCount) meta.appendChild(badge('📦 ' + pkCount + ' package' + (pkCount > 1 ? 's' : '') + ' vendu' + (pkCount > 1 ? 's' : ''), 'ok'));
     if (g.downloadsEnabled === false) meta.appendChild(badge('Sans téléchargement', 'warn'));
     if (g.albumsEnabled) meta.appendChild(badge('👥 ' + (g.clientsCount || 0) + ' client(s)', 'ok'));
     if (g.expiry) {
@@ -514,9 +516,14 @@
     $('eg-password').value = '';
     $('eg-expiry').value = g.expiry ? new Date(g.expiry).toISOString().slice(0, 10) : '';
     $('eg-pass-ref').textContent = '';
+    document.querySelectorAll('#m-edit .pk').forEach(function (el) { el.checked = false; });
+    document.querySelectorAll('#m-edit .pk-qty').forEach(function (el) { el.value = ''; });
     window.api('/api/admin/galleries/' + g.id)
       .then(function (data) {
         var full = data.gallery;
+        var pks = full.packages || {};
+        document.querySelectorAll('#m-edit .pk').forEach(function (el) { el.checked = !!pks[el.dataset.id]; });
+        document.querySelectorAll('#m-edit .pk-qty').forEach(function (el) { el.value = pks[el.dataset.id] ? String(pks[el.dataset.id]) : ''; });
         $('eg-pass-ref').textContent = full.passwordRef
           ? 'Mot de passe actuel : ' + full.passwordRef + '  (laisser vide pour le conserver)'
           : 'Mot de passe actuel : non mémorisé — saisissez-le ici pour le retrouver ensuite dans « Envoyer l\u2019accès ».';
@@ -929,6 +936,12 @@
         watermarkEnabled: $('eg-wm').checked,
         watermarkText: $('eg-wm-text').value.trim() || 'Mews Studio',
         albumsEnabled: $('eg-albums').checked,
+        packages: (function () {
+          var p = {};
+          document.querySelectorAll('#m-edit .pk').forEach(function (el) { if (el.checked) p[el.dataset.id] = true; });
+          document.querySelectorAll('#m-edit .pk-qty').forEach(function (el) { var n = parseInt(el.value, 10) || 0; if (n > 0) p[el.dataset.id] = n; });
+          return p;
+        })(),
       };
       if (!$('eg-folder-field').classList.contains('hidden')) {
         payload.folderId = $('eg-folder').value;

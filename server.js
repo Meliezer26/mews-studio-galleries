@@ -1207,6 +1207,34 @@ function parseEmailList(input) {
   return out.slice(0, 25); // sécurité : max 25 adresses par envoi
 }
 
+/** Catalogue des packages vendus (cases à cocher + quantités). */
+const PACKAGE_DEFS = [
+  { id: 'album-30x80-200', type: 'check' },
+  { id: 'album-maries-offert-25x50-100', type: 'check' },
+  { id: 'album-parents1-25x50-100', type: 'check' },
+  { id: 'album-parents2-100', type: 'check' },
+  { id: 'album-mairie-henné-25x50-150', type: 'check' },
+  { id: 'album-mairie-henne-30x60-150', type: 'check' },
+  { id: 'album-30x60-150', type: 'check' },
+  { id: 'album-25x50-100', type: 'check' },
+  { id: 'posters-30x45', type: 'qty' },
+  { id: 'agrandissements-20x30', type: 'qty' },
+];
+
+function sanitizePackages(input) {
+  const src = (input && typeof input === 'object' && !Array.isArray(input)) ? input : {};
+  const out = {};
+  for (const def of PACKAGE_DEFS) {
+    if (def.type === 'check') {
+      if (src[def.id]) out[def.id] = true;
+    } else {
+      const n = Math.max(0, Math.min(999, parseInt(src[def.id], 10) || 0));
+      if (n > 0) out[def.id] = n;
+    }
+  }
+  return out;
+}
+
 app.post('/api/admin/galleries/:id/clients', requireAdmin, async (req, res) => {
   const all = store.galleries();
   const g = all.find((x) => x.id === req.params.id);
@@ -1352,6 +1380,7 @@ app.get('/api/admin/galleries', requireAdmin, (req, res) => {
     expiry: g.expiry || null,
     url: '/g/' + g.slug,
     enabled: g.enabled !== false,
+    packages: g.packages || {},
     downloadsEnabled: g.downloadsEnabled !== false,
     albumsEnabled: !!(g.albums && g.albums.enabled),
     clientsCount: (g.clients || []).length,
@@ -1476,6 +1505,9 @@ app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {
   }
   if (body.enabled !== undefined) {
     g.enabled = !!body.enabled;
+  }
+  if (body.packages !== undefined) {
+    g.packages = sanitizePackages(body.packages);
   }
   if (body.folderId !== undefined && body.folderId !== '') {
     g.mode = 'drive';
