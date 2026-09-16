@@ -420,7 +420,9 @@ async function syncGallery(g, force) {
   if (g.mode !== 'drive' || !drive.isConnected()) return g;
   if (!force && g.syncedAt && Date.now() - g.syncedAt < SYNC_TTL) return g;
   try {
-    const driveFiles = await drive.listImages(g.folderId);
+    const driveFiles = (await drive.listImages(g.folderId)).slice().sort(
+      (a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: 'base' })
+    );
     g.files = driveFiles.map((f) => ({
       id: f.id,
       name: f.name,
@@ -1946,6 +1948,8 @@ app.post('/api/admin/galleries/:id/upload', requireAdmin, upload.array('photos',
   if (g.mode === 'drive') {
     await syncGallery(g, true);
   } else {
+    // Tri naturel : la sélection du navigateur n'est pas forcément ordonnée
+    g.files.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: 'base' }));
     g.syncedAt = Date.now();
     store.saveGalleries(all);
   }
