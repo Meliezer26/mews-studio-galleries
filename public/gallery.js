@@ -999,10 +999,28 @@
   function updateLightbox() {
     var p = state.lbList[state.lbIndex];
     if (!p) return;
+    var lb = $('lb');
     $('lb-count').textContent = (state.lbIndex + 1) + ' / ' + state.lbList.length;
-    $('lb-img').src = photoUrl(p, 'thumb') + '?size=1600';
     $('lb-name').textContent = p.name;
     $('lb-dl').style.display = state.downloads ? '' : 'none';
+
+    /* Affichage progressif : la vignette (déjà en cache via la grille)
+       apparaît aussitôt, la grande version charge en arrière-plan et
+       se fond par-dessus quand elle est prête. Les voisines sont
+       préchargées pour que « suivante » soit quasi instantanée. */
+    var img = $('lb-img');
+    var pre = $('lb-pre');
+    lb.classList.add('loading');
+    lb.classList.remove('lb-ready');
+    pre.src = photoUrl(p, 'thumb');
+    img.onload = function () {
+      lb.classList.remove('loading');
+      lb.classList.add('lb-ready');
+      preloadNeighbors();
+    };
+    img.onerror = function () { lb.classList.remove('loading'); };
+    img.src = photoUrl(p, 'thumb') + '?size=1600';
+    preloadNeighbors();
 
     /* Bouton album dans la visionneuse (mode albums) */
     var activeT = state.albumMode && state.albums
@@ -1020,9 +1038,26 @@
     }
   }
   function closeLightbox() {
-    $('lb').classList.remove('open');
+    var lb = $('lb');
+    lb.classList.remove('open', 'lb-ready', 'loading');
     document.body.style.overflow = '';
     $('lb-img').src = '';
+    $('lb-pre').src = '';
+  }
+
+  /* Préchargement discret des photos voisines (suivante + précédente) :
+     le survol du client ne doit plus attendre le réseau. */
+  function preloadNeighbors() {
+    var n = state.lbList.length;
+    if (!n || n < 2) return;
+    var seen = {};
+    [state.lbIndex + 1, state.lbIndex - 1].forEach(function (i) {
+      var q = state.lbList[(i + n) % n];
+      if (!q || seen[q.id]) return;
+      seen[q.id] = 1;
+      var im = new Image();
+      im.src = photoUrl(q, 'thumb') + '?size=1600';
+    });
   }
   function lbStep(dir) {
     var n = state.lbList.length;
