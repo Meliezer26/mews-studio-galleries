@@ -220,7 +220,7 @@
 
   /* --- Modale : créer un client / envoyer l'accès -------------- */
   function openClientAccessModal(galleryId, slug, galleryName, client, passwordRef) {
-    state.clientAccess = { galleryId, clientId: client ? client.id : null };
+    state.clientAccess = { galleryId, clientId: client ? client.id : null, passwordRef: passwordRef || '' };
     $('btn-save-client-access').disabled = false; // ré-enclenche le bouton (pouvoir avoir été verrouillé par un envoi précédent)
     $('mca-title').textContent = client
       ? 'Envoyer l\u2019accès — ' + client.name + ' (' + galleryName + ')'
@@ -229,9 +229,12 @@
     $('mca-name').disabled = !!client;
     $('mca-email').value = client ? (client.email || '') : '';
     $('mca-gpw').value = passwordRef || '';
-    $('mca-gpw-hint').textContent = passwordRef
+    var gpwDefaultHint = passwordRef
       ? 'Mot de passe actuel de la galerie (pré-rempli — le client l\u2019utilisera pour déverrouiller).'
       : 'Non mémorisé pour cette galerie : saisissez le mot de passe que le client utilisera (ou videz le champ pour ne pas l\u2019inclure dans l\u2019e-mail). Astuce : définissez-le dans Galeries → Modifier pour le retrouver ici automatiquement.';
+    state.clientAccess.gpwHint = gpwDefaultHint;
+    $('mca-gpw-hint').textContent = gpwDefaultHint;
+    $('mca-gpw-hint').style.color = '';
     $('btn-save-client-access').textContent = client ? 'Envoyer l\u2019accès' : 'Créer et envoyer l\u2019accès';
     openModal('m-client-access');
     setTimeout(function () { $(client ? 'mca-email' : 'mca-name').focus(); }, 60);
@@ -1226,6 +1229,20 @@
           window.toast('Réglages du tri Drive enregistrés ✓', 'ok');
         })
         .catch(function (err) { window.toast(err.message, 'err'); });
+    });
+    $('mca-gpw').addEventListener('input', function () {
+      var st = state.clientAccess;
+      if (!st) return;
+      var hint = $('mca-gpw-hint');
+      var v = this.value.trim();
+      // Alerte : un mot de passe différent REMPLACE celui de toute la galerie.
+      if (st.passwordRef && v && v !== st.passwordRef) {
+        hint.textContent = '⚠️ Attention : ce mot de passe différent REMPLACERA celui de toute la galerie — l\u2019ancien ne fonctionnera plus pour les clients précédents.';
+        hint.style.color = '#d64545';
+      } else {
+        hint.textContent = st.gpwHint || '';
+        hint.style.color = '';
+      }
     });
     $('btn-save-client-access').addEventListener('click', function () {
       var st = state.clientAccess;
