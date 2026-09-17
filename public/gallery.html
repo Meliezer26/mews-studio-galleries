@@ -7,7 +7,7 @@
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915h">
+<link rel="stylesheet" href="/styles.css?v=20260915i">
 <style>
   /* ---------- Galerie client ---------- */
   .g-page { min-height: 100vh; display: flex; flex-direction: column; }
@@ -170,7 +170,7 @@
         <button class="chip hidden" id="btn-albums">▣ Albums <span class="count" id="alb-total">0</span></button>
         <button class="chip" id="btn-select">Sélectionner</button>
         <button class="chip" id="btn-dl-all">⤓ Tout télécharger</button>
-        <button class="chip" id="btn-guide">▶ Guide</button>
+        <button class="chip guide-chip" id="btn-guide" data-open-guide>Tutoriel vidéo</button>
       </div>
     </div>
   </div>
@@ -212,6 +212,7 @@
           <li>Une fois terminé, cliquez sur « Envoyer ma sélection »</li>
         </ol>
         <p class="albums-steps-note"><b>Important :</b> un album déjà envoyé au service graphique ne sera plus modifiable.</p>
+        <button class="btn btn--ghost btn--sm guide-desktop" id="btn-guide-desktop" data-open-guide>Tutoriel vidéo</button>
       </div>
       <div class="ident">
         <form id="ident-form" class="ident-form">
@@ -332,6 +333,16 @@
     .g-guide-overlay { padding: 10px; }
     .g-guide { border-radius: 10px; }
   }
+  /* Bouton « Tutoriel vidéo » : chip dans l'entête en MOBILE,
+     bouton sous la note « Important » en PC. */
+  .chip.guide-chip { display: none; }
+  .guide-desktop { display: none; margin-top: 12px; }
+  @media (max-width: 720px) {
+    .chip.guide-chip { display: inline-flex; }
+  }
+  @media (min-width: 721px) {
+    .guide-desktop { display: inline-flex; }
+  }
 </style>
 <div class="g-guide-overlay hidden" id="guide-overlay">
   <div class="g-guide" role="dialog" aria-modal="true" aria-label="Guide vidéo de la galerie">
@@ -343,7 +354,6 @@
 (function () {
   var ov = document.getElementById('guide-overlay');
   var vid = document.getElementById('guide-video');
-  var btn = document.getElementById('btn-guide');
   function openGuide() {
     ov.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -355,7 +365,9 @@
     vid.pause();
     document.body.style.overflow = '';
   }
-  btn.addEventListener('click', openGuide);
+  document.querySelectorAll('[data-open-guide]').forEach(function (b) {
+    b.addEventListener('click', openGuide);
+  });
   document.getElementById('guide-close').addEventListener('click', closeGuide);
   ov.addEventListener('click', function (e) { if (e.target === ov) closeGuide(); });
   document.addEventListener('keydown', function (e) {
@@ -363,7 +375,7 @@
   });
 })();
 </script>
-<script src="/app.js?v=20260915h"></script>
-<script src="/gallery.js?v=20260915h"></script>
+<script src="/app.js?v=20260915i"></script>
+<script src="/gallery.js?v=20260915i"></script>
 </body>
 </html>
