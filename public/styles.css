@@ -529,6 +529,19 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
      de l'album, la photo doit être jugée lisible, pas en mini-vignette. */
   .cov-grid { grid-template-columns: repeat(2, 1fr); padding: 12px; gap: 12px; }
 }
+/* Bouton « remonter en haut » (mobile) — validation de l'album en 1 tap */
+.g-top-btn {
+  position: fixed; right: 16px; bottom: 16px; z-index: 70;
+  width: 48px; height: 48px; border-radius: 50%; place-items: center;
+  border: 1px solid var(--line-2); background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  color: var(--ink); font-size: 1.25rem; line-height: 1; cursor: pointer;
+  display: none; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+.g-top-btn:hover { background: var(--accent); color: #000000; border-color: var(--accent); }
+@media (max-width: 720px) {
+  .g-top-btn.visible { display: grid; }
+}
 /* Zoom avant validation de la couverture */
 .cov-zoom { position: fixed; inset: 0; z-index: 155; background: rgba(8, 8, 8, 0.94); display: flex; flex-direction: column; }
 .cov-zoom.hidden { display: none; }

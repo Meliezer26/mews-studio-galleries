@@ -1220,6 +1220,21 @@
       window.toast('Couverture de « ' + (tt ? tt.label : '') + ' » choisie ✓', 'ok');
     });
 
+    /* Bouton « remonter en haut » (mobile) : remonte au début de l'écran,
+       là où se trouve « Envoyer ma sélection » pour valider l'album. */
+    (function () {
+      var topBtn = $('btn-scroll-top');
+      function update() {
+        var show = window.scrollY > 240 && !$('albums-panel').classList.contains('hidden');
+        topBtn.classList.toggle('visible', !!show);
+      }
+      window.addEventListener('scroll', update, { passive: true });
+      window.addEventListener('resize', update);
+      topBtn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    })();
+
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && $('confirm-send-modal').classList.contains('open') && !state.sending) {
         closeSendConfirm();

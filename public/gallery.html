@@ -7,7 +7,7 @@
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915m">
+<link rel="stylesheet" href="/styles.css?v=20260915n">
 <style>
   /* ---------- Galerie client ---------- */
   .g-page { min-height: 100vh; display: flex; flex-direction: column; }
@@ -243,6 +243,9 @@
 
   <div class="g-grid hidden" id="grid"></div>
 
+  <!-- Bouton « remonter en haut » (mobile) : faciliter la validation de l'album -->
+  <button class="g-top-btn" id="btn-scroll-top" aria-label="Remonter en haut de l'écran">↑</button>
+
   <div class="g-bar" id="bar">
     <span style="font-size:0.92rem;color:var(--ink-2)"><b id="bar-count" style="color:var(--accent-2)">0</b> photo(s) sélectionnée(s)</span>
     <div class="g-bar-actions">
@@ -389,7 +392,7 @@
   });
 })();
 </script>
-<script src="/app.js?v=20260915m"></script>
-<script src="/gallery.js?v=20260915m"></script>
+<script src="/app.js?v=20260915n"></script>
+<script src="/gallery.js?v=20260915n"></script>
 </body>
 </html>
