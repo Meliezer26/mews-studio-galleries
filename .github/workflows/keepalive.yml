@@ -14,7 +14,7 @@ jobs:
       - name: Pings continus (~12 min de couverture)
         run: |
           for i in 1 2 3 4; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 https://mews-galleries.onrender.com/)
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 https://mews-galleries.onrender.com/ || true)
             if [ "$code" = "200" ]; then echo "ping $i OK"; else echo "ping $i : HTTP $code"; fi
             [ "$i" -lt 4 ] && sleep 250
           done
