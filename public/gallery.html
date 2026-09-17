@@ -7,7 +7,7 @@
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915l">
+<link rel="stylesheet" href="/styles.css?v=20260915m">
 <style>
   /* ---------- Galerie client ---------- */
   .g-page { min-height: 100vh; display: flex; flex-direction: column; }
@@ -311,8 +311,22 @@
       <b id="cov-title">Couverture</b>
       <button class="cov-close" id="cov-close" aria-label="Fermer">✕</button>
     </div>
-    <div class="cov-hint">📐 Choisissez une photo en format <b>horizontal (paysage)</b> : les photos en format portrait sont signalées. Toutes les photos de la galerie peuvent servir de couverture, même hors de la sélection de l'album.</div>
+    <div class="cov-hint">📐 Choisissez une photo en format <b>horizontal (paysage)</b> : les photos en format portrait sont signalées. <b>Touchez une photo pour l'agrandir</b>, puis validez. Toutes les photos de la galerie peuvent servir de couverture, même hors de la sélection de l'album.</div>
     <div class="cov-grid" id="cov-grid"></div>
+  </div>
+</div>
+
+<!-- Zoom avant validation de la couverture (agrandissement + bouton Valider) -->
+<div class="cov-zoom hidden" id="cov-zoom">
+  <div class="cov-zoom-head">
+    <button class="cov-zoom-back" id="cov-zoom-back" aria-label="Retour à la grille">‹</button>
+    <span class="cov-zoom-cap" id="cov-zoom-cap"></span>
+    <span class="cov-zoom-orient" id="cov-zoom-orient"></span>
+  </div>
+  <div class="cov-zoom-stage"><img id="cov-zoom-img" src="" alt="Aperçu de la photo"></div>
+  <div class="cov-zoom-actions">
+    <button class="btn btn--gold" id="cov-zoom-validate">✓ Valider comme couverture</button>
+    <button class="btn btn--ghost" id="cov-zoom-retour">Retour</button>
   </div>
 </div>
 
@@ -375,7 +389,7 @@
   });
 })();
 </script>
-<script src="/app.js?v=20260915l"></script>
-<script src="/gallery.js?v=20260915l"></script>
+<script src="/app.js?v=20260915m"></script>
+<script src="/gallery.js?v=20260915m"></script>
 </body>
 </html>

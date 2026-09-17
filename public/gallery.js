@@ -346,19 +346,41 @@
       tile.appendChild(img);
       tile.appendChild(badge);
       tile.appendChild(cap);
-      tile.addEventListener('click', function () {
-        state.alb.covers[typeId] = p.id;
-        saveAlbums();
-        closeCoverPicker();
-        renderAlbumsPanel();
-        window.toast('Couverture de « ' + t.label + ' » choisie ✓', 'ok');
-      });
+      tile.addEventListener('click', function () { openCovZoom(typeId, p); });
       grid.appendChild(tile);
     });
     $('cov').classList.remove('hidden');
   }
 
+  /* --- Zoom avant validation de la couverture --- */
+  var covPending = null;
+  function openCovZoom(typeId, p) {
+    covPending = { typeId: typeId, photo: p };
+    var img = $('cov-zoom-img');
+    img.src = photoUrl(p, 'thumb') + '?size=1600'; // grande version pour juger la photo
+    $('cov-zoom-cap').textContent = 'n°' + (p.index + 1) + ' · ' + p.name;
+    var zo = $('cov-zoom-orient');
+    zo.textContent = '…';
+    zo.classList.remove('portrait');
+    img.onload = function () {
+      var portrait = img.naturalWidth < img.naturalHeight;
+      zo.textContent = portrait ? 'Portrait' : 'Paysage ✓';
+      zo.classList.toggle('portrait', portrait);
+    };
+    if (img.complete && img.naturalWidth) {
+      var portrait = img.naturalWidth < img.naturalHeight;
+      zo.textContent = portrait ? 'Portrait' : 'Paysage ✓';
+      zo.classList.toggle('portrait', portrait);
+    }
+    $('cov-zoom').classList.remove('hidden');
+  }
+  function closeCovZoom() {
+    $('cov-zoom').classList.add('hidden');
+    covPending = null;
+  }
+
   function closeCoverPicker() {
+    closeCovZoom();
     $('cov').classList.add('hidden');
   }
 
@@ -1185,6 +1207,18 @@
 
     $('cov-close').addEventListener('click', closeCoverPicker);
     $('cov').addEventListener('click', function (e) { if (e.target === $('cov')) closeCoverPicker(); });
+    $('cov-zoom-back').addEventListener('click', closeCovZoom);
+    $('cov-zoom-retour').addEventListener('click', closeCovZoom);
+    $('cov-zoom-validate').addEventListener('click', function () {
+      var pd = covPending;
+      if (!pd) return;
+      state.alb.covers[pd.typeId] = pd.photo.id;
+      saveAlbums();
+      closeCoverPicker();
+      renderAlbumsPanel();
+      var tt = albumById(pd.typeId);
+      window.toast('Couverture de « ' + (tt ? tt.label : '') + ' » choisie ✓', 'ok');
+    });
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && $('confirm-send-modal').classList.contains('open') && !state.sending) {
@@ -1196,6 +1230,7 @@
         return;
       }
       if (e.key === 'Escape' && !$('cov').classList.contains('hidden')) {
+        if (!$('cov-zoom').classList.contains('hidden')) { closeCovZoom(); return; }
         closeCoverPicker();
         return;
       }
