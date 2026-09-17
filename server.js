@@ -665,10 +665,15 @@ app.post('/api/g/:slug/selection', async (req, res) => {
         ' n\u2019' + (missingCover.length > 1 ? 'ont' : 'a') + ' pas encore de couverture. Choisissez une photo de couverture pour chacun avant l\u2019envoi.',
     });
   }
-  // Prénoms pour la mise en page (mariés, enfant pour bar/brit mila…) :
-  // OBLIGATOIRES avant l'envoi — joints au dossier Drive (names.txt).
+  // Prénoms pour la première page d'album : OBLIGATOIRES s'il y a au moins
+  // un album PHOTO (pas requis pour posters / agrandissements seuls).
   const eventNames = String((req.body || {}).eventNames || '').trim().slice(0, 80);
-  if (!eventNames) {
+  const needsNames = albums.some((a) => {
+    if (!a.photoIds.length) return false;
+    const t = allSelectableTypes(g).find((x) => x.id === a.typeId);
+    return t && !t.print;
+  });
+  if (!eventNames && needsNames) {
     return res.status(400).json({ error: 'Merci d\u2019indiquer les prénoms pour la mise en page (mariés, ou enfant pour bar/brit mila…) avant l\u2019envoi.' });
   }
   const sel = {
@@ -923,10 +928,17 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
         ' n\u2019' + (missingCover.length > 1 ? 'ont' : 'a') + ' pas encore de couverture. Choisissez une photo de couverture pour chacun avant l\u2019envoi.',
     });
   }
-  // Prénoms pour la mise en page (mariés, enfant pour bar/brit mila…) :
-  // OBLIGATOIRES avant l'envoi — joints au dossier Drive (names.txt).
+  // Prénoms pour la première page d'album (mariés, enfant pour bar/brit mila…) :
+  // OBLIGATOIRES s'il y a au moins un album PHOTO dans la sélection — pas
+  // requis pour une sélection posters / agrandissements seule (sans première
+  // page). Joints au dossier Drive (names.txt) quand saisis.
   const eventNames = String((req.body || {}).eventNames || '').trim().slice(0, 80);
-  if (!eventNames) {
+  const needsNames = albums.some((a) => {
+    if (!a.photoIds.length) return false;
+    const t = allSelectableTypes(g).find((x) => x.id === a.typeId);
+    return t && !t.print;
+  });
+  if (!eventNames && needsNames) {
     return res.status(400).json({ error: 'Merci d\u2019indiquer les prénoms pour la mise en page (mariés, ou enfant pour bar/brit mila…) avant l\u2019envoi.' });
   }
   const sel = { id: sec.randomToken(8), date: Date.now(), albums, eventNames };

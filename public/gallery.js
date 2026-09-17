@@ -851,16 +851,26 @@
     var total = withPhotos.reduce(function (n, a) { return n + a.photoIds.length; }, 0);
     $('confirm-what').textContent = nAlbums > 1 ? 'vos sélections' : 'votre sélection';
     $('confirm-summary').textContent = nAlbums + ' album' + (nAlbums > 1 ? 's' : '') + ' · ' + total + ' photo' + (total > 1 ? 's' : '') + ' en tout';
+    // « Prénom(s) sur la première page » : requis seulement si la sélection
+    // contient au moins un ALBUM PHOTO — une sélection posters /
+    // agrandissements seule n'a pas de première page → champ masqué.
+    var types = state.albums ? state.albums.types : [];
+    var needsNames = withPhotos.some(function (a) {
+      var t = types.find(function (x) { return x.id === a.typeId; });
+      return t && !t.print;
+    });
+    state.confirmNeedsNames = !!needsNames;
+    var namesBlock = $('confirm-names');
+    if (namesBlock) namesBlock.classList.toggle('hidden', !needsNames);
     // Champ « Prénom(s) » : pré-rempli si le client l'avait déjà saisi (profil / session).
     var namesField = $('confirm-names-input');
     if (namesField) {
       namesField.classList.remove('names-err');
-      if (!namesField.value.trim() && state.client && state.client.eventNames) {
+      if (needsNames && !namesField.value.trim() && state.client && state.client.eventNames) {
         namesField.value = state.client.eventNames;
       }
     }
     // Alertes « couverture manquante » (albums photo seulement)
-    var types = state.albums ? state.albums.types : [];
     var noCover = withPhotos.filter(function (a) {
       var t = types.find(function (x) { return x.id === a.typeId; });
       return t && !t.print && !a.coverId;
@@ -887,9 +897,10 @@
 
   function confirmSendSelection() {
     if (state.sending) return;
-    // Prénom(s) OBLIGATOIRE(s) avant l'envoi définitif (fenêtre de validation).
+    // Prénom(s) OBLIGATOIRE(S) — mais seulement si la sélection contient un
+    // album photo (posters / agrandissements seuls → pas de première page).
     var namesField = $('confirm-names-input');
-    if (namesField && !namesField.value.trim()) {
+    if (state.confirmNeedsNames && namesField && !namesField.value.trim()) {
       namesField.classList.add('names-err');
       namesField.focus();
       window.toast('Veuillez écrire le(s) prénom(s) avant de confirmer l\u2019envoi.', 'err');
@@ -931,7 +942,11 @@
     var sent = null;
     var sentClient = false;
     var req;
-    var evNames = $('confirm-names-input') ? $('confirm-names-input').value.trim() : '';
+    // Prénoms envoyés uniquement s'ils étaient requis (pas de names.txt
+    // pour une sélection posters / agrandissements seule).
+    var evNames = state.confirmNeedsNames
+      ? ($('confirm-names-input') ? $('confirm-names-input').value.trim() : '')
+      : '';
     if (state.client) {
       req = window.api('/api/g/' + slug + '/client/selection', {
         method: 'POST',
