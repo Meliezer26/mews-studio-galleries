@@ -730,7 +730,7 @@
         };
         saveClientToken();
         // Prénoms déjà saisis (autre appareil / session précédente) → pré-remplir.
-        if (state.client.eventNames) $('cl-names').value = state.client.eventNames;
+        if (state.client.eventNames) $('confirm-names-input').value = state.client.eventNames;
         // FUSION (jamais d'écrasement) : la sélection locale éventuelle est
         // conservée et complétée par celle du serveur (autre appareil, etc.)
         var srvAlb = data.client.albums || {};
@@ -837,14 +837,6 @@
       window.toast('Ajoutez au moins une photo à un album avant d\u2019envoyer.', 'err');
       return;
     }
-    // Prénoms pour la mise en page : OBLIGATOIRES avant l'envoi.
-    var namesInput = $('cl-names');
-    if (namesInput && !namesInput.value.trim()) {
-      namesInput.classList.add('names-err');
-      namesInput.focus();
-      window.toast('Merci d\u2019indiquer les prénoms pour la mise en page avant d\u2019envoyer (mariés, ou enfant pour bar/brit mila…).', 'err');
-      return;
-    }
     var senderName = state.client ? state.client.name : (state.alb.name || '');
     state.alb.name = senderName;
     saveAlbumsLocal();
@@ -858,9 +850,15 @@
     var nAlbums = withPhotos.length;
     var total = withPhotos.reduce(function (n, a) { return n + a.photoIds.length; }, 0);
     $('confirm-what').textContent = nAlbums > 1 ? 'vos sélections' : 'votre sélection';
-    var evNames = $('cl-names') ? $('cl-names').value.trim() : '';
-    $('confirm-summary').textContent = nAlbums + ' album' + (nAlbums > 1 ? 's' : '') + ' · ' + total + ' photo' + (total > 1 ? 's' : '') + ' en tout'
-      + (evNames ? ' · Prénoms : ' + evNames : '');
+    $('confirm-summary').textContent = nAlbums + ' album' + (nAlbums > 1 ? 's' : '') + ' · ' + total + ' photo' + (total > 1 ? 's' : '') + ' en tout';
+    // Champ « Prénom(s) » : pré-rempli si le client l'avait déjà saisi (profil / session).
+    var namesField = $('confirm-names-input');
+    if (namesField) {
+      namesField.classList.remove('names-err');
+      if (!namesField.value.trim() && state.client && state.client.eventNames) {
+        namesField.value = state.client.eventNames;
+      }
+    }
     // Alertes « couverture manquante » (albums photo seulement)
     var types = state.albums ? state.albums.types : [];
     var noCover = withPhotos.filter(function (a) {
@@ -889,6 +887,14 @@
 
   function confirmSendSelection() {
     if (state.sending) return;
+    // Prénom(s) OBLIGATOIRE(s) avant l'envoi définitif (fenêtre de validation).
+    var namesField = $('confirm-names-input');
+    if (namesField && !namesField.value.trim()) {
+      namesField.classList.add('names-err');
+      namesField.focus();
+      window.toast('Veuillez écrire le(s) prénom(s) avant de confirmer l\u2019envoi.', 'err');
+      return;
+    }
     state.sending = true;
     var ok = $('confirm-send-ok');
     ok.disabled = true;
@@ -925,7 +931,7 @@
     var sent = null;
     var sentClient = false;
     var req;
-    var evNames = $('cl-names') ? $('cl-names').value.trim() : '';
+    var evNames = $('confirm-names-input') ? $('confirm-names-input').value.trim() : '';
     if (state.client) {
       req = window.api('/api/g/' + slug + '/client/selection', {
         method: 'POST',
@@ -1235,8 +1241,8 @@
       window.toast('Couverture de « ' + (tt ? tt.label : '') + ' » choisie ✓', 'ok');
     });
 
-    // Champ « Prénoms » : retire l'état d'erreur dès que le client saisit.
-    var namesInput = $('cl-names');
+    // Champ « Prénom(s) » (fenêtre de validation) : retire l'erreur à la saisie.
+    var namesInput = $('confirm-names-input');
     if (namesInput) {
       namesInput.addEventListener('input', function () { this.classList.remove('names-err'); });
     }
@@ -1372,7 +1378,7 @@
               state.client.sentIds = data.client.sentIds || [];
               state.client.sentByType = data.client.sentByType || {};
               state.client.eventNames = data.client.eventNames || '';
-              var ni = $('cl-names');
+              var ni = $('confirm-names-input');
               if (ni && state.client.eventNames && !ni.value.trim()) ni.value = state.client.eventNames;
               state.alb.checked = data.client.albums.checked || {};
               state.alb.photos = data.client.albums.photos || {};

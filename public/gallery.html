@@ -7,7 +7,7 @@
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915o">
+<link rel="stylesheet" href="/styles.css?v=20260915p">
 <style>
   /* ---------- Galerie client ---------- */
   .g-page { min-height: 100vh; display: flex; flex-direction: column; }
@@ -230,11 +230,6 @@
         </div>
       </div>
     </div>
-    <div class="albums-names">
-      <label class="names-label" for="cl-names">✒️ Prénoms pour la mise en page <span class="names-req">— obligatoires avant l'envoi</span></label>
-      <input class="input" id="cl-names" type="text" maxlength="80" placeholder="Ex. Léa & Maxime — ou le prénom de l'enfant (bar, brit mila…)" autocomplete="off">
-      <p class="names-hint">Les prénoms des mariés, ou de l'enfant (bar, brit mila…). Ils seront joints au dossier de vos albums pour la mise en page par le studio graphique.</p>
-    </div>
     <div class="albums-send">
       <button class="btn btn--sent btn--sm" id="btn-send-selection">✉ Envoyer ma sélection</button>
     </div>
@@ -282,6 +277,11 @@
     <p class="sub">⚠️ Attention : vous êtes sur le point d'envoyer <b id="confirm-what">votre sélection</b> à notre service graphique. <b>Plus aucune modification ne sera possible</b> après cet envoi.</p>
     <p class="sub" id="confirm-summary" style="margin-bottom:18px"></p>
     <p class="sub confirm-warn hidden" id="confirm-cover-warn"></p>
+    <div class="confirm-names">
+      <label class="names-label" for="confirm-names-input"><b>Prénom(s) sur la première page de l'album.</b> <span class="names-req">— obligatoires avant l'envoi</span></label>
+      <input class="input" id="confirm-names-input" type="text" maxlength="80" placeholder="Ex. Léa & Maxime" autocomplete="off">
+      <p class="names-hint">Veuillez écrire ici le(s) prénoms des mariés, ou de l'enfant (bar/bat Mitzva, brit mila…)</p>
+    </div>
     <div class="send-actions">
       <button class="btn btn--gold btn--sm" id="confirm-send-ok">Je confirme</button>
       <button class="btn btn--ghost btn--sm" id="confirm-send-cancel">Annuler</button>
@@ -397,7 +397,7 @@
   });
 })();
 </script>
-<script src="/app.js?v=20260915o"></script>
-<script src="/gallery.js?v=20260915o"></script>
+<script src="/app.js?v=20260915p"></script>
+<script src="/gallery.js?v=20260915p"></script>
 </body>
 </html>

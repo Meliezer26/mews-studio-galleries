@@ -392,19 +392,14 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 .albums-steps { margin: 6px 0 0; padding-left: 20px; font-size: 0.85rem; line-height: 1.65; color: var(--ink-2); }
 .albums-steps-note { margin: 6px 0 0; font-size: 0.78rem; color: var(--muted); }
 .albums-steps-note b { color: var(--ink-2); }
-/* Prénoms pour la mise en page — obligatoires avant l'envoi */
-.albums-names {
-  margin: 0 0 14px; padding: 14px 16px; max-width: 620px;
-  border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel-2);
-}
-.names-label { display: block; font-size: 0.87rem; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
-.names-req { font-weight: 500; color: var(--danger); font-size: 0.78rem; }
-.albums-names .input { width: 100%; box-sizing: border-box; }
-.albums-names .input.names-err { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(214, 69, 69, 0.18); }
-.names-hint { margin: 8px 0 0; font-size: 0.76rem; color: var(--muted); line-height: 1.5; }
-@media (max-width: 640px) {
-  .albums-names { max-width: none; margin: 0 0 12px; padding: 12px; }
-}
+/* Prénom(s) sur la première page de l'album — dans la fenêtre de validation,
+   obligatoires avant l'envoi */
+.confirm-names { margin: 18px 0 6px; }
+.names-label { display: block; font-size: 0.87rem; color: var(--ink); margin-bottom: 8px; }
+.names-req { font-weight: 600; color: var(--danger); font-size: 0.78rem; }
+.confirm-names .input { width: 100%; box-sizing: border-box; }
+.confirm-names .input.names-err { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(214, 69, 69, 0.18); }
+.names-hint { margin: 8px 0 0; font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
 .albums-send { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .albums-send .input { width: 220px; }
 .albums-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
