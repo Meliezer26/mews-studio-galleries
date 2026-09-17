@@ -221,6 +221,7 @@
   /* --- Modale : créer un client / envoyer l'accès -------------- */
   function openClientAccessModal(galleryId, slug, galleryName, client, passwordRef) {
     state.clientAccess = { galleryId, clientId: client ? client.id : null };
+    $('btn-save-client-access').disabled = false; // ré-enclenche le bouton (pouvoir avoir été verrouillé par un envoi précédent)
     $('mca-title').textContent = client
       ? 'Envoyer l\u2019accès — ' + client.name + ' (' + galleryName + ')'
       : 'Nouveau client — ' + galleryName;
@@ -1242,7 +1243,7 @@
         : '/api/admin/galleries/' + st.galleryId + '/clients/' + st.clientId + '/send-access';
       var body = { name: name, emails: emails, galleryPassword: gpw };
       window.api(url, { method: 'POST', body: body })
-        .then(function (data) { clientAccessDone(data); })
+        .then(function (data) { btn.disabled = false; clientAccessDone(data); })
         .catch(function (err) { btn.disabled = false; window.toast(err.message, 'err'); });
     });
     $('btn-drive-connect').addEventListener('click', function () {
