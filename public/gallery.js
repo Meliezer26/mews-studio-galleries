@@ -723,11 +723,14 @@
       .then(function (data) {
         state.client = {
           token: data.token, name: data.client.name, email: data.client.email || '',
+          eventNames: data.client.eventNames || '',
           history: data.client.selections,
           sentIds: data.client.sentIds || [],
           sentByType: data.client.sentByType || {},
         };
         saveClientToken();
+        // Prénoms déjà saisis (autre appareil / session précédente) → pré-remplir.
+        if (state.client.eventNames) $('cl-names').value = state.client.eventNames;
         // FUSION (jamais d'écrasement) : la sélection locale éventuelle est
         // conservée et complétée par celle du serveur (autre appareil, etc.)
         var srvAlb = data.client.albums || {};
@@ -834,6 +837,14 @@
       window.toast('Ajoutez au moins une photo à un album avant d\u2019envoyer.', 'err');
       return;
     }
+    // Prénoms pour la mise en page : OBLIGATOIRES avant l'envoi.
+    var namesInput = $('cl-names');
+    if (namesInput && !namesInput.value.trim()) {
+      namesInput.classList.add('names-err');
+      namesInput.focus();
+      window.toast('Merci d\u2019indiquer les prénoms pour la mise en page avant d\u2019envoyer (mariés, ou enfant pour bar/brit mila…).', 'err');
+      return;
+    }
     var senderName = state.client ? state.client.name : (state.alb.name || '');
     state.alb.name = senderName;
     saveAlbumsLocal();
@@ -847,7 +858,9 @@
     var nAlbums = withPhotos.length;
     var total = withPhotos.reduce(function (n, a) { return n + a.photoIds.length; }, 0);
     $('confirm-what').textContent = nAlbums > 1 ? 'vos sélections' : 'votre sélection';
-    $('confirm-summary').textContent = nAlbums + ' album' + (nAlbums > 1 ? 's' : '') + ' · ' + total + ' photo' + (total > 1 ? 's' : '') + ' en tout';
+    var evNames = $('cl-names') ? $('cl-names').value.trim() : '';
+    $('confirm-summary').textContent = nAlbums + ' album' + (nAlbums > 1 ? 's' : '') + ' · ' + total + ' photo' + (total > 1 ? 's' : '') + ' en tout'
+      + (evNames ? ' · Prénoms : ' + evNames : '');
     // Alertes « couverture manquante » (albums photo seulement)
     var types = state.albums ? state.albums.types : [];
     var noCover = withPhotos.filter(function (a) {
@@ -912,11 +925,12 @@
     var sent = null;
     var sentClient = false;
     var req;
+    var evNames = $('cl-names') ? $('cl-names').value.trim() : '';
     if (state.client) {
       req = window.api('/api/g/' + slug + '/client/selection', {
         method: 'POST',
         headers: clientHeaders(),
-        body: { albums: albums },
+        body: { albums: albums, eventNames: evNames },
       }).then(function (res) {
         sent = res && res.emailSent;
         sentClient = !!(res && res.clientEmailSent);
@@ -925,6 +939,7 @@
         state.client.history = data.client.selections;
         state.client.sentIds = data.client.sentIds || [];
         state.client.sentByType = data.client.sentByType || {};
+        state.client.eventNames = data.client.eventNames || state.client.eventNames || '';
         // L'album est clos : les photos envoyées quittent le panier,
         // le client peut ensuite démarrer un autre album (mêmes photos possibles).
         albums.forEach(function (a) {
@@ -945,7 +960,7 @@
     } else {
       req = window.api('/api/g/' + slug + '/selection', {
         method: 'POST',
-        body: { name: senderName, albums: albums },
+        body: { name: senderName, albums: albums, eventNames: evNames },
       }).then(function (res) { sent = res && res.emailSent; });
     }
 
@@ -1220,6 +1235,12 @@
       window.toast('Couverture de « ' + (tt ? tt.label : '') + ' » choisie ✓', 'ok');
     });
 
+    // Champ « Prénoms » : retire l'état d'erreur dès que le client saisit.
+    var namesInput = $('cl-names');
+    if (namesInput) {
+      namesInput.addEventListener('input', function () { this.classList.remove('names-err'); });
+    }
+
     /* Bouton « remonter en haut » (mobile) : remonte au début de l'écran,
        là où se trouve « Envoyer ma sélection » pour valider l'album. */
     (function () {
@@ -1350,6 +1371,9 @@
               state.client.history = data.client.selections;
               state.client.sentIds = data.client.sentIds || [];
               state.client.sentByType = data.client.sentByType || {};
+              state.client.eventNames = data.client.eventNames || '';
+              var ni = $('cl-names');
+              if (ni && state.client.eventNames && !ni.value.trim()) ni.value = state.client.eventNames;
               state.alb.checked = data.client.albums.checked || {};
               state.alb.photos = data.client.albums.photos || {};
               saveAlbumsLocal();

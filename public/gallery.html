@@ -7,7 +7,7 @@
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915n">
+<link rel="stylesheet" href="/styles.css?v=20260915o">
 <style>
   /* ---------- Galerie client ---------- */
   .g-page { min-height: 100vh; display: flex; flex-direction: column; }
@@ -230,6 +230,11 @@
         </div>
       </div>
     </div>
+    <div class="albums-names">
+      <label class="names-label" for="cl-names">✒️ Prénoms pour la mise en page <span class="names-req">— obligatoires avant l'envoi</span></label>
+      <input class="input" id="cl-names" type="text" maxlength="80" placeholder="Ex. Léa & Maxime — ou le prénom de l'enfant (bar, brit mila…)" autocomplete="off">
+      <p class="names-hint">Les prénoms des mariés, ou de l'enfant (bar, brit mila…). Ils seront joints au dossier de vos albums pour la mise en page par le studio graphique.</p>
+    </div>
     <div class="albums-send">
       <button class="btn btn--sent btn--sm" id="btn-send-selection">✉ Envoyer ma sélection</button>
     </div>
@@ -392,7 +397,7 @@
   });
 })();
 </script>
-<script src="/app.js?v=20260915n"></script>
-<script src="/gallery.js?v=20260915n"></script>
+<script src="/app.js?v=20260915o"></script>
+<script src="/gallery.js?v=20260915o"></script>
 </body>
 </html>

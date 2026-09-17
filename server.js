@@ -231,12 +231,13 @@ function noteNotify(ok, error) {
 }
 
 /** Prépare le contenu d'une notification de sélection d'albums. */
-function buildNotificationInfo(req, g, clientName, albums, clientEmail) {
+function buildNotificationInfo(req, g, clientName, albums, clientEmail, eventNames) {
   const files = g.files || [];
   return {
     galleryName: g.name,
     clientName: clientName || null,
     clientEmail: clientEmail || null,
+    eventNames: eventNames || null,
     galleryUrl: `${req.protocol}://${req.get('host')}/g/${g.slug}`,
     albums: allSelectableTypes(g).map((t) => {
       const entry = (albums || []).find((a) => a.typeId === t.id) || { photoIds: [] };
@@ -260,10 +261,10 @@ function buildNotificationInfo(req, g, clientName, albums, clientEmail) {
 }
 
 /** Envoie la notification en arrière-plan (n'interrompt jamais la réponse). */
-async function notifySelection(req, g, clientName, albums, clientEmail) {
+async function notifySelection(req, g, clientName, albums, clientEmail, eventNames) {
   if (!mailer.isConfigured()) return false;
   try {
-    await mailer.sendSelectionNotification(buildNotificationInfo(req, g, clientName, albums, clientEmail));
+    await mailer.sendSelectionNotification(buildNotificationInfo(req, g, clientName, albums, clientEmail, eventNames));
     noteNotify(true);
     return true;
   } catch (err) {
@@ -664,10 +665,17 @@ app.post('/api/g/:slug/selection', async (req, res) => {
         ' n\u2019' + (missingCover.length > 1 ? 'ont' : 'a') + ' pas encore de couverture. Choisissez une photo de couverture pour chacun avant l\u2019envoi.',
     });
   }
+  // Prénoms pour la mise en page (mariés, enfant pour bar/brit mila…) :
+  // OBLIGATOIRES avant l'envoi — joints au dossier Drive (names.txt).
+  const eventNames = String((req.body || {}).eventNames || '').trim().slice(0, 80);
+  if (!eventNames) {
+    return res.status(400).json({ error: 'Merci d\u2019indiquer les prénoms pour la mise en page (mariés, ou enfant pour bar/brit mila…) avant l\u2019envoi.' });
+  }
   const sel = {
     id: sec.randomToken(8),
     date: Date.now(),
     name: String((req.body && req.body.name) || '').trim().slice(0, 80) || null,
+    eventNames,
     albums,
   };
   // Écriture atomique sur l'état FRAIS : l'objet `g` a été lu avant le
@@ -678,7 +686,7 @@ app.post('/api/g/:slug/selection', async (req, res) => {
     if (!cur) return false;
     cur.selections = [sel, ...((cur.selections || []))].slice(0, 100);
   });
-  const emailSent = await notifySelection(req, g, sel.name, albums);
+  const emailSent = await notifySelection(req, g, sel.name, albums, null, eventNames);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
   res.json({ ok: true, emailSent });
 });
@@ -700,8 +708,9 @@ function clientPayload(c) {
   return {
     name: c.name,
     email: c.email || '',
+    eventNames: c.eventNames || '',
     albums: c.albums || { checked: {}, photos: {}, covers: {} },
-    selections: (c.selections || []).map((s) => ({ date: s.date, albums: s.albums })),
+    selections: (c.selections || []).map((s) => ({ date: s.date, albums: s.albums, eventNames: s.eventNames || '' })),
   };
 }
 
@@ -914,7 +923,13 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
         ' n\u2019' + (missingCover.length > 1 ? 'ont' : 'a') + ' pas encore de couverture. Choisissez une photo de couverture pour chacun avant l\u2019envoi.',
     });
   }
-  const sel = { id: sec.randomToken(8), date: Date.now(), albums };
+  // Prénoms pour la mise en page (mariés, enfant pour bar/brit mila…) :
+  // OBLIGATOIRES avant l'envoi — joints au dossier Drive (names.txt).
+  const eventNames = String((req.body || {}).eventNames || '').trim().slice(0, 80);
+  if (!eventNames) {
+    return res.status(400).json({ error: 'Merci d\u2019indiquer les prénoms pour la mise en page (mariés, ou enfant pour bar/brit mila…) avant l\u2019envoi.' });
+  }
+  const sel = { id: sec.randomToken(8), date: Date.now(), albums, eventNames };
   // Écriture atomique sur l'état FRAIS : `g` et `client` ont été lus au
   // début de la requête (avant le syncGallery, await) — les réécrire tels
   // quels écraserait un envoi concurrent arrivé entre-temps.
@@ -923,14 +938,15 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
     const cur = all.find((x) => x.id === g.id);
     const curClient = cur && (cur.clients || []).find((c) => c.id === client.id);
     if (!cur || !curClient) return false;
+    curClient.eventNames = eventNames;
     curClient.selections = [sel, ...((curClient.selections || []))].slice(0, 50);
     curClient.lastSeenAt = Date.now();
     // Boîte de réception du photographe (vue admin)
-    cur.selections = [{ id: sel.id, date: sel.date, name: clientName, albums: sel.albums }, ...((cur.selections || []))].slice(0, 100);
+    cur.selections = [{ id: sel.id, date: sel.date, name: clientName, eventNames, albums: sel.albums }, ...((cur.selections || []))].slice(0, 100);
   });
   const clientEmail = ((client.emails && client.emails.length ? client.emails : [client.email]) || [])
     .map((e) => String(e || '').trim()).filter(Boolean).join(', ');
-  const emailSent = await notifySelection(req, g, client.name, albums, clientEmail);
+  const emailSent = await notifySelection(req, g, client.name, albums, clientEmail, eventNames);
   // Récapitulatif au client (sa propre adresse e-mail) — ne bloque pas l'envoi au photographe.
   const clientEmailSent = await notifyClientSelection(req, g, client, sel);
   scheduleDriveApply(g.id, sel.id); // tri automatique sur Drive (si activé)
