@@ -503,7 +503,16 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 }
 .cov-tile:hover { border-color: var(--accent-soft); }
 .cov-tile.current { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.22); }
-.cov-tile img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; }
+.cov-tile img {
+  width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block;
+  /* Placeholder animé tant que la photo n'est pas chargée (mobile 4G) :
+     évite l'effet « mur de cases grises illisibles » signalé par les clients. */
+  background: linear-gradient(100deg, #201d19 40%, #2c2823 50%, #201d19 60%);
+  background-size: 200% 100%;
+  animation: cov-shimmer 1.3s linear infinite;
+}
+.cov-tile img.loaded { background: none; animation: none; }
+@keyframes cov-shimmer { to { background-position: -200% 0; } }
 .cov-orient {
   position: absolute; top: 6px; left: 6px; z-index: 2;
   font-size: 0.66rem; font-weight: 600; letter-spacing: 0.03em;
@@ -516,7 +525,9 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 }
 @media (max-width: 640px) {
   .cov { padding: 10px; }
-  .cov-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); padding: 12px; }
+  /* 2 colonnes plus larges sur mobile : la couverture est la « vitrine »
+     de l'album, la photo doit être jugée lisible, pas en mini-vignette. */
+  .cov-grid { grid-template-columns: repeat(2, 1fr); padding: 12px; gap: 12px; }
 }
 .alb-add {
   position: absolute; left: 8px; top: 8px; z-index: 7;

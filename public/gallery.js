@@ -327,15 +327,19 @@
       tile.className = 'cov-tile' + (state.alb.covers[typeId] === p.id ? ' current' : '');
       var img = document.createElement('img');
       img.loading = 'lazy';
-      img.src = photoUrl(p, 'thumb');
+      // 600 px (au lieu de 400) : la couverture se choisit à l'œil,
+      // l'image doit être lisible — surtout sur mobile.
+      img.src = photoUrl(p, 'thumb') + '?size=600';
       var badge = document.createElement('span');
       badge.className = 'cov-orient';
       badge.textContent = '…';
       img.onload = function () {
+        img.classList.add('loaded'); // retire le placeholder animé
         var portrait = img.naturalWidth < img.naturalHeight;
         badge.textContent = portrait ? 'Portrait' : 'Paysage ✓';
         badge.classList.toggle('portrait', portrait);
       };
+      if (img.complete && img.naturalWidth) img.classList.add('loaded'); // déjà en cache
       var cap = document.createElement('span');
       cap.className = 'cov-cap';
       cap.textContent = 'n°' + (p.index + 1) + ' · ' + p.name;
