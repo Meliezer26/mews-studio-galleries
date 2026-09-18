@@ -439,10 +439,17 @@ async function syncGallery(g, force) {
     // (un envoi client arrivé pendant la listImages Drive, etc.).
     store.updateGalleries((all) => {
       const cur = all.find((x) => x.id === g.id);
-      if (cur) { cur.files = g.files; cur.syncedAt = g.syncedAt; }
+      if (cur) { cur.files = g.files; cur.syncedAt = g.syncedAt; cur.syncError = null; }
     });
   } catch (err) {
     console.error('[sync]', g.slug, err.message);
+    // Visible côté admin (GET /api/admin/galleries/:id) pour diagnostiquer
+    // sans accès aux logs Render.
+    g.syncError = String(err.message).slice(0, 300);
+    store.updateGalleries((all) => {
+      const cur = all.find((x) => x.id === g.id);
+      if (cur) cur.syncError = g.syncError;
+    });
   }
   return g;
 }
