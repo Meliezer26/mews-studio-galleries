@@ -76,6 +76,40 @@ const SESSION_MAX_AGE = 7 * 24 * 3600 * 1000;
 const UNLOCK_MAX_AGE = 30 * 24 * 3600 * 1000;
 const SYNC_TTL = 5 * 60 * 1000; // re-synchronisation Drive auto après 5 min
 
+/* ============================================================
+ *  Cache mémoire (LRU) des médias Google Drive
+ *  Sans lui, chaque image de la grille ou de la revue plein
+ *  écran provoque un aller-retour serveur → Google Drive :
+ *  sur les grandes galeries (1 000+ photos), l'affichage devient
+ *  très lent. Les vignettes/pleins écrans sont donc conservés en
+ *  mémoire une fois chargés (plafond 150 Mo, plus anciens évincés).
+ * ============================================================ */
+const MEDIA_CACHE = new Map(); // clé -> { buf, ctype }
+const MEDIA_CACHE_MAX_BYTES = 150 * 1024 * 1024;
+let mediaCacheBytes = 0;
+
+function mediaCacheGet(key) {
+  const e = MEDIA_CACHE.get(key);
+  if (!e) return null;
+  MEDIA_CACHE.delete(key);
+  MEDIA_CACHE.set(key, e); // repasser en position « plus récente »
+  return e;
+}
+
+function mediaCachePut(key, buf, ctype) {
+  if (!buf || !buf.length) return;
+  const old = MEDIA_CACHE.get(key);
+  if (old) mediaCacheBytes -= old.buf.length;
+  MEDIA_CACHE.set(key, { buf, ctype });
+  mediaCacheBytes += buf.length;
+  while (mediaCacheBytes > MEDIA_CACHE_MAX_BYTES) {
+    const oldest = MEDIA_CACHE.keys().next().value;
+    if (oldest === undefined) break;
+    mediaCacheBytes -= MEDIA_CACHE.get(oldest).buf.length;
+    MEDIA_CACHE.delete(oldest);
+  }
+}
+
 store.ensureDirs();
 /* Ordre important : restaurer d'abord (si le disque a été réinitialisé),
  * puis seulement amorcer la démo. Sinon la démo recréée masquerait la
@@ -976,12 +1010,22 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
 /* --- Proxys photo (vignette / téléchargement) --------------- */
 
 async function sendDriveThumb(res, rec, size) {
+  // Les photos ne changent jamais (id Drive stable) → cache navigateur 7 jours.
+  const key = rec.id + ':t' + size;
   try {
+    const hit = mediaCacheGet(key);
+    if (hit) {
+      res.setHeader('Content-Type', hit.ctype);
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return res.end(hit.buf);
+    }
     const up = await drive.fetchThumbnail(rec.thumb || '', size);
     if (!up.ok) throw new Error('thumb ' + up.status);
-    res.setHeader('Content-Type', up.headers.get('content-type') || 'image/jpeg');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const ctype = up.headers.get('content-type') || 'image/jpeg';
     const buf = Buffer.from(await up.arrayBuffer());
+    mediaCachePut(key, buf, ctype);
+    res.setHeader('Content-Type', ctype);
+    res.setHeader('Cache-Control', 'public, max-age=604800');
     res.end(buf);
   } catch {
     // Pas de vignette disponible (format sans aperçu, ex. RAW).
@@ -992,7 +1036,7 @@ async function sendDriveThumb(res, rec, size) {
       return sendDriveMedia(res, rec);
     }
     res.setHeader('Content-Type', 'image/svg+xml');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cache-Control', 'public, max-age=604800');
     res.end('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">' +
       '<rect width="1200" height="800" fill="#14120f"/>' +
       '<g fill="#f4efe6" font-family="Georgia,serif">' +
@@ -1004,13 +1048,28 @@ async function sendDriveThumb(res, rec, size) {
 
 async function sendDriveMedia(res, rec, asAttachment = false) {
   try {
-    const up = await drive.fetchMedia(rec.id);
-    if (!up.ok) return res.status(502).json({ error: 'Fichier inaccessible sur Google Drive.' });
+    let buf, ctype;
+    const key = rec.id + ':m';
+    const hit = asAttachment ? null : mediaCacheGet(key);
+    if (hit) {
+      buf = hit.buf;
+      ctype = hit.ctype;
+    } else {
+      const up = await drive.fetchMedia(rec.id);
+      if (!up.ok) return res.status(502).json({ error: 'Fichier inaccessible sur Google Drive.' });
+      ctype = up.headers.get('content-type') || 'application/octet-stream';
+      buf = Buffer.from(await up.arrayBuffer());
+      // Ne mettre en mémoire que les fichiers légers (le plein écran 1600 px
+      // passe par là ; les originaux lourds restent en flux direct).
+      if (!asAttachment && buf.length <= 8 * 1024 * 1024) mediaCachePut(key, buf, ctype);
+    }
     if (asAttachment) {
       res.setHeader('Content-Disposition', "attachment; filename*=UTF-8''" + encodeURIComponent(safeFileName(rec.name)));
+      res.setHeader('Cache-Control', 'no-store');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=604800');
     }
-    res.setHeader('Content-Type', up.headers.get('content-type') || 'application/octet-stream');
-    const buf = Buffer.from(await up.arrayBuffer());
+    res.setHeader('Content-Type', ctype);
     res.end(buf);
   } catch {
     res.status(502).json({ error: 'Connexion à Google Drive impossible.' });
@@ -1033,7 +1092,7 @@ app.get('/api/g/:slug/photo/:fid/thumb', async (req, res) => {
   }
   const p = demoFilePath(g, rec);
   if (!p) return res.status(404).json({ error: 'Fichier local introuvable.' });
-  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.setHeader('Cache-Control', 'public, max-age=604800');
   res.sendFile(p);
 });
 
@@ -1741,7 +1800,7 @@ app.get('/api/admin/galleries/:id/photo/:fid/thumb', requireAdmin, async (req, r
   }
   const p = demoFilePath(g, rec);
   if (!p) return res.status(404).json({ error: 'Fichier local introuvable.' });
-  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.setHeader('Cache-Control', 'public, max-age=604800');
   res.sendFile(p);
 });
 
