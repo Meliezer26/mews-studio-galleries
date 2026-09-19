@@ -1092,9 +1092,11 @@
     if (activeT) {
       var inAlb = albPhotos(activeT.id).indexOf(p.id) > -1;
       var rest = activeT.capacity - albPhotos(activeT.id).length;
-      $('lb-alb').textContent = inAlb
+      var lbAlbText = inAlb
         ? '✓ Retirer de « ' + activeT.label + ' »'
         : '＋ Ajouter à « ' + activeT.label + ' » (' + rest + ' photo' + (rest > 1 ? 's' : '') + ' restante' + (rest > 1 ? 's' : '') + ')';
+      $('lb-alb').textContent = lbAlbText;
+      $('lb-alb').title = lbAlbText; // texte complet en infobulle si tronqué
       $('lb-alb').classList.toggle('btn--gold', !inAlb);
       $('lb-alb').classList.toggle('btn--ghost', inAlb);
     }

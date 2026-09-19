@@ -7,7 +7,7 @@
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915s">
+<link rel="stylesheet" href="/styles.css?v=20260915t">
 <style>
   /* ---------- Galerie client ---------- */
   .g-page { min-height: 100vh; display: flex; flex-direction: column; }
@@ -142,13 +142,23 @@
   .lb-prev { left: 16px; } .lb-next { right: 16px; }
   .lb-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px 22px; flex-wrap: wrap; }
   .lb-name { font-size: 0.88rem; color: var(--ink-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lb-actions { display: flex; gap: 10px; }
+  .lb-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  /* Le bouton « Ajouter à « Album long — format — N photos » (restantes) »
+     peut dépasser la largeur d'un téléphone : on l'empêche de déborder
+     (texte tronqué en « … », bouton limité à 100 % de la zone). */
+  .lb-actions .btn {
+    display: inline-block; text-align: center;
+    min-width: 0; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis;
+  }
 
   @media (max-width: 720px) {
     .g-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); padding: 14px 14px 90px; gap: 8px; margin: 0; }
     .g-actions { opacity: 1 !important; transform: none !important; }
     .lb-stage { padding: 0 14px 14px; }
     .lb-nav { width: 38px; height: 38px; }
+    .lb-bottom { padding: 12px 14px 18px; }
+    .lb-actions .btn--sm { padding: 7px 14px; font-size: 0.8rem; }
     .g-top-inner { flex-wrap: wrap; }
     .albums-head { flex-wrap: wrap; }
     .send-box { padding: 18px; }
@@ -408,7 +418,7 @@
   });
 })();
 </script>
-<script src="/app.js?v=20260915s"></script>
-<script src="/gallery.js?v=20260915s"></script>
+<script src="/app.js?v=20260915t"></script>
+<script src="/gallery.js?v=20260915t"></script>
 </body>
 </html>
