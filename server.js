@@ -1824,6 +1824,35 @@ app.get('/api/admin/drive-folder-files', requireAdmin, async (req, res) => {
   }
 });
 
+/* TEST TEMPORAIRE — pagination Drive page par page :
+   montre si Google renvoie un nextPageToken et combien de fichiers
+   par page (débogage « dossier de 1188 fichiers lu à 1000 »). */
+app.get('/api/admin/drive-pagetest', requireAdmin, async (req, res) => {
+  const id = String(req.query.id || '');
+  if (!id) return res.json({ ok: false, reason: '' });
+  if (!drive.isConnected()) return res.json({ ok: false, reason: 'Google Drive non connecté.' });
+  try {
+    const q = encodeURIComponent("'" + id + "' in parents and trashed=false");
+    const base = '/drive/v3/files?q=' + q + '&fields=files(id,name),nextPageToken&pageToken=XYZ';
+    // Requête 1 : page 1 (sans pageToken volontairement)
+    const r1 = await drive.api('/drive/v3/files?q=' + q + '&fields=files(id,name),nextPageToken&pageSize=1000&orderBy=name');
+    const d1 = await r1.json();
+    const pages = [{ page: 1, count: (d1.files || []).length, nextPageToken: d1.nextPageToken || null, first: (d1.files || [])[0] || null, last: (d1.files || [])[d1.files.length - 1] || null }];
+    let token = d1.nextPageToken || '';
+    let total = (d1.files || []).length;
+    for (let i = 2; i <= 5 && token; i++) {
+      const ri = await drive.api('/drive/v3/files?q=' + q + '&fields=files(id,name),nextPageToken&pageSize=1000&orderBy=name&pageToken=' + encodeURIComponent(token));
+      const di = await ri.json();
+      pages.push({ page: i, count: (di.files || []).length, nextPageToken: di.nextPageToken || null, first: (di.files || [])[0] || null, last: (di.files || [])[di.files.length - 1] || null });
+      total += (di.files || []).length;
+      token = di.nextPageToken || '';
+    }
+    res.json({ ok: true, total, pages });
+  } catch (err) {
+    res.status(502).json({ ok: false, reason: err.message });
+  }
+});
+
 /* --- CRUD galeries ----------------------------------------- */
 
 app.get('/api/admin/galleries/:id/photo/:fid/thumb', requireAdmin, async (req, res) => {
