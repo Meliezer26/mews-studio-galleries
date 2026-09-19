@@ -1806,6 +1806,9 @@ app.get('/api/admin/drive-folder-files', requireAdmin, async (req, res) => {
       images: files.filter((f) => String(f.mimeType || '').startsWith('image/')).length,
       byMime,
       nonImages,
+      // Noms complets (triés) : comparaison avec ce que le photographe voit
+      // dans son Drive — détecte « dossier du même nom, contenu différent ».
+      names: files.map((f) => f.name),
       // Propriétaire + date de création : permet de détecter un dossier
       // du même nom dans un AUTRE compte Google que celui du photographe.
       folder: {
