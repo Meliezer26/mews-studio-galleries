@@ -1794,7 +1794,7 @@ app.get('/api/admin/drive-folder-files', requireAdmin, async (req, res) => {
   if (!id) return res.json({ ok: false, reason: '' });
   if (!drive.isConnected()) return res.json({ ok: false, reason: 'Google Drive non connecté.' });
   try {
-    const files = await drive.listAllFiles(id);
+    const [files, meta] = await Promise.all([drive.listAllFiles(id), drive.folderMeta(id)]);
     const byMime = {};
     files.forEach((f) => { byMime[f.mimeType] = (byMime[f.mimeType] || 0) + 1; });
     const nonImages = files
@@ -1806,6 +1806,15 @@ app.get('/api/admin/drive-folder-files', requireAdmin, async (req, res) => {
       images: files.filter((f) => String(f.mimeType || '').startsWith('image/')).length,
       byMime,
       nonImages,
+      // Propriétaire + date de création : permet de détecter un dossier
+      // du même nom dans un AUTRE compte Google que celui du photographe.
+      folder: {
+        id: meta.id,
+        name: meta.name,
+        owner: meta.owners && meta.owners[0] ? meta.owners[0] : null,
+        createdAt: meta.createTime || null,
+        sharedWithAppAt: meta.sharedWithMeTime || null,
+      },
     });
   } catch (err) {
     res.status(502).json({ ok: false, reason: err.message });
