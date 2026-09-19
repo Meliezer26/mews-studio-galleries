@@ -1785,6 +1785,33 @@ app.get('/api/admin/drive-folder-preview', requireAdmin, async (req, res) => {
   }
 });
 
+/* Contenu COMPLET d'un dossier Drive (tous types confondus) —
+   diagnostic « le dossier Drive compte plus d'éléments que la
+   galerie n'affiche de photos » : détaille ce qui n'est pas image
+   (vidéos, documents…) et reste invisible pour la galerie. */
+app.get('/api/admin/drive-folder-files', requireAdmin, async (req, res) => {
+  const id = String(req.query.id || '');
+  if (!id) return res.json({ ok: false, reason: '' });
+  if (!drive.isConnected()) return res.json({ ok: false, reason: 'Google Drive non connecté.' });
+  try {
+    const files = await drive.listAllFiles(id);
+    const byMime = {};
+    files.forEach((f) => { byMime[f.mimeType] = (byMime[f.mimeType] || 0) + 1; });
+    const nonImages = files
+      .filter((f) => !String(f.mimeType || '').startsWith('image/'))
+      .map((f) => ({ name: f.name, mime: f.mimeType, size: f.size }));
+    res.json({
+      ok: true,
+      total: files.length,
+      images: files.filter((f) => String(f.mimeType || '').startsWith('image/')).length,
+      byMime,
+      nonImages,
+    });
+  } catch (err) {
+    res.status(502).json({ ok: false, reason: err.message });
+  }
+});
+
 /* --- CRUD galeries ----------------------------------------- */
 
 app.get('/api/admin/galleries/:id/photo/:fid/thumb', requireAdmin, async (req, res) => {
