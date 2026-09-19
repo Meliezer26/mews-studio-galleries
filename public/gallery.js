@@ -1262,19 +1262,42 @@
       namesInput.addEventListener('input', function () { this.classList.remove('names-err'); });
     }
 
-    /* Bouton « remonter en haut » (mobile) : remonte au début de l'écran,
-       là où se trouve « Envoyer ma sélection » pour valider l'album. */
+    /* Boutons « haut / bas » (mobile) : « ↑ » remonte au début de
+       l'écran (là où se trouve « Envoyer ma sélection » pour valider
+       l'album), « ↓ » descend directement à la dernière photo des
+       grosses galeries — sans tout redescendre à la main. */
     (function () {
+      var wrap = $('jump-nav-m');
       var topBtn = $('btn-scroll-top');
+      var endBtn = $('btn-scroll-end');
+      if (!wrap || !topBtn || !endBtn) return;
       function update() {
-        var show = window.scrollY > 240 && !$('albums-panel').classList.contains('hidden');
-        topBtn.classList.toggle('visible', !!show);
+        var albumView = !$('albums-panel').classList.contains('hidden');
+        var lbOpen = $('lb').classList.contains('open');
+        var y = window.scrollY;
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        var showTop = albumView && !lbOpen && y > 240;
+        var showEnd = albumView && !lbOpen && (max - y) > 600;
+        if (!showTop && !showEnd) { wrap.classList.remove('visible'); return; }
+        wrap.classList.add('visible');
+        topBtn.classList.toggle('hidden', !showTop);
+        endBtn.classList.toggle('hidden', !showEnd);
       }
       window.addEventListener('scroll', update, { passive: true });
       window.addEventListener('resize', update);
+      var lb = $('lb');
+      if (lb && 'MutationObserver' in window) {
+        new MutationObserver(update).observe(lb, { attributes: true, attributeFilter: ['class'] });
+      }
       topBtn.addEventListener('click', function () {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
+      endBtn.addEventListener('click', function () {
+        // Saut direct : un scroll « smooth » depuis le milieu d'une
+        // grosse galerie prendrait plusieurs secondes.
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+      });
+      update();
     })();
 
     /* Navigation « début / fin » (PC) : dans les grosses galeries

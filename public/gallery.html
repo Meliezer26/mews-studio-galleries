@@ -7,7 +7,7 @@
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="stylesheet" href="/fonts/fonts.css">
-<link rel="stylesheet" href="/styles.css?v=20260915r">
+<link rel="stylesheet" href="/styles.css?v=20260915s">
 <style>
   /* ---------- Galerie client ---------- */
   .g-page { min-height: 100vh; display: flex; flex-direction: column; }
@@ -243,8 +243,12 @@
 
   <div class="g-grid hidden" id="grid"></div>
 
-  <!-- Bouton « remonter en haut » (mobile) : faciliter la validation de l'album -->
-  <button class="g-top-btn" id="btn-scroll-top" aria-label="Remonter en haut de l'écran">↑</button>
+  <!-- Navigation « haut / bas » (mobile) : faciliter la validation de
+       l'album et sauter directement à la fin des grosses galeries -->
+  <div class="g-jump-m" id="jump-nav-m">
+    <button class="g-jump-m-btn" id="btn-scroll-top" title="Remonter en haut" aria-label="Remonter en haut de l'écran">↑</button>
+    <button class="g-jump-m-btn" id="btn-scroll-end" title="Descendre en bas" aria-label="Descendre en bas de l'écran">↓</button>
+  </div>
 
   <!-- Navigation « début / fin » (PC) : dans les grosses galeries (1 000+
        photos), sauter directement à la 1re photo ou à la dernière -->
@@ -404,7 +408,7 @@
   });
 })();
 </script>
-<script src="/app.js?v=20260915r"></script>
-<script src="/gallery.js?v=20260915r"></script>
+<script src="/app.js?v=20260915s"></script>
+<script src="/gallery.js?v=20260915s"></script>
 </body>
 </html>
