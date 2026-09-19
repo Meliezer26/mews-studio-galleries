@@ -1277,6 +1277,53 @@
       });
     })();
 
+    /* Navigation « début / fin » (PC) : dans les grosses galeries
+       (1 000+ photos), sauter directement à la 1re photo ou à la
+       dernière sans tout remonter / redescendre à la main.
+       « ↑ » visible quand on est éloigné du début, « ↓ » quand on est
+       éloigné de la fin ; masqués en revue plein écran. */
+    (function () {
+      var wrap = $('jump-nav');
+      var topBtn = $('jump-top');
+      var endBtn = $('jump-end');
+      if (!wrap || !topBtn || !endBtn) return;
+      var ticking = false;
+      function isDesktop() { return window.matchMedia('(min-width: 721px)').matches; }
+      function update() {
+        ticking = false;
+        var lbOpen = !($('lb') && $('lb').classList.contains('open')) ? false : true;
+        if (!isDesktop() || lbOpen) { wrap.classList.remove('visible'); return; }
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        var y = window.scrollY;
+        var showTop = y > 800;
+        var showEnd = max - y > 800;
+        if (!showTop && !showEnd) { wrap.classList.remove('visible'); return; }
+        wrap.classList.add('visible');
+        topBtn.classList.toggle('hidden', !showTop);
+        endBtn.classList.toggle('hidden', !showEnd);
+      }
+      function onScroll() {
+        if (!ticking) { ticking = true; window.requestAnimationFrame(update); }
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', onScroll);
+      // Ouverture/fermeture de la revue plein écran → réévaluer
+      var lb = $('lb');
+      if (lb && 'MutationObserver' in window) {
+        new MutationObserver(onScroll).observe(lb, { attributes: true, attributeFilter: ['class'] });
+      }
+      function jump(toEnd) {
+        var target = toEnd ? document.documentElement.scrollHeight : 0;
+        var dist = Math.abs(target - window.scrollY);
+        // Lisse quand la distance est courte, saut direct sinon
+        // (remonter 30 000 px en « smooth » prendrait plusieurs secondes).
+        window.scrollTo({ top: target, behavior: dist < 2500 ? 'smooth' : 'auto' });
+      }
+      topBtn.addEventListener('click', function () { jump(false); });
+      endBtn.addEventListener('click', function () { jump(true); });
+      update();
+    })();
+
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && $('confirm-send-modal').classList.contains('open') && !state.sending) {
         closeSendConfirm();
