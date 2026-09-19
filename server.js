@@ -1812,7 +1812,7 @@ app.get('/api/admin/drive-folder-files', requireAdmin, async (req, res) => {
         id: meta.id,
         name: meta.name,
         owner: meta.owners && meta.owners[0] ? meta.owners[0] : null,
-        createdAt: meta.createTime || null,
+        modifiedAt: meta.modifiedTime || null,
         sharedWithAppAt: meta.sharedWithMeTime || null,
       },
     });
