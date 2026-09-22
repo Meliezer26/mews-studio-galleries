@@ -141,9 +141,14 @@ store.ensureDirs();
     }
     // Idem pour le jeton du compte d'envoi d'e-mails (Gmail API).
     const tm = store.tokensMail() || {};
+    // Dernier recours seulement : la sauvegarde (restaurée juste au-dessus)
+    // contient le jeton de la dernière reconnexion faite dans l'admin ; la
+    // variable d'env, elle, peut dater et avoir été révoquée par Google.
     if (!tm.refresh_token && process.env.GOOGLE_MAIL_REFRESH_TOKEN) {
       tm.refresh_token = process.env.GOOGLE_MAIL_REFRESH_TOKEN;
+      tm.source = 'env';
       store.saveTokensMail(tm);
+      console.log('[mail] Jeton Gmail rechargé depuis GOOGLE_MAIL_REFRESH_TOKEN (aucune sauvegarde disponible)');
     }
   } catch (err) {
     console.warn('[oauth] Ré-hydratation impossible :', err.message);
@@ -1197,7 +1202,9 @@ app.get('/oauth2callback', async (req, res) => {
     if (isMailFlow) {
       t.connectedAt = new Date().toISOString();
       delete t.lastRefreshError;
+      delete t.source;
       store.saveTokensMail(t);
+      backup.scheduleSoon(2000); // sauvegarder le nouveau jeton tout de suite
       // Capturer l'adresse du compte d'envoi tout de suite (sert au statut
       // et à l'envoi, même si l'API de profil est instable plus tard).
       const acc = await drive.mailAccount();
