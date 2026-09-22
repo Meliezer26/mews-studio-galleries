@@ -275,14 +275,17 @@
           $('btn-mail-connect').style.display = 'none';
           $('btn-mail-disconnect').style.display = 'none';
         } else if (s.connected && s.expired) {
-          st.innerHTML = '<span style="color:#e5484d;font-weight:600">Connexion Google expirée</span> — Google refuse le jeton' + (s.email ? ' de ' + s.email : '') + ' : les e-mails ne partent plus. Cliquez sur « Reconnecter avec Google » et autorisez à nouveau.';
+          var re = s.lastRefreshError;
+          var why = re ? ' Réponse de Google (' + re.at.slice(0, 10) + ') : ' + (re.error || 'HTTP ' + re.status) + (re.description ? ' — ' + re.description : '') + '.' : '';
+          st.innerHTML = '<span style="color:#e5484d;font-weight:600">Connexion Google expirée</span> — Google refuse le jeton' + (s.email ? ' de ' + s.email : '') + ' : les e-mails ne partent plus.' + why + ' Cliquez sur « Reconnecter avec Google » et autorisez à nouveau.';
           $('btn-mail-connect').textContent = 'Reconnecter avec Google (envoi d\'e-mails)';
           $('btn-mail-connect').style.display = '';
           $('btn-mail-disconnect').style.display = '';
           $('mail-key-row').style.display = 'none';
         } else if (s.connected) {
+          var since = s.connectedAt ? ' (connecté le ' + new Date(s.connectedAt).toLocaleDateString('fr-FR') + ')' : '';
           st.textContent = s.email
-            ? 'Connecté : ' + s.email + ' ✓ — les e-mails partiront de cette adresse.'
+            ? 'Connecté : ' + s.email + ' ✓' + since + ' — les e-mails partiront de cette adresse.'
             : 'Connecté ✓ (adresse non récupérée : ' + (s.accountError || 'erreur inconnue') + ') — les e-mails partiront du compte connecté.';
           $('btn-mail-connect').style.display = 'none';
           $('btn-mail-disconnect').style.display = '';

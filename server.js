@@ -1195,6 +1195,8 @@ app.get('/oauth2callback', async (req, res) => {
     if (data.refresh_token) t.refresh_token = data.refresh_token;
     delete t.oauthState;
     if (isMailFlow) {
+      t.connectedAt = new Date().toISOString();
+      delete t.lastRefreshError;
       store.saveTokensMail(t);
       // Capturer l'adresse du compte d'envoi tout de suite (sert au statut
       // et à l'envoi, même si l'API de profil est instable plus tard).
@@ -1284,6 +1286,8 @@ app.get('/api/admin/mail/status', requireAdmin, async (req, res) => {
     configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     connected,
     expired,
+    lastRefreshError: (store.tokensMail() && store.tokensMail().lastRefreshError) || null,
+    connectedAt: (store.tokensMail() && store.tokensMail().connectedAt) || null,
     email: (account && account.emailAddress) || (connected ? fallbackEmail : null),
     accountError: (account && account.error) || null,
     // Admin uniquement : à reporter dans la variable GOOGLE_MAIL_REFRESH_TOKEN
