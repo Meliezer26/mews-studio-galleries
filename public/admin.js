@@ -274,6 +274,12 @@
           st.textContent = 'Identifiants Google OAuth non configurés (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET dans les variables d\'env du serveur).';
           $('btn-mail-connect').style.display = 'none';
           $('btn-mail-disconnect').style.display = 'none';
+        } else if (s.connected && s.expired) {
+          st.innerHTML = '<span style="color:#e5484d;font-weight:600">Connexion Google expirée</span> — Google refuse le jeton' + (s.email ? ' de ' + s.email : '') + ' : les e-mails ne partent plus. Cliquez sur « Reconnecter avec Google » et autorisez à nouveau.';
+          $('btn-mail-connect').textContent = 'Reconnecter avec Google (envoi d\'e-mails)';
+          $('btn-mail-connect').style.display = '';
+          $('btn-mail-disconnect').style.display = '';
+          $('mail-key-row').style.display = 'none';
         } else if (s.connected) {
           st.textContent = s.email
             ? 'Connecté : ' + s.email + ' ✓ — les e-mails partiront de cette adresse.'

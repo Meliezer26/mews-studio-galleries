@@ -1269,13 +1269,21 @@ app.post('/api/admin/mail/connect', requireAdmin, (req, res) => {
 /** État du compte d'envoi. */
 app.get('/api/admin/mail/status', requireAdmin, async (req, res) => {
   const connected = drive.isMailConnected();
-  const account = connected ? await drive.mailAccount() : null;
+  // Vérifier que Google accepte encore le jeton (un jeton expiré/révoqué
+  // reste présent dans le store mais est refusé : « GOOGLE_MAIL_NOT_CONNECTED »).
+  let expired = false;
+  if (connected) {
+    const tok = await drive.mailAccessToken().catch(() => null);
+    expired = !tok;
+  }
+  const account = connected && !expired ? await drive.mailAccount() : null;
   // Le profil API exige un scope > gmail.send : en secours, l'adresse du champ Expéditeur.
   const m = /<([^<>]+)>/.exec(String((store.config().notifications || {}).from || ''));
   const fallbackEmail = m ? m[1].trim() : '';
   res.json({
     configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     connected,
+    expired,
     email: (account && account.emailAddress) || (connected ? fallbackEmail : null),
     accountError: (account && account.error) || null,
     // Admin uniquement : à reporter dans la variable GOOGLE_MAIL_REFRESH_TOKEN
