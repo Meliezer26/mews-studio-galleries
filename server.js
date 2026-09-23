@@ -185,6 +185,30 @@ const app = express();
 app.disable('x-powered-by');
 // Derrière un proxy (nginx, plateformes cloud) : utiliser l'IP réelle du visiteur.
 app.set('trust proxy', 1);
+
+/* --- Une seule adresse canonique pour Google ----------------------
+ * Le même site répond sur mews-galleries.onrender.com (secours), en http,
+ * et les pages HTML existent avec ou sans « .html » (/connexion.html).
+ * Search Console voyait donc des doublons « sans canonique choisie ».
+ * → 301 vers https://galeries.mewstudio.com et vers l'URL sans extension.
+ * Les API et les galeries clientes (/g/…) ne sont jamais redirigées entre
+ * domaines pour ne pas casser un lien de secours déjà envoyé. */
+const CANONICAL_HOST = process.env.CANONICAL_HOST || 'galeries.mewstudio.com';
+const HTML_ALIASES = { '/index.html': '/', '/connexion.html': '/connexion', '/confidentialite.html': '/confidentialite' };
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const alias = HTML_ALIASES[req.path];
+  if (alias) return res.redirect(301, alias + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
+  const host = String(req.headers.host || '').toLowerCase();
+  const isPublicPage = req.path === '/' || req.path === '/connexion' || /^\/(politique-de-)?confidentialit/i.test(req.path) || req.path === '/sitemap.xml' || req.path === '/robots.txt';
+  if (isPublicPage && host && host !== CANONICAL_HOST && !/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) {
+    return res.redirect(301, 'https://' + CANONICAL_HOST + req.url);
+  }
+  if (isPublicPage && host === CANONICAL_HOST && req.headers['x-forwarded-proto'] === 'http') {
+    return res.redirect(301, 'https://' + CANONICAL_HOST + req.url);
+  }
+  next();
+});
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 // Fichiers de l'interface (HTML/JS/CSS) : toujours revalidés, pour que les
