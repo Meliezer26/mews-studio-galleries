@@ -193,6 +193,13 @@ app.set('trust proxy', 1);
  * → 301 vers https://galeries.mewstudio.com et vers l'URL sans extension.
  * Les API et les galeries clientes (/g/…) ne sont jamais redirigées entre
  * domaines pour ne pas casser un lien de secours déjà envoyé. */
+/* Point de vie pour le keepalive (cron-job.org) : répond 200 sur tous les
+ * hôtes, sans redirection, sans cache. */
+app.get('/healthz', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, at: new Date().toISOString() });
+});
+
 const CANONICAL_HOST = process.env.CANONICAL_HOST || 'galeries.mewstudio.com';
 const HTML_ALIASES = { '/index.html': '/', '/connexion.html': '/connexion', '/confidentialite.html': '/confidentialite' };
 app.use((req, res, next) => {
@@ -201,6 +208,8 @@ app.use((req, res, next) => {
   if (alias) return res.redirect(301, alias + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
   const host = String(req.headers.host || '').toLowerCase();
   const isPublicPage = req.path === '/' || req.path === '/connexion' || /^\/(politique-de-)?confidentialit/i.test(req.path) || req.path === '/sitemap.xml' || req.path === '/robots.txt';
+  const isMonitor = /cron-job\.org|UptimeRobot|Better ?Uptime|StatusCake|Pingdom/i.test(String(req.headers['user-agent'] || ''));
+  if (isMonitor && req.path === '/') return next();
   if (isPublicPage && host && host !== CANONICAL_HOST && !/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) {
     return res.redirect(301, 'https://' + CANONICAL_HOST + req.url);
   }
