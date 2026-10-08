@@ -28,6 +28,7 @@ const demo = require('./lib/demo');
 const sec = require('./lib/security');
 const mailer = require('./lib/mailer');
 const backup = require('./lib/backup');
+const healthcheck = require('./lib/healthcheck');
 const driveSort = require('./lib/drive-sort');
 const { PACKAGE_DEFS, packageCapacity, packageLabel, sanitizePackages } = require('./lib/packages');
 const { ALBUM_TYPES } = demo;
@@ -171,6 +172,7 @@ store.ensureDirs();
   backup.cleanupExpiredGrants().catch(() => {});
   backup.startPeriodicBackup();
   backup.now(); // sauvegarde immédiate au démarrage
+  healthcheck.start(); // bilan de santé : lundi 08:00 (rapport) + alertes quotidiennes
   // Tâches quotidiennes : nettoyage des dossiers triés trop anciens +
   // vérification que la connexion Google du photographe tient toujours
   // (un jeton d'application « Testing » expire après 7 jours → alerte e-mail).
@@ -1334,6 +1336,20 @@ app.get('/api/admin/mail/status', requireAdmin, async (req, res) => {
     // de l'hébergeur pour survivre aux redéploiements (comme GOOGLE_REFRESH_TOKEN).
     refreshToken: (store.tokensMail() && store.tokensMail().refresh_token) || null,
   });
+});
+
+/** Bilan de santé : dernier rapport + lancement manuel (envoie le rapport par e-mail). */
+app.get('/api/admin/healthcheck', requireAdmin, (req, res) => {
+  res.json({ last: healthcheck.lastReport(), state: healthcheck.state(), nextWeekly: healthcheck.nextWeeklyRun() });
+});
+app.post('/api/admin/healthcheck/run', requireAdmin, async (req, res) => {
+  try {
+    const sendMail = !(req.body && req.body.sendMail === false);
+    const r = await healthcheck.run('manual', { sendMail });
+    res.json(r);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /** Déconnexion du compte d'envoi. */
