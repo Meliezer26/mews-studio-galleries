@@ -26,6 +26,12 @@ const REPO = 'Meliezer26/mews-studio-backup';
 
 /* --- Faux GitHub (aucun appel réel) --------------------------- */
 const gh = { state: 'ok', content: null, puts: 0, lastPut: null };
+// GitHub change l'empreinte dès que le contenu change : le simulateur doit
+// faire de même, sinon le cache de lecture masque les modifications.
+const crypto = require('crypto');
+function contentSha() {
+  return gh.content === null ? null : crypto.createHash('sha1').update(gh.content).digest('hex');
+}
 
 global.fetch = async function (url, init) {
   const u = String(url);
@@ -37,18 +43,18 @@ global.fetch = async function (url, init) {
     gh.content = Buffer.from(JSON.parse(init.body).content, 'base64').toString('utf8');
     gh.puts++;
     gh.lastPut = gh.content;
-    return new Response('{"content":{"sha":"new"}}', { status: 200 });
+    return new Response(JSON.stringify({ content: { sha: contentSha() } }), { status: 200 });
   }
   if (gh.state === '404') return new Response('{"message":"Not Found"}', { status: 404 });
-  if (gh.state === '500') return new Response('{"message":"Server Error"}', { status: 500 });
+  if (gh.state === '500' || gh.state === 'read500') return new Response('{"message":"Server Error"}', { status: 500 });
   if (u.includes('/contents/')) {
     if (gh.content === null) return new Response('{"message":"Not Found"}', { status: 404 });
     // Comme GitHub au-delà de 1 Mo : 200 avec un contenu vide.
     if (gh.state === 'empty' || gh.state === 'corrupt' || Buffer.byteLength(gh.content, 'utf8') > 1024 * 1024) {
-      return new Response(JSON.stringify({ sha: 'sha1', encoding: 'none', content: '' }), { status: 200 });
+      return new Response(JSON.stringify({ sha: contentSha(), encoding: 'none', content: '' }), { status: 200 });
     }
     return new Response(JSON.stringify({
-      sha: 'sha1', encoding: 'base64', content: Buffer.from(gh.content, 'utf8').toString('base64'),
+      sha: contentSha(), encoding: 'base64', content: Buffer.from(gh.content, 'utf8').toString('base64'),
     }), { status: 200 });
   }
   if (u.includes('/git/blobs/')) {
@@ -126,9 +132,19 @@ function check(name, cond, info) {
   gh.state = 'corrupt';
   const rC2 = await backup.now();
   check('JSON cassé : écriture refusée', rC2.ok === false && rC2.refused === true);
-  gh.state = '500';
+  gh.state = 'read500';
+  // Nouveau comportement (incident du 20/10) : une panne réseau/HTTP passagère
+  // n'est PAS une sauvegarde corrompue. Si l'état local est cohérent avec la
+  // dernière lecture réussie, on sauvegarde quand même.
   const rC3 = await backup.now();
-  check('GitHub en panne : écriture refusée', rC3.ok === false && rC3.refused === true);
+  check('GitHub en panne : écriture autorisée (état local cohérent)', rC3.ok === true, rC3.reason || 'ok');
+  resetData(gals(1, 5));                       // mais si le site a fondu...
+  gh.state = 'ok';
+  gh.content = payloadOf(gals(6, 100));
+  gh.state = 'read500';
+  const rC3b = await backup.now();
+  check('GitHub en panne + site vide : écriture REFUSÉE', rC3b.refused === true, rC3b.reason);
+  gh.state = 'ok';
   gh.state = '404';
   const rC4 = await backup.now();
   check('dépôt vide (404) : première sauvegarde autorisée', rC4.ok === true);
