@@ -140,7 +140,29 @@ function check(name, cond, info) {
   await backupT.now();
   check('un vrai changement de jeton est sauvegardé', gh.puts === p1 + 1);
 
-  console.log('\nG. Le battement de cœur (12 h) réécrit la copie');
+  console.log('\nG. Une visite cliente (vignettes régénérées) ne coûte rien');
+  delete require.cache[require.resolve(path.join(__dirname, '..', 'lib', 'backup'))];
+  const backupV = require(path.join(__dirname, '..', 'lib', 'backup'));
+  resetData(gals(6, 250));
+  const pv = gh.puts;
+  await backupV.now();
+  const pv1 = gh.puts;
+  // Simule ce que fait syncGallery après une consultation de galerie.
+  const all2 = store.galleries();
+  all2[2].syncedAt = Date.now();
+  all2[2].files = all2[2].files.map((f) => ({ ...f, thumb: 'https://lh3.googleusercontent.com/d/NOUVEAU' + Math.random() + '=s400' }));
+  store.saveGalleries(all2);
+  await backupV.now();
+  check('première écriture effectuée', pv1 === pv + 1);
+  check('aucune réécriture pour de simples vignettes', gh.puts === pv1, 'écritures=' + (gh.puts - pv1));
+  // Mais une vraie modification de photo doit toujours être sauvegardée.
+  const all3 = store.galleries();
+  all3[2].files = all3[2].files.slice(0, 10);
+  store.saveGalleries(all3);
+  await backupV.now();
+  check('une vraie modification de photos est sauvegardée', gh.puts === pv1 + 1);
+
+  console.log('\nH. Le battement de cœur (12 h) réécrit la copie');
   // Redémarrage réel : le disque est vidé, la copie en ligne est restaurée.
   fs.rmSync(DATA, { recursive: true, force: true });
   fs.mkdirSync(DATA, { recursive: true });
