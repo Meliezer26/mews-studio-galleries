@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/backup-guard.test.js && node tests/tokens-backup.test.js"
+    "test": "node tests/backup-guard.test.js && node tests/tokens-backup.test.js && node tests/token-key-rotation.test.js"
   },
   "engines": {
     "node": ">=18"

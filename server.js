@@ -1637,6 +1637,9 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
     // Garde-fou anti-écrasement : état exposé pour l'affichage dans l'admin.
     backupTrusted: backup.localTrusted(),
     backupRefusal: backup.lastRefusal(),
+    // 'dedicated' = clé de chiffrement propre au site (recommandé) ;
+    // 'client-secret' = ancienne dérivation depuis GOOGLE_CLIENT_SECRET.
+    backupKeyMode: backup.keyMode(),
     // Tri automatique des sélections sur Drive (compte utilisateur OAuth)
     driveUserConnected: drive.isUserConnected(),
     driveUserEmail: null,
