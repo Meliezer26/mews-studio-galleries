@@ -1269,7 +1269,17 @@ app.get('/oauth2callback', async (req, res) => {
       if (acc && acc.emailAddress) { t.email = acc.emailAddress; store.saveTokensMail(t); }
     } else {
       delete t.source;
+      t.connectedAt = new Date().toISOString();
       store.saveTokens(t);
+      // Mémoriser l'adresse du compte : elle rend le jeton restauré
+      // identifiable dans l'admin et dans le bilan de santé.
+      try {
+        const acc = await drive.userDriveAccount();
+        if (acc && acc.emailAddress) {
+          t.email = acc.emailAddress;
+          store.saveTokens(t);
+        }
+      } catch { /* adresse indisponible : sans conséquence */ }
       // Le jeton Drive vient d'être renouvelé : le copier immédiatement dans
       // la sauvegarde, sinon un redémarrage ressusciterait l'ancien jeton de
       // la variable d'environnement (le nouveau serait perdu).
