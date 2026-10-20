@@ -37,11 +37,13 @@ global.fetch = async function (url, init) {
     gh.bytesOut += Buffer.byteLength(body, 'utf8');
     gh.content = Buffer.from(JSON.parse(body).content, 'base64').toString('utf8');
     gh.puts++;
-    const sha = crypto.createHash('sha1').update(gh.content).digest('hex');
+    const buf = Buffer.from(gh.content, 'utf8');
+    const sha = crypto.createHash('sha1').update('blob ' + buf.length + '\0').update(buf).digest('hex');
     return new Response(JSON.stringify({ content: { sha } }), { status: 200 });
   }
   gh.gets++;
-  const sha = gh.content === null ? null : crypto.createHash('sha1').update(gh.content).digest('hex');
+  const b0 = gh.content === null ? null : Buffer.from(gh.content, 'utf8');
+  const sha = b0 === null ? null : crypto.createHash('sha1').update('blob ' + b0.length + '\0').update(b0).digest('hex');
   if (u.includes('/contents/')) {
     if (gh.content === null) return new Response('{"message":"Not Found"}', { status: 404 });
     const payload = JSON.stringify({ sha, encoding: 'none', content: '' });

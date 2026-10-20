@@ -29,8 +29,14 @@ const gh = { state: 'ok', content: null, puts: 0, lastPut: null };
 // GitHub change l'empreinte dès que le contenu change : le simulateur doit
 // faire de même, sinon le cache de lecture masque les modifications.
 const crypto = require('crypto');
+const CORRUPT_TEXT = 'pas du json';
+function gitSha(c) {
+  if (c === null) return null;
+  const buf = Buffer.from(c, 'utf8');
+  return crypto.createHash('sha1').update('blob ' + buf.length + '\0').update(buf).digest('hex');
+}
 function contentSha() {
-  return gh.content === null ? null : crypto.createHash('sha1').update(gh.content).digest('hex');
+  return gitSha(gh.state === 'corrupt' ? CORRUPT_TEXT : gh.content);
 }
 
 global.fetch = async function (url, init) {
@@ -50,15 +56,30 @@ global.fetch = async function (url, init) {
   if (u.includes('/contents/')) {
     if (gh.content === null) return new Response('{"message":"Not Found"}', { status: 404 });
     // Comme GitHub au-delà de 1 Mo : 200 avec un contenu vide.
-    if (gh.state === 'empty' || gh.state === 'corrupt' || Buffer.byteLength(gh.content, 'utf8') > 1024 * 1024) {
+    if (gh.state === 'corrupt') {
       return new Response(JSON.stringify({ sha: contentSha(), encoding: 'none', content: '' }), { status: 200 });
+    }
+    if (gh.state === 'empty' || Buffer.byteLength(gh.content, 'utf8') > 1024 * 1024) {
+      return new Response(JSON.stringify({ sha: contentSha(), encoding: 'none', content: '' }), { status: 200 });
+    }
+    // Connexion coupée : GitHub annonce le fichier entier, n'en livre que la moitié.
+    if (gh.state === 'truncated') {
+      const t = gh.content || '';
+      return new Response(JSON.stringify({
+        sha: contentSha(), encoding: 'base64', content: Buffer.from(t.slice(0, Math.floor(t.length / 2)), 'utf8').toString('base64'),
+      }), { status: 200 });
     }
     return new Response(JSON.stringify({
       sha: contentSha(), encoding: 'base64', content: Buffer.from(gh.content, 'utf8').toString('base64'),
     }), { status: 200 });
   }
   if (u.includes('/git/blobs/')) {
-    if (gh.state === 'corrupt') return new Response(JSON.stringify({ encoding: 'base64', content: 'cGFzIGR1IGpzb24=' }), { status: 200 });
+    if (gh.state === 'corrupt') return new Response(JSON.stringify({ encoding: 'base64', content: Buffer.from(CORRUPT_TEXT, 'utf8').toString('base64') }), { status: 200 });
+    // Corps tronqué en plein transfert : moitié du fichier, empreinte du fichier entier.
+    if (gh.state === 'truncated') {
+      const half = (gh.content || '').slice(0, Math.floor((gh.content || '').length / 2));
+      return new Response(JSON.stringify({ encoding: 'base64', content: Buffer.from(half, 'utf8').toString('base64') }), { status: 200 });
+    }
     if (gh.state === 'empty') return new Response(JSON.stringify({ encoding: 'none', content: '' }), { status: 200 });
     return new Response(JSON.stringify({ encoding: 'base64', content: Buffer.from(gh.content || '', 'utf8').toString('base64') }), { status: 200 });
   }
@@ -163,7 +184,39 @@ function check(name, cond, info) {
   const rC4 = await backup.now();
   check('dépôt vide (404) : première sauvegarde autorisée', rC4.ok === true);
 
-  console.log('\nD. Nombre de galeries');
+  console.log('\nD. Téléchargement coupé en plein transfert (e-mail du 20/10/2026)');
+  // Une lecture réussie établit la référence de comparaison.
+  resetData(gals(6, 100));
+  gh.content = payloadOf(gals(6, 100));
+  gh.state = 'ok';
+  await backup.now();
+  // GitHub annonce ensuite un nouveau contenu, mais la connexion se coupe en
+  // route : on ne reçoit que la moitié du fichier. C'est ce qui s'est produit
+  // le 20/10 à 14:33, et ce qui a produit un e-mail alarmant à tort.
+  gh.content = JSON.stringify({
+    version: 4, savedAt: new Date(Date.now() + 1000).toISOString(), config: { adminPasswordHash: 'x' },
+    galleries: gals(6, 100), previous: null, mailToken: null,
+  });
+  gh.state = 'truncated';
+  touch('coupe');
+  const rD = await backup.now();
+  check('lecture tronquée : écriture autorisée (état local cohérent)', rD.ok === true, rD.reason || 'ok');
+  // Même coupure, mais cette fois le site local est incohérent : refus.
+  resetData(gals(1, 5));
+  // Le contenu distant doit avoir changé, sinon l'économie de bande passante
+  // évite la lecture (et il n'y a rien à tronquer).
+  gh.content = JSON.stringify({
+    version: 4, savedAt: new Date(Date.now() + 2000).toISOString(), config: { adminPasswordHash: 'x' },
+    galleries: gals(6, 100), previous: null, mailToken: null,
+  });
+  gh.state = 'truncated';
+  const rD2 = await backup.now();
+  check('lecture tronquée + site incohérent : écriture refusée', rD2.refused === true, rD2.reason);
+  check('… et l\'étiquette parle de connexion, PAS de fichier illisible',
+    !/illisible/i.test(rD2.reason || '') && /coupure|impossible|incompl/i.test(rD2.reason || ''), rD2.reason);
+  gh.state = 'ok';
+
+  console.log('\nE. Nombre de galeries');
   gh.state = 'ok';
   resetData(gals(5, 100));
   gh.content = payloadOf(gals(6, 100));
