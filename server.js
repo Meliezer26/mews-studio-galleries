@@ -116,15 +116,21 @@ store.ensureDirs();
  * puis seulement amorcer la démo. Sinon la démo recréée masquerait la
  * restauration des vraies galeries. */
 (async () => {
+  let degradedReason = null;
   try {
     const r = await backup.restoreIfNeeded();
     if (r.restored) {
       console.log('[backup] Données restaurées (sauvegarde du ' + (r.savedAt || '?') + ') : ' + r.reason);
     } else {
       console.log('[backup] Restauration non nécessaire ou impossible : ' + r.reason);
+      // Démarrage sur un site vide : le photographe doit être prévenu.
+      // (L'alerte part plus bas, une fois les jetons Google rechargés —
+      // sinon le chemin de secours n'aurait pas encore de jeton.)
+      if (!backup.localTrusted()) degradedReason = r.reason || 'raison inconnue';
     }
   } catch (err) {
     console.warn('[backup] Erreur de restauration :', err.message);
+    if (!backup.localTrusted()) degradedReason = 'erreur : ' + err.message;
   }
   // Ré-hydrate le jeton OAuth du compte utilisateur (disque éphémère).
   try {
@@ -169,6 +175,9 @@ store.ensureDirs();
     console.warn('[startup] Réparation de la config impossible :', err.message);
   }
   demo.seed();
+  // Alerte « redémarrage sans restauration » : après la ré-hydratation des
+  // jetons, pour que le chemin de secours (compte Drive) soit utilisable.
+  if (degradedReason) backup.notifyDegraded(degradedReason).catch(() => {});
   backup.cleanupExpiredGrants().catch(() => {});
   backup.startPeriodicBackup();
   backup.now(); // sauvegarde immédiate au démarrage
@@ -199,7 +208,16 @@ app.set('trust proxy', 1);
  * hôtes, sans redirection, sans cache. */
 app.get('/healthz', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
-  res.json({ ok: true, at: new Date().toISOString() });
+  // Les compteurs permettent au bilan de santé de repérer un site « en ligne
+  // mais vide » (données perdues) — un simple 200 ne le verrait pas.
+  let galleries = null;
+  let photos = null;
+  try {
+    const all = store.galleries();
+    galleries = all.length;
+    photos = all.reduce((s, g) => s + ((g.files || []).length), 0);
+  } catch (e) { /* compteurs facultatifs : ne jamais casser le point de vie */ }
+  res.json({ ok: true, at: new Date().toISOString(), galleries, photos });
 });
 
 const CANONICAL_HOST = process.env.CANONICAL_HOST || 'galeries.mewstudio.com';
@@ -1596,6 +1614,9 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
     backupStore: backup.backupStore(),
     backupKey: drive.isServiceAccount() ? null : ((store.tokens() && store.tokens().refresh_token) || null),
     lastBackupAt: backup.lastBackupAt(),
+    // Garde-fou anti-écrasement : état exposé pour l'affichage dans l'admin.
+    backupTrusted: backup.localTrusted(),
+    backupRefusal: backup.lastRefusal(),
     // Tri automatique des sélections sur Drive (compte utilisateur OAuth)
     driveUserConnected: drive.isUserConnected(),
     driveUserEmail: null,
@@ -1607,8 +1628,10 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
 });
 
 /* --- Sauvegarde Drive déclenchée à la demande ----------------- */
+/* `force: true` = décision explicite du photographe, après lecture de
+   l'alerte : le garde-fou anti-écrasement est court-circuité. */
 app.post('/api/admin/backup-now', requireAdmin, async (req, res) => {
-  const r = await backup.now();
+  const r = await backup.now({ force: !!(req.body && req.body.force) });
   res.json(r);
 });
 

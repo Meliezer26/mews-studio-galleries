@@ -928,6 +928,18 @@
           $('backup-last').textContent = s.lastBackupAt ? new Date(s.lastBackupAt).toLocaleString('fr-FR') : '—';
           $('backup-store').textContent = s.backupStore === 'github' ? 'dépôt GitHub privé' : (s.backupStore === 'drive' ? 'votre Google Drive' : '—');
           $('backup-key-row').hidden = !!s.serviceAccount;
+          // Garde-fou anti-écrasement : signaler clairement un blocage.
+          var guard = $('backup-guard');
+          if (guard) {
+            var msg = '';
+            if (s.backupTrusted === false) {
+              msg = 'Le site a redémarré sans pouvoir restaurer vos données : la sauvegarde automatique est gelée pour ne pas écraser la copie en ligne. Lancez un « Manual Deploy » dans Render pour restaurer.';
+            } else if (s.backupRefusal && s.backupRefusal.reason) {
+              msg = 'Dernière sauvegarde refusée (' + new Date(s.backupRefusal.at).toLocaleString('fr-FR') + ') : ' + s.backupRefusal.reason;
+            }
+            guard.hidden = !msg;
+            if (msg && $('backup-guard-text')) $('backup-guard-text').textContent = ' ' + msg;
+          }
           $('backup-sa-note').hidden = !s.serviceAccount;
           if (s.backupKey) $('backup-key').value = s.backupKey;
           if ($('btn-disconnect-drive')) $('btn-disconnect-drive').style.display = s.serviceAccount ? 'none' : '';
@@ -1148,16 +1160,32 @@
     });
     $('btn-refresh-folders').addEventListener('click', loadFolders);
     $('btn-backup-now').addEventListener('click', function () {
-      window.api('/api/admin/backup-now', { method: 'POST' })
-        .then(function (r) {
-          if (r.ok) {
-            window.toast('Sauvegarde réussie ✓ (' + (r.folder || 'Drive') + ')', 'ok');
-            $('backup-last').textContent = new Date(r.at).toLocaleString('fr-FR');
-          } else {
+      function send(force) {
+        window.api('/api/admin/backup-now', { method: 'POST', body: { force: !!force } })
+          .then(function (r) {
+            if (r.ok) {
+              window.toast('Sauvegarde réussie ✓', 'ok');
+              $('backup-last').textContent = new Date(r.at).toLocaleString('fr-FR');
+              if ($('backup-guard')) $('backup-guard').hidden = true;
+              return;
+            }
+            if (r.refused) {
+              // Écrasement volontaire : double confirmation explicite.
+              var ok = window.confirm(
+                'Sauvegarde REFUSÉE par sécurité.\n\n' + r.reason +
+                '\n\nForcer la sauvegarde écrasera la copie en ligne par l\'état actuel du site.\n' +
+                'Ne le faites QUE si le site vous semble complet (galeries et clientes présentes).\n\nForcer ?'
+              );
+              if (!ok) return;
+              var sure = window.confirm('Dernière confirmation : forcer l\'écrasement de la sauvegarde en ligne ?');
+              if (sure) send(true);
+              return;
+            }
             window.toast('Sauvegarde impossible : ' + r.reason, 'err');
-          }
-        })
-        .catch(function (err) { window.toast(err.message, 'err'); });
+          })
+          .catch(function (err) { window.toast(err.message, 'err'); });
+      }
+      send(false);
     });
     $('btn-copy-mail-key').addEventListener('click', function () {
       window.copyText($('mail-key').value).then(function (ok) {

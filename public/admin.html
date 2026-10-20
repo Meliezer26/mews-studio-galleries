@@ -244,6 +244,10 @@
         <details class="mt-8" id="drive-backup-box" hidden>
           <summary style="cursor:pointer">💾 Sauvegarde automatique sur Drive</summary>
           <p class="mt-8 small muted">Vos données (galeries, réglages, comptes clients) sont copiées automatiquement dans un fichier <code>mews-studio-data.json</code> — emplacement : <b id="backup-store">—</b>. Dernière sauvegarde : <b id="backup-last">—</b>.</p>
+          <p class="mt-8" id="backup-guard" hidden style="border-left:3px solid var(--red);padding:8px 12px;background:var(--panel);border-radius:6px">
+            <b style="color:var(--red)">Sauvegarde bloquée par sécurité.</b>
+            <span class="small" id="backup-guard-text"></span>
+          </p>
           <p class="mt-8"><button class="btn btn--ghost" id="btn-backup-now" type="button">💾 Sauvegarder maintenant</button></p>
           <p class="mt-8 small muted" id="backup-sa-note" hidden>Sauvegarde et liens de téléchargement temporaires actifs automatiquement via le compte de service. Rien d'autre à faire.</p>
           <div id="backup-key-row">
