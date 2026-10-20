@@ -153,6 +153,26 @@
     return '/api/g/' + slug + '/photo/' + encodeURIComponent(p.id) + '/' + kind;
   }
 
+  /* Taille d'image demandée à Google, adaptée à l'écran.
+   * Chaque vignette transite par le serveur : c'est le seul poste qui
+   * consomme de la bande passante (quota Render). Mesures sur le dossier
+   * Serero (885 photos, 9 Go) le 20/10/2026, par photo :
+   *   400 px = 47 Ko | 600 = 85 Ko | 1200 = 204 Ko | 1600 = 322 Ko.
+   * Une photo de 1600 px s'affiche sur un téléphone (~390 px de large)
+   * sans aucun bénéfice visible : 1200 px y est déjà plus que suffisant.
+   * Sur ordinateur, on conserve 1600 px (grands écrans, zoom). */
+  function displaySize(kind) {
+    var w = window.innerWidth || 1024;
+    var dpr = window.devicePixelRatio || 1;
+    if (kind === 'full') {
+      if (w < 900) return 1200;              // téléphone / petite tablette
+      return dpr >= 2 ? 1600 : 1600;         // ordinateur : qualité conservée
+    }
+    // Grille : tuile d'environ 260 px sur ordinateur, ~180 px sur téléphone.
+    if (w < 900) return 600;
+    return dpr >= 2 ? 600 : 400;
+  }
+
   function visiblePhotos() {
     return state.photos;
   }
@@ -329,7 +349,7 @@
       img.loading = 'lazy';
       // 600 px (au lieu de 400) : la couverture se choisit à l'œil,
       // l'image doit être lisible — surtout sur mobile.
-      img.src = photoUrl(p, 'thumb') + '?size=600';
+      img.src = photoUrl(p, 'thumb') + '?size=' + displaySize('grid');
       var badge = document.createElement('span');
       badge.className = 'cov-orient';
       badge.textContent = '…';
@@ -357,7 +377,7 @@
   function openCovZoom(typeId, p) {
     covPending = { typeId: typeId, photo: p };
     var img = $('cov-zoom-img');
-    img.src = photoUrl(p, 'thumb') + '?size=1600'; // grande version pour juger la photo
+    img.src = photoUrl(p, 'thumb') + '?size=' + displaySize('full'); // grande version pour juger la photo
     $('cov-zoom-cap').textContent = 'n°' + (p.index + 1) + ' · ' + p.name;
     var zo = $('cov-zoom-orient');
     zo.textContent = '…';
@@ -1081,7 +1101,7 @@
       preloadNeighbors();
     };
     img.onerror = function () { lb.classList.remove('loading'); };
-    img.src = photoUrl(p, 'thumb') + '?size=1600';
+    img.src = photoUrl(p, 'thumb') + '?size=' + displaySize('full');
     preloadNeighbors();
 
     /* Bouton album dans la visionneuse (mode albums) */
@@ -1120,7 +1140,7 @@
       if (!q || seen[q.id]) return;
       seen[q.id] = 1;
       var im = new Image();
-      im.src = photoUrl(q, 'thumb') + '?size=1600';
+      im.src = photoUrl(q, 'thumb') + '?size=' + displaySize('full');
     });
   }
   function lbStep(dir) {
