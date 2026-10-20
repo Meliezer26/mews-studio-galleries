@@ -925,7 +925,16 @@
         if (s.driveConnected) {
           $('drive-account').textContent = s.driveEmail || s.driveName || 'compte Google';
           $('drive-backup-box').hidden = !(s.backupEnabled || s.serviceAccount);
-          $('backup-last').textContent = s.lastBackupAt ? new Date(s.lastBackupAt).toLocaleString('fr-FR') : '—';
+          if (s.lastBackupAt) {
+            $('backup-last').textContent = new Date(s.lastBackupAt).toLocaleString('fr-FR');
+          } else if (s.backupLastPut) {
+            // Écriture « à la demande » : la copie est à jour, simplement
+            // identique à la précédente (aucun envoi inutile).
+            $('backup-last').textContent = 'à jour — aucune modification depuis le ' +
+              new Date(s.backupLastPut).toLocaleString('fr-FR');
+          } else {
+            $('backup-last').textContent = '—';
+          }
           $('backup-store').textContent = s.backupStore === 'github' ? 'dépôt GitHub privé' : (s.backupStore === 'drive' ? 'votre Google Drive' : '—');
           $('backup-key-row').hidden = !!s.serviceAccount;
           // Garde-fou anti-écrasement : signaler clairement un blocage.

@@ -1634,6 +1634,10 @@ app.get('/api/admin/status', requireAdmin, async (req, res) => {
     backupStore: backup.backupStore(),
     backupKey: drive.isServiceAccount() ? null : ((store.tokens() && store.tokens().refresh_token) || null),
     lastBackupAt: backup.lastBackupAt(),
+    // Dernière écriture réelle : la copie en ligne n'est réécrite que si le
+    // contenu change (économie de bande passante), donc cette date peut être
+    // ancienne sans que rien ne soit en panne.
+    backupLastPut: backup.lastPutAt() ? new Date(backup.lastPutAt()).toISOString() : null,
     // Garde-fou anti-écrasement : état exposé pour l'affichage dans l'admin.
     backupTrusted: backup.localTrusted(),
     backupRefusal: backup.lastRefusal(),
