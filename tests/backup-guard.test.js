@@ -80,6 +80,18 @@ function gals(n, photosEach) {
     files: Array.from({ length: photosEach }, (_, k) => ({ id: 'f' + i + '_' + k, name: 'f' + k + '.jpg' })),
   }));
 }
+/**
+ * Modifie réellement les données locales. Depuis l'économie de bande passante
+ * (20/10/2026), une sauvegarde dont le contenu est identique à la dernière
+ * écriture n'envoie rien : le garde-fou n'a alors rien à protéger. Pour tester
+ * un refus, il faut donc un contenu DIFFÉRENT à écrire.
+ */
+function touch(tag) {
+  const p = path.join(DATA, 'galleries.json');
+  const all = JSON.parse(fs.readFileSync(p, 'utf8'));
+  if (all[0]) all[0].clientName = 'Marqueur ' + tag + ' ' + Date.now();
+  fs.writeFileSync(p, JSON.stringify(all));
+}
 const demoGallery = () => [{ id: 'demo', slug: 'demo', name: 'Démo', mode: 'demo', files: [{ id: 'a' }, { id: 'b' }] }];
 const payloadOf = (galleries, previous) => JSON.stringify({
   version: 4, savedAt: new Date().toISOString(), config: { adminPasswordHash: 'x' }, galleries, previous: previous || null, mailToken: null,
@@ -126,10 +138,12 @@ function check(name, cond, info) {
   gh.content = payloadOf(gals(6, 100));
   gh.puts = 0;
   gh.state = 'empty';
+  touch('vide');
   const rC = await backup.now();
   check('contenu vide : écriture refusée', rC.ok === false && rC.refused === true, rC.reason);
   check('aucune écriture', gh.puts === 0);
   gh.state = 'corrupt';
+  touch('casse');
   const rC2 = await backup.now();
   check('JSON cassé : écriture refusée', rC2.ok === false && rC2.refused === true);
   gh.state = 'read500';

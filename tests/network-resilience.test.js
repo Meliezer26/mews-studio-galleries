@@ -73,6 +73,14 @@ function gals(n, photos) {
     files: Array.from({ length: photos }, (_, k) => ({ id: 'f' + i + '_' + k, name: 'f' + k + '.jpg' })),
   }));
 }
+/** Modifie les données : sans changement, aucune écriture n'est tentée
+ *  (économie de bande passante), donc rien à tester. */
+function touch(tag) {
+  const p = path.join(DATA, 'galleries.json');
+  const all = JSON.parse(fs.readFileSync(p, 'utf8'));
+  if (all[0]) all[0].clientName = 'Marqueur ' + tag + ' ' + Date.now();
+  fs.writeFileSync(p, JSON.stringify(all));
+}
 const payloadOf = (galleries, previous) => JSON.stringify({
   version: 4, savedAt: new Date().toISOString(), config: { adminPasswordHash: 'x' }, galleries, previous: previous || null, mailToken: null,
 });
@@ -105,11 +113,12 @@ function check(name, cond, info) {
   resetData(gals(6, 100));
   gh.content = payloadOf(gals(6, 100));
   await backup.now();                                    // lecture réussie → cache
+  touch('coupure');                                      // contenu réellement différent
   gh.puts = 0;
   gh.down = 10;                                          // plus de 3 réessais → échec
   const r3 = await backup.now();
   check('écriture autorisée malgré la panne réseau', r3.ok === true, r3.reason || '');
-  check('un enregistrement a eu lieu', gh.puts === 1);
+  check('un enregistrement a eu lieu', gh.puts === 1, 'puts=' + gh.puts);
   const w3 = JSON.parse(gh.content);
   check('le contenu écrit est complet', w3.galleries.length === 6);
 
