@@ -138,7 +138,12 @@ store.ensureDirs();
     const cfg = store.config();
     if (!t.refresh_token && (cfg.googleRefreshToken || process.env.GOOGLE_REFRESH_TOKEN)) {
       t.refresh_token = cfg.googleRefreshToken || process.env.GOOGLE_REFRESH_TOKEN;
-      if (t.refresh_token) store.saveTokens(t);
+      if (t.refresh_token) {
+        // Provenance conservée pour le diagnostic : un jeton « env » peut
+        // être obsolète après une reconnexion faite dans l'admin.
+        t.source = 'env';
+        store.saveTokens(t);
+      }
     }
     // Le jeton ne doit plus rester dans config.json : la sauvegarde GitHub
     // refuse tout contenu contenant un secret (détection automatique).
@@ -1263,7 +1268,12 @@ app.get('/oauth2callback', async (req, res) => {
       const acc = await drive.mailAccount();
       if (acc && acc.emailAddress) { t.email = acc.emailAddress; store.saveTokensMail(t); }
     } else {
+      delete t.source;
       store.saveTokens(t);
+      // Le jeton Drive vient d'être renouvelé : le copier immédiatement dans
+      // la sauvegarde, sinon un redémarrage ressusciterait l'ancien jeton de
+      // la variable d'environnement (le nouveau serait perdu).
+      backup.scheduleSoon(2000);
     }
     res.redirect(isMailFlow ? '/admin#mail=ok' : '/admin#drive=ok');
   } catch (err) {

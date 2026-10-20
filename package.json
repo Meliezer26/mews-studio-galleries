@@ -4,7 +4,8 @@
   "description": "Mews Studio Galleries — galeries privées clients connectées à Google Drive",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node tests/backup-guard.test.js && node tests/tokens-backup.test.js"
   },
   "engines": {
     "node": ">=18"
