@@ -120,7 +120,27 @@ function check(name, cond, info) {
   const r3 = await backup.now({ force: true });
   check('« Forcer » fonctionne toujours', r3.ok === true);
 
-  console.log('\nF. Le battement de cœur (12 h) réécrit la copie');
+  console.log('\nF. Piège du chiffrement aléatoire : jetons connectés, aucun changement');
+  // Les jetons sont chiffrés avec un nonce aléatoire : leur texte chiffré
+  // change à CHAQUE appel. Une empreinte naïve (sur le contenu chiffré)
+  // concluait donc à un changement perpétuel et réécrivait à chaque cycle.
+  delete require.cache[require.resolve(path.join(__dirname, '..', 'lib', 'backup'))];
+  const backupT = require(path.join(__dirname, '..', 'lib', 'backup'));
+  resetData(gals(6, 250));
+  store.saveTokens({ refresh_token: 'JETON_DRIVE_FIXE', access_token: 'a', expiry: Date.now() + 3600000 });
+  store.saveTokensMail({ refresh_token: 'JETON_MAIL_FIXE', email: 'x@example.com' });
+  const p0 = gh.puts;
+  await backupT.now();                       // première écriture (état initial)
+  const p1 = gh.puts;
+  for (let i = 0; i < 6; i++) await backupT.now();
+  check('première écriture effectuée', p1 === p0 + 1, 'puts=' + (p1 - p0));
+  check('aucune réécriture malgré le chiffrement aléatoire', gh.puts === p1, 'écritures=' + (gh.puts - p1));
+  // Un jeton qui change DOIT déclencher une écriture.
+  store.saveTokens({ refresh_token: 'JETON_DRIVE_NOUVEAU', access_token: 'a', expiry: Date.now() + 3600000 });
+  await backupT.now();
+  check('un vrai changement de jeton est sauvegardé', gh.puts === p1 + 1);
+
+  console.log('\nG. Le battement de cœur (12 h) réécrit la copie');
   // Redémarrage réel : le disque est vidé, la copie en ligne est restaurée.
   fs.rmSync(DATA, { recursive: true, force: true });
   fs.mkdirSync(DATA, { recursive: true });
