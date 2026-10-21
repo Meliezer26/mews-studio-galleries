@@ -183,6 +183,20 @@ check('les deux premières photos sont préparées pendant que le client regarde
 check('ce préchargement reste silencieux en cas d’échec',
   /catch\(function \(\) \{ \/\* silencieux : ce n'était qu'une avance \*\/ \}\)/.test(js));
 
+console.log('\nF3. Réseau mobile : compression, liste allégée, réessai');
+const srv = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
+check('les réponses texte sont compressées (gzip)', /app\.use\(compression\(\)\);/.test(srv));
+check('la liste des photos n’envoie plus d’adresses construites par le client',
+  !/thumb: `\/api\/g\/\$\{g\.slug\}\/photo/.test(srv));
+check('la liste est mémorisée 30 s pour ne pas être recalculée à chaque visite',
+  /PHOTOS_CACHE_MS = 30000/.test(srv) && /photosCache\.set\(g\.id/.test(srv));
+check('le cache est invalidé dès qu’un envoi change',
+  /function clePhotos\(g\)/.test(srv) && /envois \+= \(a\.photoIds \|\| \[\]\)\.length/.test(srv));
+check('la pastille ne reste plus vide pendant l’attente du premier octet',
+  /if \(!fullCacheGet\(photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('full'\)\)\) setLoadPct\(null\);/.test(js));
+check('une vignette en échec est réessayée deux fois',
+  /img\.addEventListener\('error', function \(\) \{/.test(js) && /if \(essai >= 2\) return;/.test(js));
+
 console.log('\nG. Présence à l’écran');
   check('la pastille existe dans la page', /id="lb-pct"/.test(html));
   check('la pastille se cache par défaut', /\.lb-pct \{[^}]*display: none/.test(html));

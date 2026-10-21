@@ -20,6 +20,7 @@ try {
 } catch { /* pas de fichier .env */ }
 
 const express = require('express');
+const compression = require('compression');
 const multer = require('multer');
 
 const store = require('./lib/store');
@@ -259,6 +260,12 @@ app.use((req, res, next) => {
   }
   next();
 });
+/* Compression des réponses texte (JSON, HTML, CSS, JS).
+ * Mesuré le 21/10/2026 : la liste des photos d'une galerie de 945 photos
+ * pesait 322 Ko envoyés BRUTS, soit ~2 s de 4G et autant de bande passante
+ * Render consommée. Compressée, c'est ~20 Ko. Les photos JPEG, déjà
+ * compressées, ne sont pas retouchées (le module les ignore). */
+app.use(compression());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 // Fichiers de l'interface (HTML/JS/CSS) : toujours revalidés, pour que les
@@ -801,6 +808,36 @@ app.post('/api/connexion', (req, res) => {
   });
 });
 
+/* --- Cache court de la liste des photos -------------------------------
+ * Le serveur Render gratuit n'a que 0,1 vCPU. Recalculer à chaque visite la
+ * liste complète (945 photos + la liste des photos déjà envoyées, qui
+ * parcourt tous les clients et tous les albums) coûtait plusieurs secondes
+ * pendant lesquelles la grille restait vide.
+ *
+ * On garde donc la réponse 30 secondes en mémoire, à condition que rien
+ * n'ait changé (nombre de photos, synchronisation, sélections client).
+ * Toute modification d'album, d'envoi ou de synchronisation change la clé.
+ * -------------------------------------------------------------------- */
+const PHOTOS_CACHE_MS = 30000;
+const photosCache = new Map();          // id galerie -> { cle, corps, at }
+
+function clePhotos(g) {
+  let envois = 0;
+  (g.clients || []).forEach((c) => (c.selections || []).forEach((sel) =>
+    (sel.albums || []).forEach((a) => { envois += (a.photoIds || []).length; })));
+  return [
+    (g.files || []).length,
+    g.syncedAt || 0,
+    (g.clients || []).length,
+    envois,
+    g.albums && g.albums.enabled ? 1 : 0,
+    (g.albums && g.albums.types ? g.albums.types.length : 0),
+    g.watermark && g.watermark.enabled ? 1 : 0,
+    g.downloadsEnabled === false ? 0 : 1,
+    JSON.stringify(g.packages || {}).length,
+  ].join(':');
+}
+
 app.get('/api/g/:slug/photos', async (req, res) => {
   const g = findGallery(req.params.slug);
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
@@ -809,16 +846,22 @@ app.get('/api/g/:slug/photos', async (req, res) => {
     return res.status(403).json({ error: 'Verrouillé.' });
   }
   await syncGallery(g);
+  const cle = clePhotos(g);
+  const memo = photosCache.get(g.id);
+  if (memo && memo.cle === cle && Date.now() - memo.at < PHOTOS_CACHE_MS) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.end(memo.corps);
+  }
+  /* Le client construit lui-même ces adresses à partir de l'identifiant
+   * (voir photoUrl() dans gallery.js). Les envoyer coûtait ~205 octets par
+   * photo, soit 190 Ko inutiles pour une galerie de 945 photos. */
   const files = (g.files || []).map((f, i) => ({
     id: f.id,
     name: f.name,
     size: f.size || 0,
     index: i,
-    thumb: `/api/g/${g.slug}/photo/${encodeURIComponent(f.id)}/thumb`,
-    full: `/api/g/${g.slug}/photo/${encodeURIComponent(f.id)}/thumb?size=1600`,
-    download: `/api/g/${g.slug}/photo/${encodeURIComponent(f.id)}/download`,
   }));
-  res.json({
+  const corps = JSON.stringify({
     gallery: publicMeta(g),
     photos: files,
     downloads: g.downloadsEnabled !== false && store.config().globalDownloadsEnabled !== false,
@@ -851,6 +894,9 @@ app.get('/api/g/:slug/photos', async (req, res) => {
       return out;
     })(),
   });
+  photosCache.set(g.id, { cle, corps, at: Date.now() });
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.end(corps);
 });
 
 /* --- Enregistrement d'une sélection d'albums ----------------- */

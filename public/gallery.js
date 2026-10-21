@@ -476,6 +476,15 @@
       // 600 px (au lieu de 400) : la couverture se choisit à l'œil,
       // l'image doit être lisible — surtout sur mobile.
       img.src = photoUrl(p, 'thumb') + '?size=' + displaySize('grid');
+    /* Réseau capricieux (4G, ascenseur, tunnel) : une image qui échoue
+       restait VIDE pour toujours. On réessaie deux fois, avec un délai. */
+    img.addEventListener('error', function () {
+      var essai = Number(img.getAttribute('data-essai') || 0);
+      if (essai >= 2) return;
+      img.setAttribute('data-essai', essai + 1);
+      var base = photoUrl(p, 'thumb') + '?size=' + displaySize('grid');
+      setTimeout(function () { img.src = base + '&r=' + (essai + 1); }, 700 * (essai + 1));
+    });
       var badge = document.createElement('span');
       badge.className = 'cov-orient';
       badge.textContent = '…';
@@ -1361,6 +1370,10 @@
     lb.classList.add('loading');
     lb.classList.remove('lb-ready', 'lb-indet');
     clearLoadPct();
+    /* Le serveur peut mettre une seconde ou deux avant le premier octet :
+       sans cette ligne la pastille restait VIDE pendant tout ce temps (le
+       client ne voyait ni pourcentage ni indication). */
+    if (!fullCacheGet(photoUrl(p, 'thumb') + '?size=' + displaySize('full'))) setLoadPct(null);
     /* Même adresse que la tuile de la grille (même taille) : l'aperçu est donc
        déjà dans le cache du navigateur et s'affiche INSTANTANÉMENT. Avant, il
        repartait en téléchargement (une requête Drive de plus, ~1 s). */
