@@ -734,6 +734,18 @@
     loadPhotosGrid(g.id);
   }
 
+  /* Choisir (ou retirer) la photo de couverture d'une galerie.
+     C'est la SEULE image visible sans mot de passe. */
+  function setCover(g, fileId) {
+    window.api('/api/admin/galleries/' + g.id + '/cover', { method: 'POST', body: { fileId: fileId || '' } })
+      .then(function () {
+        window.toast(fileId ? 'Couverture enregistrée ✓' : 'Couverture retirée', 'ok');
+        loadPhotosGrid(g.id);
+        if (window.loadGalleries) window.loadGalleries();
+      })
+      .catch(function (err) { window.toast(err.message, 'err'); });
+  }
+
   function loadPhotosGrid(id) {
     var grid = $('pm-grid');
     grid.innerHTML = '<div class="spinner" style="grid-column:1/-1"></div>';
@@ -752,16 +764,25 @@
         } else {
           g.files.forEach(function (f) {
             var item = document.createElement('div');
-            item.className = 'pm-item';
+            item.className = 'pm-item' + (g.coverId === f.id ? ' is-cover' : '');
             var img = document.createElement('img');
             img.src = '/api/admin/galleries/' + g.id + '/photo/' + encodeURIComponent(f.id) + '/thumb?size=240';
             img.loading = 'lazy';
+            // Couverture : cette photo sera vue AVANT le mot de passe.
+            var cov = document.createElement('button');
+            cov.className = 'pm-cover';
+            cov.title = g.coverId === f.id
+              ? 'C\'est la couverture actuelle — cliquer pour la retirer'
+              : 'Choisir cette photo comme couverture';
+            cov.textContent = g.coverId === f.id ? '★ Couverture' : 'Couverture';
+            cov.addEventListener('click', function () { setCover(g, g.coverId === f.id ? null : f.id); });
             var del = document.createElement('button');
             del.className = 'pm-del';
             del.title = 'Retirer cette photo';
             del.textContent = '✕';
             del.addEventListener('click', function () { deletePhoto(g, f); });
             item.appendChild(img);
+            item.appendChild(cov);
             item.appendChild(del);
             grid.appendChild(item);
           });

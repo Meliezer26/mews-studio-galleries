@@ -107,10 +107,42 @@
     ids.forEach(function (id) { $(id).classList.remove('hidden'); });
   }
 
+  /* Taille demandée pour la couverture : un fond plein cadre, jamais plus
+     que nécessaire (1920 sur ordinateur, 1080 sur téléphone). */
+  function coverSize() {
+    var w = window.innerWidth || 1280;
+    if (w < 900) return 1080;
+    return (window.devicePixelRatio || 1) >= 2 ? 1920 : 1600;
+  }
+
+  /* La couverture, quand le photographe en a choisi une : une seule photo
+     en plein écran, un seul bouton, puis le champ du mot de passe. */
+  function showCover(meta) {
+    $('lc-name').textContent = meta.name || 'Galerie privée';
+    $('lc-error').textContent = '';
+    $('lc-pass').value = '';
+    $('lc-form').classList.remove('on');
+    $('lc-open').style.display = '';
+    $('lock-cover').classList.add('on');
+    $('lock').classList.remove('hidden');
+    var bg = $('lock-cover-bg');
+    var img = new Image();
+    img.onload = function () { bg.classList.add('ready'); };
+    img.src = '/api/g/' + slug + '/cover?size=' + coverSize();
+    bg.style.backgroundImage = "url('" + img.src + "')";
+  }
+
   function showLock(meta) {
+    var hasCover = meta && meta.hasCover;
+    $('lock-cover').classList.toggle('on', !!hasCover);
+    $('lock').querySelector('.lock-card').classList.toggle('hidden', !!hasCover);
     $('lock-name').textContent = meta.name;
     $('lock-sub').textContent = 'Bienvenue dans votre espace privé. Veuillez entrer votre mot de passe communiqué par Mew\'s Studio.';
     $('lock-contact').classList.add('hidden');
+    if (hasCover) {
+      showCover(meta);
+      return;
+    }
     show('lock');
     setTimeout(function () { $('lock-pass').focus(); }, 60);
   }
@@ -119,6 +151,9 @@
      avec un message de contact — jamais de renvoi vers la page d'accueil. */
   function showUnavailable(info) {
     var email = (info && info.contactEmail) || 'mewstudiofrance@gmail.com';
+    $('lock-cover').classList.remove('on');
+    var card = $('lock').querySelector('.lock-card');
+    if (card) card.classList.remove('hidden');
     $('lock-name').textContent = (info && info.disabled) ? 'Galerie indisponible' : 'Galerie introuvable';
     $('lock-sub').textContent = (info && info.disabled)
       ? 'Cette galerie est désactivée pour le moment.'
@@ -1182,6 +1217,26 @@
   function init() {
     loadAlbums();
     loadClient();
+
+    /* Couverture : le bouton révèle le champ, puis on valide comme ailleurs. */
+    $('lc-open').addEventListener('click', function () {
+      $('lc-open').style.display = 'none';
+      $('lc-form').classList.add('on');
+      setTimeout(function () { $('lc-pass').focus(); }, 50);
+    });
+    $('lc-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      $('lc-error').textContent = '';
+      var btn = e.target.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      window.api('/api/g/' + slug + '/unlock', { method: 'POST', body: { password: $('lc-pass').value } })
+        .then(function () { loadPhotos(); })
+        .catch(function (err) {
+          $('lc-error').textContent = err.message +
+            (err.contactEmail ? ' Si vous avez reçu un nouveau mot de passe, saisissez-le ici. Sinon, contactez Mews Studio à ' + err.contactEmail + '.' : '');
+        })
+        .finally(function () { btn.disabled = false; });
+    });
 
     $('lock-form').addEventListener('submit', function (e) {
       e.preventDefault();

@@ -30,6 +30,7 @@ const mailer = require('./lib/mailer');
 const backup = require('./lib/backup');
 const healthcheck = require('./lib/healthcheck');
 const bandwidthGuard = require('./lib/bandwidth-guard');
+const cover = require('./lib/cover');
 const driveSort = require('./lib/drive-sort');
 const { PACKAGE_DEFS, packageCapacity, packageLabel, sanitizePackages } = require('./lib/packages');
 const { ALBUM_TYPES } = demo;
@@ -564,6 +565,9 @@ function publicMeta(g) {
     count: files.length,
     createdAt: g.createdAt,
     expiresAt: g.expiry || null,
+    // La couverture est publique par nature (elle s'affiche avant le mot de
+    // passe). On n'expose que son existence : ni nom de fichier, ni identifiant.
+    hasCover: cover.coverVisible(g, { expired: false }),
   };
 }
 
@@ -1142,6 +1146,27 @@ async function sendDriveMedia(res, rec, asAttachment = false) {
     res.status(502).json({ error: 'Connexion à Google Drive impossible.' });
   }
 }
+
+/* Couverture : la SEULE image d'une galerie privée visible sans mot de passe.
+ * Elle est choisie par le photographe dans l'admin. Si aucune couverture n'est
+ * choisie, ou si la galerie est désactivée / expirée, cette route ne renvoie
+ * rien (404) et l'écran de verrouillage garde son apparence habituelle. */
+app.get('/api/g/:slug/cover', async (req, res) => {
+  const g = findGallery(req.params.slug);
+  if (!g) return res.status(404).end();
+  if (!cover.coverVisible(g, { expired: isExpired(g) })) return res.status(404).end();
+  const fid = cover.coverId(g);
+  const rec = fileRecord(g, fid);
+  if (!rec) return res.status(404).end();
+  // Taille adaptée à l'écran : la couverture est un fond plein cadre.
+  const asked = parseInt(req.query.size || '0', 10);
+  const size = asked ? Math.min(Math.max(asked, 320), 2000) : undefined;
+  res.setHeader('Cache-Control', 'public, max-age=604800');
+  if (rec.storage === 'drive') return sendDriveThumb(res, rec, size || 1600);
+  const p = demoFilePath(g, rec);
+  if (!p) return res.status(404).end();
+  res.sendFile(p);
+});
 
 app.get('/api/g/:slug/photo/:fid/thumb', async (req, res) => {
   const g = findGallery(req.params.slug);
@@ -1994,9 +2019,11 @@ app.get('/api/admin/galleries', requireAdmin, (req, res) => {
       return out;
     })(),
     clientsCount: (g.clients || []).length,
-    cover: g.files && g.files.length
-      ? `/api/admin/galleries/${g.id}/photo/${encodeURIComponent(g.files[0].id)}/thumb?size=400`
-      : null,
+    cover: (function () {
+      const id = cover.coverId(g) || (g.files && g.files.length ? g.files[0].id : null);
+      return id ? `/api/admin/galleries/${g.id}/photo/${encodeURIComponent(id)}/thumb?size=400` : null;
+    })(),
+    coverId: cover.coverId(g),
   }));
   res.json({ galleries: all });
 });
@@ -2091,6 +2118,26 @@ app.get('/api/admin/galleries/:id', requireAdmin, async (req, res) => {
     });
   }
   res.json({ gallery: safeGallery });
+});
+
+/* Choisir la photo de couverture (celle vue avant le mot de passe).
+ * fileId vide = revenir à l'écran de verrouillage classique. */
+app.post('/api/admin/galleries/:id/cover', requireAdmin, (req, res) => {
+  const fileId = String((req.body && req.body.fileId) || '').trim();
+  let problem = null;
+  // Écriture atomique : on relit l'état frais, on modifie, on réécrit.
+  const all = store.updateGalleries((list) => {
+    const g = list.find((x) => x.id === req.params.id);
+    if (!g) { problem = 'introuvable'; return false; }
+    if (!fileId) { g.coverId = null; return true; }
+    const found = (g.files || []).find((f) => f && f.id === fileId);
+    if (!found) { problem = 'photo'; return false; }
+    g.coverId = fileId;
+    return true;
+  });
+  if (problem === 'introuvable') return res.status(404).json({ error: 'Galerie introuvable.' });
+  if (problem === 'photo') return res.status(400).json({ error: 'Cette photo n\u2019appartient pas à la galerie.' });
+  res.json({ ok: true, coverId: fileId || null, total: all.length });
 });
 
 app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {

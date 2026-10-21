@@ -84,7 +84,7 @@
     border-radius: 16px; padding: 24px;
   }
   .send-box h3 { font-size: 1.15rem; margin: 0 0 6px; }
-  .send-box .sub { margin: 0 0 14px; font-size: 0.88rem; color: var(--muted); }
+  .send-box .sub { margin: 0 0 20px; font-size: 0.88rem; color: var(--muted); }
   .send-box textarea {
     width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.04);
     color: var(--ink); border: 1px solid var(--line-2); border-radius: 10px;
@@ -106,6 +106,70 @@
   .lock-error { min-height: 22px; font-size: 0.85rem; color: #f0a497; margin-top: 12px; }
   .lock-contact { margin: 0 0 18px; padding: 12px 16px; border-radius: 10px; font-size: 0.84rem; line-height: 1.55; color: var(--ink-2); background: rgba(240, 200, 120, 0.07); border: 1px solid rgba(240, 200, 120, 0.35); }
   .lock-contact b { color: var(--accent-2); }
+
+  /* Couverture plein cadre : affichée AVANT le mot de passe, quand le
+     photographe a choisi une photo dans l'admin. Fond noir immédiat, la photo
+     se pose par-dessus en fondu — jamais de page blanche. */
+  .lock-cover {
+    position: absolute; inset: 0; overflow: hidden; background: #000;
+    display: none;
+  }
+  .lock-cover.on { display: block; }
+  .lock-cover-bg {
+    position: absolute; inset: 0; background-size: cover; background-position: center;
+    opacity: 0; transition: opacity .5s ease; transform: scale(1.02);
+  }
+  .lock-cover-bg.ready { opacity: 1; }
+  .lock-cover::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.22) 38%, rgba(0,0,0,.74) 100%);
+  }
+  .lock-cover-inner {
+    position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 0 24px;
+  }
+  .lock-cover-name {
+    font-family: var(--serif, Georgia, serif); font-weight: 400; color: #fff;
+    font-size: clamp(1.5rem, 4.4vw, 2.6rem); letter-spacing: .05em; margin: 0 0 14px;
+    text-shadow: 0 2px 26px rgba(0,0,0,.55); max-width: 20ch; line-height: 1.28;
+  }
+  .lock-cover-tag {
+    font-size: .68rem; letter-spacing: .24em; text-transform: uppercase;
+    color: rgba(255,255,255,.82); margin: 0 0 26px; text-shadow: 0 1px 12px rgba(0,0,0,.6);
+  }
+  .btn-cover {
+    background: rgba(0,0,0,.34); color: #fff; border: 1px solid rgba(255,255,255,.85);
+    padding: 13px 34px; font-size: .7rem; letter-spacing: .2em; text-transform: uppercase;
+    cursor: pointer; transition: background .18s, color .18s;
+  }
+  .btn-cover:hover, .btn-cover:focus-visible { background: #fff; color: #111; }
+  .lock-cover-form { display: none; width: 100%; max-width: 320px; margin-top: 4px; }
+  .lock-cover-form.on { display: block; }
+  .lock-cover-form input {
+    width: 100%; padding: 12px 14px; text-align: center; font-size: .92rem;
+    background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.55); color: #fff;
+    border-radius: 6px; outline: none;
+  }
+  .lock-cover-form input::placeholder { color: rgba(255,255,255,.55); }
+  .lock-cover-form .btn { width: 100%; margin-top: 10px; }
+  .lock-cover-welcome {
+    color: rgba(255,255,255,.88); font-size: .78rem; line-height: 1.6;
+    max-width: 30ch; margin: 12px auto 0; text-shadow: 0 1px 10px rgba(0,0,0,.75);
+  }
+  .lock-cover-error { min-height: 20px; font-size: .8rem; color: #ffb3a6; margin-top: 10px; }
+  .lock-cover-foot {
+    position: absolute; bottom: 20px; left: 0; right: 0; z-index: 2; text-align: center;
+  }
+  .lock-cover-foot img { width: 34px; height: auto; margin: 0 auto; opacity: .92; }
+  .lock-cover-foot div {
+    font-size: .55rem; letter-spacing: .28em; color: rgba(255,255,255,.62); margin-top: 6px;
+  }
+  @media (max-width: 720px) {
+    .lock-cover-name { font-size: 1.34rem; }
+    .lock-cover-tag { font-size: .58rem; margin-bottom: 18px; }
+    .btn-cover { padding: 11px 24px; font-size: .6rem; }
+    .lock-cover-foot img { width: 28px; }
+  }
 
   /* Écran expiré / introuvable */
   .dead-wrap { flex: 1; display: grid; place-items: center; text-align: center; padding: 40px 20px; }
@@ -190,6 +254,26 @@
   </div>
 
   <div class="lock-wrap" id="lock">
+    <!-- Couverture plein cadre (si le photographe en a choisi une) -->
+    <div class="lock-cover" id="lock-cover">
+      <div class="lock-cover-bg" id="lock-cover-bg"></div>
+      <div class="lock-cover-inner">
+        <h1 class="lock-cover-name" id="lc-name">Galerie privée</h1>
+        <p class="lock-cover-tag">Galerie privée</p>
+        <button class="btn-cover" id="lc-open" type="button">Afficher la galerie</button>
+        <form class="lock-cover-form" id="lc-form">
+          <input type="password" id="lc-pass" placeholder="Mot de passe" autocomplete="off">
+          <button class="btn btn--gold" type="submit">Entrer</button>
+          <p class="lock-cover-welcome">Bienvenue dans votre espace privé. Veuillez entrer le mot de passe communiqué par Mew's Studio.</p>
+          <div class="lock-cover-error" id="lc-error"></div>
+        </form>
+      </div>
+      <div class="lock-cover-foot">
+        <img src="/logo-white.png" alt="">
+        <div>MEWS STUDIO</div>
+      </div>
+    </div>
+
     <div class="lock-card">
       <div class="lock-icon"><img src="/logo-white.png" alt="Mews Studio"></div>
       <h1 id="lock-name">Galerie privée</h1>
