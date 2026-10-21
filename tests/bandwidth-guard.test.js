@@ -15,6 +15,8 @@ const path = require('path');
 
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), 'mews-bw-'));
 process.env.MEWS_DATA_DIR = DATA;
+// config.json porte la copie de secours de l'état (survit aux redémarrages).
+fs.writeFileSync(path.join(DATA, 'config.json'), JSON.stringify({ adminPasswordHash: 'x' }));
 process.env.RENDER_API_KEY = 'cle-de-test';
 process.env.RENDER_SERVICE_ID = 'srv-de-test';
 
@@ -121,6 +123,20 @@ const GB = (n) => n * 1024;
   api.mb = GB(4.6);
   r = await bw.run(new Date('2026-10-23T14:00:00Z'));
   check('redescente sous 5 Go : pas de message « urgent »', r.alerted === false, r.level);
+
+
+  console.log('\nH. Redémarrage du service : aucun e-mail en double');
+  // Le disque de Render est effacé à chaque redémarrage : seul le fichier
+  // local disparaît, la copie de secours (config.json sauvegardé) reste.
+  api.mb = GB(3.9);
+  fs.rmSync(path.join(DATA, 'bandwidth-alert.json'), { force: true });
+  const n0 = sent.length;
+  r = await bw.run(new Date('2026-12-10T12:00:00Z'));
+  check('première alerte du mois', r.alerted === true && sent.length === n0 + 1);
+  fs.rmSync(path.join(DATA, 'bandwidth-alert.json'), { force: true });   // redémarrage
+  r = await bw.run(new Date('2026-12-10T18:00:00Z'));
+  check('après redémarrage : pas de nouvel e-mail', r.alerted === false && sent.length === n0 + 1);
+  check('l\'état relu vient de la sauvegarde', bw.state().month === '2026-12', JSON.stringify(bw.state()));
 
   console.log('\nRésultat : ' + pass + ' réussites, ' + fail + ' échec(s)');
   process.exit(fail ? 1 : 0);
