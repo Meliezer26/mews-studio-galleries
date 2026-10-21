@@ -36,7 +36,7 @@ check('les traces anciennes sont oubliées', /prechauffeAt\.size > 400/.test(blo
  * fait, pas seulement qu'elle est écrite. */
 console.log('\nD. Comportement du vrai code (données simulées)');
 const debut = src.indexOf('function prechauffer(');
-const fin = src.indexOf('\napp.get(\'/api/g/:slug/photo/:fid/thumb\'');
+const fin = src.indexOf("\napp.get('/api/g/:slug/photo/:fid/vignette'");
 const code = src.slice(debut, fin);
 const prechauffe = new Function('thumbBytes', 'prechauffeAt', 'prechauffeEnCours',
   'prechauffeBytes', 'PRECHAUFFE_MAX', code + '; return prechauffer;');

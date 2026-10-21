@@ -855,19 +855,21 @@ app.get('/api/g/:slug/photos', async (req, res) => {
   /* Le client construit lui-même ces adresses à partir de l'identifiant
    * (voir photoUrl() dans gallery.js). Les envoyer coûtait ~205 octets par
    * photo, soit 190 Ko inutiles pour une galerie de 945 photos. */
-  /* `t` = adresse signée Google (lh3.googleusercontent.com) de la vignette.
-   * Mesuré le 21/10/2026 sur acoca-isaac : 120 à 330 ms en direct chez Google
-   * contre 1 à 6 s en passant par ce serveur (0,1 vCPU, Francfort), ET zéro
-   * octet de bande passante Render (37 Mo par visite complète de la grille).
-   * Contrepartie : cette adresse est une URL signée, lisible dans la page par
-   * un client déjà déverrouillé ; elle expire d'elle-même. Le navigateur
-   * revient automatiquement à notre serveur si elle ne répond plus. */
+  /* `d` = adresse INTERNE (notre domaine) qui redirige vers Google.
+   * Pourquoi ne pas donner l'adresse Google directement ? Parce qu'une URL
+   * signée Google est autonome : qui la possède voit l'image sans mot de
+   * passe. On ne met donc dans la page que des adresses de notre domaine,
+   * qui n'ouvrent rien sans la session de la galerie (voir la route
+   * /vignette ci-dessous). Vitesse identique : une redirection, puis
+   * l'image vient de Google. */
   const files = (g.files || []).map((f, i) => ({
     id: f.id,
     name: f.name,
     size: f.size || 0,
     index: i,
-    t: f.thumb || null,
+    d: f.thumb
+      ? `/api/g/${g.slug}/photo/${encodeURIComponent(f.id)}/vignette`
+      : null,
   }));
   const corps = JSON.stringify({
     gallery: publicMeta(g),
@@ -1430,6 +1432,34 @@ function prechauffer(g, rec, size) {
     for (const [k, v] of prechauffeAt) if (v < trop) prechauffeAt.delete(k);
   }
 }
+
+/* Vignette : redirection vers Google, mais SEULEMENT pour une session
+ * ouverte. Sans le cookie de la galerie, cette adresse ne renvoie rien
+ * d'utilisable : un aspirateur de sites ne peut donc pas récupérer les
+ * vignettes, même en connaissant l'adresse de la galerie.
+ *
+ * Pourquoi une redirection plutôt que servir l'image ? Mesuré le 21/10/2026 :
+ * l'image arrive de Google en 120-330 ms, alors que la faire transiter par ce
+ * serveur (0,1 vCPU) prend 1 à 6 s et consomme la bande passante du plan
+ * gratuit (37 Mo par visite de galerie).
+ */
+app.get('/api/g/:slug/photo/:fid/vignette', async (req, res) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noimageindex');
+  const g = findGallery(req.params.slug);
+  if (!g) return res.status(404).end();
+  if (!isUnlocked(req, req.params.slug)) {
+    if (isExpired(g)) return res.status(410).end();
+    return res.status(403).end();
+  }
+  const rec = fileRecord(g, decodeURIComponent(req.params.fid));
+  if (!rec || !rec.thumb) return res.status(404).end();
+  const size = Math.min(Math.max(parseInt(req.query.size || '400', 10) || 400, 80), 2000);
+  const cible = String(rec.thumb).replace(/=s\d+/, '=s' + size);
+  // 302 : le navigateur garde la redirection 10 minutes, donc une seule
+  // demande à notre serveur par image et par visite.
+  res.setHeader('Cache-Control', 'private, max-age=600');
+  res.redirect(302, cible);
+});
 
 app.get('/api/g/:slug/photo/:fid/thumb', async (req, res) => {
   const g = findGallery(req.params.slug);
