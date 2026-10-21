@@ -1331,8 +1331,8 @@
   }
 
   /* Met la grande photo dans la visionneuse (ou la reprend du cache). */
-  function loadFullPhoto(img, url) {
-    var token = ++fullToken;
+  function loadFullPhoto(img, url, jeton) {
+    var token = jeton || ++fullToken;
     var deja = fullCacheGet(url);
     if (deja) { img.src = deja; return; }
     fetchImageWithProgress(url, setLoadPct, token)
@@ -1373,7 +1373,10 @@
        préchargées pour que « suivante » soit quasi instantanée. */
     var img = $('lb-img');
     var pre = $('lb-pre');
-    var token = fullToken + 1;
+    /* Un seul jeton pour cette photo, que l'image vienne de Google ou de
+       notre serveur : sinon le retour « photo nette » ne se déclenchait
+       jamais (le jeton restait en arrière d'une unité). */
+    var token = ++fullToken;
     lb.classList.add('loading');
     lb.classList.remove('lb-ready', 'lb-indet');
     clearLoadPct();
@@ -1398,7 +1401,7 @@
          notre serveur, une seule fois (puis on abandonne proprement). */
       if (!img.dataset.replis && img.dataset.direct) {
         img.dataset.replis = '1';
-        loadFullPhoto(img, photoUrl(state.lbList[state.lbIndex], 'thumb') + '?size=' + displaySize('full'));
+        loadFullPhoto(img, photoUrl(state.lbList[state.lbIndex], 'thumb') + '?size=' + displaySize('full'), token);
         return;
       }
       lb.classList.remove('loading', 'lb-indet');
@@ -1414,7 +1417,7 @@
       img.dataset.direct = directFull;
       img.src = directFull;
     } else {
-      loadFullPhoto(img, urlSecours);
+      loadFullPhoto(img, urlSecours, token);
     }
     preloadNeighbors();
 

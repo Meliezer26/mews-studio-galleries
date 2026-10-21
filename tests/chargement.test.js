@@ -211,6 +211,10 @@ check('la grande photo vient aussi de Google quand c’est possible',
 check('repli sur notre serveur si la grande photo Google échoue',
   /if \(!img\.dataset\.replis && img\.dataset\.direct\)/.test(js));
 
+check('un seul jeton de chargement pour les deux chemins (Google et serveur)',
+  /var token = \+\+fullToken;/.test(js) && /function loadFullPhoto\(img, url, jeton\)/.test(js) &&
+  /loadFullPhoto\(img, urlSecours, token\);/.test(js));
+
 console.log('\nG. Présence à l’écran');
   check('la pastille existe dans la page', /id="lb-pct"/.test(html));
   check('la pastille se cache par défaut', /\.lb-pct \{[^}]*display: none/.test(html));
