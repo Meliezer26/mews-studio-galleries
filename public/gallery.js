@@ -179,7 +179,9 @@
     card.classList.toggle('hidden', !!hasCover);
     card.style.display = hasCover ? 'none' : '';
     $('lock-name').textContent = meta.name;
-    $('lock-sub').textContent = 'Bienvenue dans votre espace privé. Veuillez entrer votre mot de passe communiqué par Mew\'s Studio.';
+    // Espace insécable entre « Mew's » et « Studio » : le nom du studio ne doit
+    // jamais se retrouver coupé sur deux lignes (même règle que la couverture).
+    $('lock-sub').textContent = 'Bienvenue dans votre espace privé. Veuillez entrer votre mot de passe communiqué par Mew\'s\u00A0Studio.';
     $('lock-contact').classList.add('hidden');
     if (hasCover) {
       showCover(meta);

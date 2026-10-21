@@ -131,5 +131,29 @@ function placePct(boite, natif, sceneTop) {
   check('ordinateur : même règle que sur téléphone (un seul calcul)', r.top === 17, r.top + ' px');
 }
 
+console.log('\nD. Texte d’accueil : police lisible, nom du studio jamais coupé');
+/* Le style de la couverture est dans gallery.html (bloc <style>), pas dans
+   styles.css : on y cherche les déclarations de la même façon. */
+const valeurHtml = (sel, prop) => {
+  const i = html.indexOf(sel + ' {');
+  if (i < 0) return null;
+  const corps = html.slice(i + sel.length, html.indexOf('}', i));
+  const m = new RegExp(prop + '\\s*:\\s*([^;]+);').exec(corps);
+  return m ? m[1].trim() : null;
+};
+const tailleAccueil = parseFloat(valeurHtml('.lock-cover-welcome', 'font-size'));
+check('police nettement agrandie (au moins 1 rem)', tailleAccueil >= 1, tailleAccueil + ' rem');
+check('taille demandée : 1,06 rem', tailleAccueil === 1.06, tailleAccueil + ' rem');
+check('largeur qui évite le mot orphelin en fin de texte',
+  valeurHtml('.lock-cover-welcome', 'max-width') === '34ch', valeurHtml('.lock-cover-welcome', 'max-width'));
+check('nom insécable dans le texte de la couverture',
+  /communiqué par Mew's&nbsp;Studio\./.test(html));
+check('nom insécable aussi dans la carte classique',
+  (html.match(/Mew's&nbsp;Studio\./g) || []).length >= 2);
+check('le texte réécrit par le script garde le nom insécable',
+  /Mew\\'s\\u00A0Studio\./.test(js), 'gallery.js');
+check('les deux textes d’accueil gardent leur formulation exacte',
+  /Bienvenue dans votre espace privé\. Veuillez entrer le mot de passe communiqué par Mew/.test(html));
+
 console.log('\nRésultat : ' + pass + ' réussites, ' + fail + ' échec(s)');
 process.exit(fail ? 1 : 0);
