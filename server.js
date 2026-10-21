@@ -616,12 +616,13 @@ app.get('/api/g/:slug/info', async (req, res) => {
 
 app.post('/api/g/:slug/unlock', (req, res) => {
   const ip = req.ip || 'unknown';
-  if (!unlockLimiter(ip)) return res.status(429).json({ error: 'Trop de tentatives, réessayez plus tard.' });
+  if (!unlockLimiter(ip)) return res.status(429).json({ error: sec.tooManyMessage(unlockLimiter.retryAfter(ip)) });
   const g = findGallery(req.params.slug);
   const contactEmail = store.config().photographerEmail || 'mewstudiofrance@gmail.com';
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.', contactEmail });
   if (isExpired(g)) return res.status(403).json({ error: 'Cette galerie a expiré.', contactEmail });
   if (sec.verifyPassword(req.body.password || '', g.passwordHash)) {
+    unlockLimiter.reset(ip);           // réussite : le compteur repart de zéro
     setUnlocked(req, res, req.params.slug);
     return res.json({ ok: true });
   }
@@ -654,7 +655,7 @@ app.get(PRIVACY_REGEX, (req, res) => {
 
 app.post('/api/connexion', (req, res) => {
   const ip = req.ip || 'unknown';
-  if (!connexionLimiter(ip)) return res.status(429).json({ error: 'Trop de tentatives, réessayez plus tard.' });
+  if (!connexionLimiter(ip)) return res.status(429).json({ error: sec.tooManyMessage(connexionLimiter.retryAfter(ip)) });
   const password = String(req.body.password || '').trim();
   if (!password) return res.status(400).json({ error: 'Veuillez saisir votre mot de passe.' });
 
@@ -674,6 +675,7 @@ app.post('/api/connexion', (req, res) => {
     });
   }
 
+  connexionLimiter.reset(ip);          // réussite : le compteur repart de zéro
   matches.forEach((g) => setUnlocked(req, res, g.slug));
 
   if (matches.length === 1) {
@@ -898,7 +900,7 @@ function clientAlbumState(albumTypes, body, validIds) {
 
 app.post('/api/g/:slug/client/auth', async (req, res) => {
   const ip = req.ip || 'unknown';
-  if (!clientLimiter(ip)) return res.status(429).json({ error: 'Trop de tentatives, réessayez plus tard.' });
+  if (!clientLimiter(ip)) return res.status(429).json({ error: sec.tooManyMessage(clientLimiter.retryAfter(ip)) });
   const g = findGallery(req.params.slug);
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
   if (!isUnlocked(req, req.params.slug)) {
@@ -938,6 +940,7 @@ app.post('/api/g/:slug/client/auth', async (req, res) => {
     if (name && name.toLowerCase() !== client.name.toLowerCase()) client.name = name;
   }
   client.lastSeenAt = Date.now();
+  clientLimiter.reset(ip);             // réussite : le compteur repart de zéro
   const all = store.galleries();
   const idx = all.findIndex((x) => x.id === g.id);
   if (idx > -1) { all[idx] = g; store.saveGalleries(all); }
@@ -1485,9 +1488,10 @@ app.post('/api/admin/galleries/:id/selections/:selId/drive-apply', requireAdmin,
 
 app.post('/api/admin/login', (req, res) => {
   const ip = req.ip || 'unknown';
-  if (!loginLimiter(ip)) return res.status(429).json({ error: 'Trop de tentatives, réessayez dans 5 minutes.' });
+  if (!loginLimiter(ip)) return res.status(429).json({ error: sec.tooManyMessage(loginLimiter.retryAfter(ip)) });
   const cfg = store.config();
   if (sec.verifyPassword(req.body.password || '', cfg.adminPasswordHash)) {
+    loginLimiter.reset(ip);            // réussite : le compteur repart de zéro
     const token = sec.sign({ role: 'admin', iat: Date.now() }, secret());
     res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE / 1000}`);
     return res.json({ ok: true });
