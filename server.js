@@ -855,11 +855,19 @@ app.get('/api/g/:slug/photos', async (req, res) => {
   /* Le client construit lui-même ces adresses à partir de l'identifiant
    * (voir photoUrl() dans gallery.js). Les envoyer coûtait ~205 octets par
    * photo, soit 190 Ko inutiles pour une galerie de 945 photos. */
+  /* `t` = adresse signée Google (lh3.googleusercontent.com) de la vignette.
+   * Mesuré le 21/10/2026 sur acoca-isaac : 120 à 330 ms en direct chez Google
+   * contre 1 à 6 s en passant par ce serveur (0,1 vCPU, Francfort), ET zéro
+   * octet de bande passante Render (37 Mo par visite complète de la grille).
+   * Contrepartie : cette adresse est une URL signée, lisible dans la page par
+   * un client déjà déverrouillé ; elle expire d'elle-même. Le navigateur
+   * revient automatiquement à notre serveur si elle ne répond plus. */
   const files = (g.files || []).map((f, i) => ({
     id: f.id,
     name: f.name,
     size: f.size || 0,
     index: i,
+    t: f.thumb || null,
   }));
   const corps = JSON.stringify({
     gallery: publicMeta(g),

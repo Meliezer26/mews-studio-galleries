@@ -475,15 +475,24 @@
       img.loading = 'lazy';
       // 600 px (au lieu de 400) : la couverture se choisit à l'œil,
       // l'image doit être lisible — surtout sur mobile.
-      img.src = photoUrl(p, 'thumb') + '?size=' + displaySize('grid');
-    /* Réseau capricieux (4G, ascenseur, tunnel) : une image qui échoue
-       restait VIDE pour toujours. On réessaie deux fois, avec un délai. */
+      /* Deux adresses possibles pour la même vignette :
+     *  1. Google en direct (lh3…), mesuré 5 à 20 fois plus rapide que notre
+     *     serveur et sans consommer la bande passante Render ;
+     *  2. notre serveur, en secours si l'adresse Google a expiré ou échoue.
+     * C'est la même image, aux mêmes dimensions. */
+    var taille = displaySize('grid');
+    var direct = p.t ? String(p.t).replace(/=s\d+/, '=s' + taille) : null;
+    var secours = photoUrl(p, 'thumb') + '?size=' + taille;
+    img.src = direct || secours;
+    /* Réseau capricieux : une image qui échoue restait VIDE pour toujours.
+       Premier réessai sur la même adresse, puis repli sur notre serveur. */
     img.addEventListener('error', function () {
       var essai = Number(img.getAttribute('data-essai') || 0);
       if (essai >= 2) return;
       img.setAttribute('data-essai', essai + 1);
-      var base = photoUrl(p, 'thumb') + '?size=' + displaySize('grid');
-      setTimeout(function () { img.src = base + '&r=' + (essai + 1); }, 700 * (essai + 1));
+      setTimeout(function () {
+        img.src = essai === 0 && direct ? direct : secours + '&r=' + (essai + 1);
+      }, 400 * (essai + 1));
     });
       var badge = document.createElement('span');
       badge.className = 'cov-orient';

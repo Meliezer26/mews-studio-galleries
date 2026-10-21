@@ -174,7 +174,9 @@ function tick(ms = 0) { return new Promise((r) => setTimeout(r, ms)); }
   console.log('\nF2. Passage vignette → photo : instantané');
 check('l’aperçu de la visionneuse réutilise l’image de la grille (même taille)',
   /pre\.src = photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('grid'\);/.test(js));
-check('la tuile de la grille demande la même taille', /img\.src = photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('grid'\);/.test(js));
+check('la tuile vise la même taille que l’aperçu (400 px par défaut)',
+  /var taille = displaySize\('grid'\);/.test(js) &&
+  /pre\.src = photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('grid'\);/.test(js));
 check('les photos voisines sont préparées en mémoire (pas seulement en cache HTTP)',
   /function prefetchFull\(url\)/.test(js) && /preloadNeighbors\(\)? \{[\s\S]{0,600}prefetchFull\(/.test(js));
 check('un préchargement en double est évité', /if \(!url \|\| FULL_CACHE\[url\] \|\| prefetchEnCours\[url\]\) return;/.test(js));
@@ -196,6 +198,13 @@ check('la pastille ne reste plus vide pendant l’attente du premier octet',
   /if \(!fullCacheGet\(photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('full'\)\)\) setLoadPct\(null\);/.test(js));
 check('une vignette en échec est réessayée deux fois',
   /img\.addEventListener\('error', function \(\) \{/.test(js) && /if \(essai >= 2\) return;/.test(js));
+
+console.log('\nF4. Vignettes servies par Google en direct');
+check('la liste fournit l’adresse Google de chaque vignette', /t: f\.thumb \|\| null,/.test(srv));
+check('le navigateur l’utilise en priorité', /img\.src = direct \|\| secours;/.test(js));
+check('la taille demandée à Google suit l’écran', /replace\(\/=s\\d\+\/, '=s' \+ taille\)/.test(js));
+check('repli automatique sur notre serveur si Google échoue',
+  /img\.src = essai === 0 && direct \? direct : secours \+ '&r=' \+ \(essai \+ 1\);/.test(js));
 
 console.log('\nG. Présence à l’écran');
   check('la pastille existe dans la page', /id="lb-pct"/.test(html));
