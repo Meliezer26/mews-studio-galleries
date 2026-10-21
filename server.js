@@ -1332,6 +1332,8 @@ app.get('/api/g/:slug/cover', async (req, res) => {
  * Dès qu'une grande photo est servie, on prépare donc, EN MÉMOIRE seulement
  * (aucun stockage, aucun octet de plus envoyé au client), la taille « plein
  * écran » de ses deux voisines : glisser devient instantané.
+ * Deux photos, pas plus : le plafond de 2 demandes simultanées ci-dessous
+ * signifie qu'une troisième cible ne serait de toute façon pas traitée.
  *
  * Garde-fous : 2 photos à la fois au maximum, jamais la même deux fois en
  * 10 minutes, et rien au-delà de PRECHAUFFE_MAX octets dans le cache déjà
@@ -1347,7 +1349,7 @@ function prechauffer(g, rec, size) {
   if (size < 900) return;                    // seules les grandes vues comptent
   const i = g.files.findIndex((f) => f.id === rec.id);
   if (i < 0) return;
-  const cibles = [1, -1, 2]
+  const cibles = [1, -1]
     .map((d) => g.files[(i + d + g.files.length) % g.files.length])
     .filter((f) => f && f.id !== rec.id && f.thumb);
   for (const c of cibles) {
