@@ -688,11 +688,11 @@
       /* La taille demandée manquait ici : la tuile réclamait l'original
          (283 Ko pour une vignette de 177 px au lieu de 60 Ko). */
       var secours = photoUrl(p, 'thumb') + '?size=' + GRID_TAILLE;
-      /* `p.d` = adresse de NOTRE domaine, qui redirige vers Google pour une
-       * session ouverte (voir la route /vignette). On ne met jamais dans la
-       * page une adresse Google autonome : elle ouvrirait l'image à qui la
-       * copie, sans mot de passe. */
-      var direct = p.d ? p.d + '?size=' + GRID_TAILLE : null;
+      /* Deux adresses pour la même image, aux mêmes dimensions :
+       *  1. Google en direct (lh3…), mesuré 120-330 ms contre 1-6 s via
+       *     notre serveur, et sans consommer la bande passante Render ;
+       *  2. notre serveur, en secours si l'adresse a expiré ou échoue. */
+      var direct = p.t ? String(p.t).replace(/=s\d+/, '=s' + GRID_TAILLE) : null;
       img.src = direct || secours;
       /* Réseau capricieux : une image qui échoue restait VIDE pour toujours.
          Premier réessai sur la même adresse, puis repli sur notre serveur. */
@@ -1411,7 +1411,7 @@
      * Mesuré le 21/10/2026 : 300 ms chez Google contre 0,7 à 16 s via notre
      * serveur (0,1 vCPU). Repli automatique sur notre serveur si l'adresse a
      * expiré : la photo s'affiche dans tous les cas. */
-    var directFull = p.d ? p.d + '?size=' + displaySize('full') : null;
+    var directFull = p.t ? String(p.t).replace(/=s\d+/, '=s' + displaySize('full')) : null;
     var urlSecours = photoUrl(p, 'thumb') + '?size=' + displaySize('full');
     if (directFull) {
       img.dataset.direct = directFull;

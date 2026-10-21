@@ -200,18 +200,14 @@ check('une vignette en échec est réessayée deux fois',
   /img\.addEventListener\('error', function \(\) \{/.test(js) && /if \(essai >= 2\) return;/.test(js));
 
 console.log('\nF4. Vignettes servies par Google en direct');
-check('la liste ne diffuse AUCUNE adresse Google autonome', !/t: f\.thumb \|\| null,/.test(srv));
-check('elle fournit une adresse de notre domaine', /d: f\.thumb/.test(srv) && /\/vignette`/.test(srv));
+check('la liste fournit l’adresse Google de chaque vignette', /t: f\.thumb \|\| null,/.test(srv));
 check('le navigateur l’utilise en priorité', /img\.src = direct \|\| secours;/.test(js));
-check('cette adresse exige la session de la galerie', /if \(!isUnlocked\(req, req\.params\.slug\)\) \{[\s\S]{0,120}403/.test(srv));
-check('la redirection est valable 10 min côté navigateur', /res\.setHeader\('Cache-Control', 'private, max-age=600'\);/.test(srv));
-check('les robots sont invités à ne pas indexer ces images', /noindex, nofollow, noimageindex/.test(srv));
+check('la taille demandée à Google suit l’écran', /replace\(\/=s\\d\+\/, '=s' \+ GRID_TAILLE\)/.test(js));
 check('repli automatique sur notre serveur si Google échoue',
   /img\.src = essai === 0 && direct \? direct : secours \+ '&r=' \+ \(essai \+ 1\);/.test(js));
 
-check('la grande photo passe aussi par notre domaine (puis Google)',
-  /var directFull = p\.d \? p\.d \+ '\?size=' \+ displaySize\('full'\) : null;/.test(js) && /img\.src = directFull;/.test(js));
-check('aucune adresse Google dans le code de la page', !/lh3\.googleusercontent/.test(js));
+check('la grande photo vient aussi de Google quand c’est possible',
+  /var directFull = p\.t \? String\(p\.t\)\.replace/.test(js) && /img\.src = directFull;/.test(js));
 check('repli sur notre serveur si la grande photo Google échoue',
   /if \(!img\.dataset\.replis && img\.dataset\.direct\)/.test(js));
 
