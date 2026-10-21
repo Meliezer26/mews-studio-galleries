@@ -231,9 +231,29 @@
   #lb-pre { z-index: 1; }
   #lb-img { z-index: 2; opacity: 0; box-shadow: 0 20px 70px rgba(0,0,0,0.6); }
   #lb.lb-ready #lb-img { opacity: 1; }
-  .lb-loadbar { position: absolute; top: 0; left: -40%; width: 40%; height: 3px; z-index: 5; background: var(--accent); border-radius: 0 2px 2px 0; opacity: 0; }
-  #lb.loading .lb-loadbar { opacity: 0.85; animation: lb-loadbar 1.1s ease-in-out infinite; }
-  @keyframes lb-loadbar { from { left: -40%; } to { left: 100%; } }
+  /* Barre de chargement : sa largeur suit le POURCENTAGE réel des octets reçus
+     (voir gallery.js). Quand le serveur ne donne pas la taille du fichier, elle
+     repasse en mode « indéterminé » (va-et-vient) et la pastille affiche
+     « Chargement… ». */
+  .lb-loadbar {
+    position: absolute; top: 0; left: 0; width: 0; height: 3px; z-index: 5;
+    background: var(--accent); border-radius: 0 2px 2px 0; opacity: 0;
+    transition: width .18s linear;
+  }
+  #lb.loading .lb-loadbar { opacity: 0.9; }
+  #lb.lb-indet .lb-loadbar { animation: lb-loadbar 1.1s ease-in-out infinite; }
+  @keyframes lb-loadbar { from { left: -40%; width: 40%; } to { left: 100%; width: 40%; } }
+  /* Pastille « 42 % » : un vrai chiffre, lisible sur n'importe quelle photo. */
+  .lb-pct {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    z-index: 6; display: none; padding: 7px 15px; border-radius: 999px;
+    background: rgba(0, 0, 0, 0.62); border: 1px solid rgba(255, 255, 255, 0.24);
+    color: #fff; font-size: 0.76rem; letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+  .lb-pct.on { display: block; }
   .lb-nav {
     position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
     width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line-2);
@@ -482,6 +502,7 @@
     <img id="lb-pre" src="" alt="" aria-hidden="true">
     <img id="lb-img" src="" alt="">
     <div class="lb-loadbar" id="lb-loadbar"></div>
+    <div class="lb-pct" id="lb-pct" aria-live="polite"></div>
     <div class="wm" id="lb-wm"></div>
     <button class="lb-nav lb-next" id="lb-next" aria-label="Suivante">›</button>
   </div>

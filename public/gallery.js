@@ -1150,6 +1150,100 @@
   }
 
   /* --- Visionneuse ------------------------------------------- */
+  /* --- Chargement de la grande photo, avec pourcentage --------------- *
+   * La vignette reste affichée pendant que la grande version se télécharge.
+   * On compte les octets réellement reçus et on affiche « 42 % » : le client
+   * sait où en est sa photo, au lieu de voir une roue qui tourne sans fin.
+   * Le téléchargement est le même qu'avant (une seule requête) : on le lit
+   * simplement en flux au lieu de le laisser au hasard du navigateur. */
+  var FULL_MAX = 8;                     // grandes photos gardées en mémoire
+  var FULL_CACHE = Object.create(null);
+  var FULL_ORDER = [];
+  var fullToken = 0;
+
+  function fullCacheGet(url) { var e = FULL_CACHE[url]; return e ? e.url : null; }
+
+  function fullCachePut(url, objUrl) {
+    if (!FULL_CACHE[url]) FULL_ORDER.push(url);
+    FULL_CACHE[url] = { url: objUrl };
+    while (FULL_ORDER.length > FULL_MAX) {
+      var old = FULL_ORDER.shift();
+      var e = FULL_CACHE[old];
+      delete FULL_CACHE[old];
+      // On ne libère jamais l'image affichée à l'écran.
+      var affiche = $('lb-img') && $('lb-img').src;
+      if (e && e.url !== affiche) { try { URL.revokeObjectURL(e.url); } catch (err) { /* silencieux */ } }
+    }
+  }
+
+  function setLoadPct(pct) {
+    var el = $('lb-pct');
+    var bar = $('lb-loadbar');
+    if (pct === null) {
+      if (el) { el.textContent = 'Chargement…'; el.classList.add('on'); }
+      if (bar) bar.style.width = '';
+      return;
+    }
+    if (el) { el.textContent = pct + ' %'; el.classList.add('on'); }
+    if (bar) bar.style.width = pct + '%';
+  }
+
+  function clearLoadPct() {
+    var el = $('lb-pct');
+    var bar = $('lb-loadbar');
+    if (el) { el.classList.remove('on'); el.textContent = ''; }
+    if (bar) bar.style.width = '0%';
+  }
+
+  /* Télécharge l'image en flux et rend compte de l'avancement.
+     Passe par le cache du navigateur : revenir sur une photo déjà vue ne
+     retélécharge rien. */
+  function fetchImageWithProgress(url, onPct, token) {
+    var live = function (fn) { if (token === fullToken) fn(); };
+    return fetch(url, { credentials: 'same-origin' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('http ' + res.status);
+        var total = Number(res.headers.get('content-length') || 0);
+        var type = res.headers.get('content-type') || 'image/jpeg';
+        if (!res.body || typeof res.body.getReader !== 'function' || !total) {
+          live(function () { $('lb').classList.add('lb-indet'); onPct(null); });
+          return res.blob();
+        }
+        var reader = res.body.getReader();
+        var chunks = [];
+        var recu = 0;
+        return (function pomper() {
+          return reader.read().then(function (r) {
+            if (r.done) return new Blob(chunks, { type: type });
+            chunks.push(r.value);
+            recu += r.value.length;
+            var pct = Math.max(1, Math.min(100, Math.round((recu / total) * 100)));
+            live(function () { onPct(pct); });
+            return pomper();
+          });
+        })();
+      });
+  }
+
+  /* Met la grande photo dans la visionneuse (ou la reprend du cache). */
+  function loadFullPhoto(img, url) {
+    var token = ++fullToken;
+    var deja = fullCacheGet(url);
+    if (deja) { img.src = deja; return; }
+    fetchImageWithProgress(url, setLoadPct, token)
+      .then(function (blob) {
+        if (!blob || !blob.size) throw new Error('vide');
+        var objUrl = URL.createObjectURL(blob);
+        fullCachePut(url, objUrl);
+        if (token === fullToken) img.src = objUrl;
+      })
+      .catch(function () {
+        // Compteur impossible (serveur sans taille, navigateur ancien) ou
+        // téléchargement contrarié : on laisse le navigateur faire son travail.
+        if (token === fullToken) { $('lb').classList.remove('lb-indet'); clearLoadPct(); img.src = url; }
+      });
+  }
+
   function openLightbox(list, index) {
     state.lbList = list;
     state.lbIndex = index;
@@ -1174,16 +1268,24 @@
        préchargées pour que « suivante » soit quasi instantanée. */
     var img = $('lb-img');
     var pre = $('lb-pre');
+    var token = fullToken + 1;
     lb.classList.add('loading');
-    lb.classList.remove('lb-ready');
+    lb.classList.remove('lb-ready', 'lb-indet');
+    clearLoadPct();
     pre.src = photoUrl(p, 'thumb');
     img.onload = function () {
-      lb.classList.remove('loading');
+      if (token !== fullToken) return;      // photo déjà quittée (glissement rapide)
+      lb.classList.remove('loading', 'lb-indet');
       lb.classList.add('lb-ready');
+      clearLoadPct();
       preloadNeighbors();
     };
-    img.onerror = function () { lb.classList.remove('loading'); };
-    img.src = photoUrl(p, 'thumb') + '?size=' + displaySize('full');
+    img.onerror = function () {
+      if (token !== fullToken) return;
+      lb.classList.remove('loading', 'lb-indet');
+      clearLoadPct();
+    };
+    loadFullPhoto(img, photoUrl(p, 'thumb') + '?size=' + displaySize('full'));
     preloadNeighbors();
 
     /* Bouton album dans la visionneuse (mode albums) */
@@ -1205,7 +1307,9 @@
   }
   function closeLightbox() {
     var lb = $('lb');
-    lb.classList.remove('open', 'lb-ready', 'loading');
+    fullToken++;                            // abandonne un téléchargement en cours
+    lb.classList.remove('open', 'lb-ready', 'loading', 'lb-indet');
+    clearLoadPct();
     document.body.style.overflow = '';
     $('lb-img').src = '';
     $('lb-pre').src = '';
@@ -1238,6 +1342,9 @@
    * « chiquenaude ») suffit, comme dans une galerie système.
    * Le clic de fermeture est neutralisé juste après un glissement. */
   var SWIPE = { on: false, id: null, x0: 0, y0: 0, dx: 0, axe: null, t0: 0, fini: 0 };
+  /* Animation en cours : { dir, fait, t1, t2 }.
+     « fait » = la photo a déjà été échangée (on est dans la phase d'entrée). */
+  var SLIDE = { dir: 0, fait: false, t1: 0, t2: 0 };
 
   function lbStage() { return document.querySelector('.lb-stage'); }
 
@@ -1246,24 +1353,52 @@
     if (st) st.style.setProperty('--lb-dx', px + 'px');
   }
 
-  /* La photo glisse hors de l'écran, la suivante entre par l'autre bord. */
+  /* Échange des photos avec glissement : la photo sortante quitte l'écran,
+     la suivante entre par l'autre bord. */
+  function lbEchange(dir) {
+    var st = lbStage();
+    if (!st) { lbStep(dir); return; }
+    var w = st.clientWidth || window.innerWidth || 360;
+    var sortie = dir > 0 ? -w : w;
+    SLIDE.fait = true;
+    st.classList.remove('lb-slide');
+    lbStep(dir);
+    lbDx(-sortie);                 // la nouvelle photo se place de l'autre côté
+    void st.offsetWidth;           // force le recalcul avant l'animation
+    st.classList.add('lb-slide');
+    lbDx(0);
+    SLIDE.t2 = setTimeout(function () {
+      st.classList.remove('lb-slide');
+      lbDx(0);
+      SLIDE.dir = 0;
+    }, 220);
+  }
+
   function lbGlisser(dir) {
     var st = lbStage();
     if (!st) { lbStep(dir); return; }
     var w = st.clientWidth || window.innerWidth || 360;
-    var sortie = dir > 0 ? -w : w;     // dir > 0 = photo suivante (doigt vers la gauche)
+    SLIDE.dir = dir;
+    SLIDE.fait = false;
     st.classList.remove('lb-dragging');
     st.classList.add('lb-slide');
-    lbDx(sortie);
-    setTimeout(function () {
-      lbStep(dir);                      // nouvelle photo dans les deux couches
-      st.classList.remove('lb-slide');  // placement instantané de l'autre côté
-      lbDx(-sortie);
-      void st.offsetWidth;              // force le recalcul avant l'animation
-      st.classList.add('lb-slide');
-      lbDx(0);
-      setTimeout(function () { st.classList.remove('lb-slide'); }, 220);
-    }, 185);
+    lbDx(dir > 0 ? -w : w);
+    SLIDE.t1 = setTimeout(function () { lbEchange(dir); }, 185);
+  }
+
+  /* Termine immédiatement l'animation en cours. Un nouveau geste pendant
+     l'animation ne doit pas être ignoré : on applique la photo demandée. */
+  function lbTermineSlide() {
+    if (!SLIDE.dir) return;
+    var d = SLIDE.dir;
+    clearTimeout(SLIDE.t1);
+    clearTimeout(SLIDE.t2);
+    if (!SLIDE.fait) lbEchange(d);        // échange pas encore fait : on le fait
+    var st = lbStage();
+    if (st) { st.classList.remove('lb-slide'); }
+    clearTimeout(SLIDE.t2);
+    lbDx(0);
+    SLIDE.dir = 0;
   }
 
   function lbRetour() {
@@ -1291,11 +1426,12 @@
 
     st.addEventListener('pointerdown', function (e) {
       if (state.lbList.length < 2) return;
-      if (Date.now() - SWIPE.fini < 240) return;                 // glissement en cours
       if (e.pointerType === 'mouse' && e.button !== 0) return;   // clic droit : rien
       // Un bouton posé sur la photo (flèches, par exemple) garde son clic :
       // on ne surveille le geste que sur l'image elle-même.
       if (e.target && e.target.closest && e.target.closest('button, a')) return;
+      if (SWIPE.on) return;                                     // un doigt à la fois
+      lbTermineSlide();                                         // glissement précédent : on l'achève
       SWIPE.on = true; SWIPE.id = e.pointerId;
       SWIPE.x0 = e.clientX; SWIPE.y0 = e.clientY;
       SWIPE.dx = 0; SWIPE.axe = null; SWIPE.t0 = Date.now();
@@ -1316,8 +1452,6 @@
         try { st.setPointerCapture(e.pointerId); } catch (err) { /* silencieux */ }
       }
       SWIPE.dx = dx;
-      // Résistance aux extrémités (on revient en boucle, mais le geste
-      // « tient » un peu : cela évite les sauts involontaires).
       lbDx(dx);
     });
 
@@ -1339,7 +1473,11 @@
     }
     st.addEventListener('pointerup', fin);
     st.addEventListener('pointercancel', fin);
-    st.addEventListener('pointerleave', fin);
+    // Pas d'écoute de « pointerleave » : le doigt quitte tour à tour la photo
+    // et ses voisines (éléments enfants), ce qui terminait le geste au milieu
+    // du mouvement — d'où un défilement qui « ne prenait » qu'une fois sur deux.
+    // La capture du doigt (posée dès que le geste est horizontal) garantit de
+    // recevoir le relâchement, même si le doigt sort de la zone.
   }
 
   /* Décision : ce geste fait-il défiler la galerie ?
