@@ -94,39 +94,41 @@ check('la pastille est replacée à chaque photo affichée',
 check('elle est replacée quand la photo nette arrive',
   /img\.onload = function \(\) \{\s*if \(token !== fullToken\) return;[\s\S]{0,300}schedulePct\(\)/.test(js));
 check('elle suit la rotation du téléphone', /orientationchange/.test(js) && /resize/.test(js));
-check('au-dessus de la photo quand il y a la place', /hautPhoto - pillH - 10/.test(js));
-check('repli sur la photo si la place manque', /if \(top < 8\) top = Math.round\(hautPhoto \+ 12\)/.test(js));
+check('posée sur le haut de la photo', /var top = Math.round\(hautPhoto\) \+ 14;/.test(js));
+check('jamais hors de l’écran', /if \(top < 8\) top = 8;/.test(js));
+check('aucune bande ajoutée à la visionneuse (la photo garde toute la place)',
+  /padding: 0 60px 20px;/.test(html) && !/padding: 3[0-9]px 60px/.test(html));
 check('replacée à chaque changement de taille (rotation, photo portrait/paysage)',
   /ResizeObserver/.test(js) && /function watchPct\(\)/.test(js));
 check('elle ne capte pas le doigt', /\.lb-pct \{[^}]*pointer-events: none/.test(html));
 
-console.log('\nC. Placement : au-dessus de la photo, comme la version du bas');
-/* Reproduction de la formule livrée : haut de la zone peinte − hauteur de la
-   pastille − 10 px ; si la place manque, la pastille se pose sur la photo. */
-function placePct(boite, natif, sceneTop, pillH) {
+console.log('\nC. Placement : sur le haut de la photo, comme la version du bas');
+/* Reproduction de la formule livrée : bord haut de la photo peinte + 14 px —
+   exactement le pendant du « bottom: 14px » d'avant. */
+function placePct(boite, natif, sceneTop) {
   const zoneH = natif.h && natif.w ? Math.min(boite.h, boite.w * (natif.h / natif.w)) : boite.h;
   const hautPhoto = boite.top - sceneTop + (boite.h - zoneH) / 2;
-  let top = Math.round(hautPhoto - pillH - 10);
-  if (top < 8) top = Math.round(hautPhoto + 12);
-  return { top, bas: top + pillH, hautPhoto };
+  let top = Math.round(hautPhoto) + 14;
+  if (top < 8) top = 8;
+  return { top, hautPhoto };
 }
 // Téléphone, mesure réelle : scène de 632 px, photo paysage peinte sur 262 px
 // (185 px de bande noire au-dessus et en dessous).
 {
-  const r = placePct({ top: 0, h: 632, w: 390 }, { w: 390, h: 262 }, 0, 35);
-  check('téléphone : la pastille est entièrement au-dessus de la photo',
-    r.bas <= Math.round(r.hautPhoto), `pastille ${r.top}–${r.bas} px, photo à ${Math.round(r.hautPhoto)} px`);
-  check('téléphone : 10 px d’écart avec la photo',
-    Math.abs((Math.round(r.hautPhoto) - r.bas) - 10) <= 1, (Math.round(r.hautPhoto) - r.bas) + ' px');
-  check('téléphone : elle reste dans l’écran', r.top >= 8, r.top + ' px');
-  check('téléphone : elle est centrée dans la bande noire, pas sur l’image',
-    r.bas < r.hautPhoto - 5, 'bas de la pastille ' + r.bas + ' px');
+  const r = placePct({ top: 0, h: 632, w: 390 }, { w: 390, h: 262 }, 0);
+  check('téléphone : la pastille se pose sur la photo',
+    r.top > Math.round(r.hautPhoto), `pastille à ${r.top} px, photo à ${Math.round(r.hautPhoto)} px`);
+  check('téléphone : 14 px sous le bord haut de la photo',
+    r.top - Math.round(r.hautPhoto) === 14, (r.top - Math.round(r.hautPhoto)) + ' px');
+  check('téléphone : pastille entièrement dans la zone peinte (photo de 262 px)',
+    r.top + 35 <= 262 + Math.round(r.hautPhoto), 'bas de pastille ' + (r.top + 35) + ' px');
 }
-// Ordinateur : la photo occupe toute la hauteur, aucune place au-dessus
+// Ordinateur : la photo occupe toute la hauteur
 {
-  const r = placePct({ top: 0, h: 752, w: 1120 }, { w: 1120, h: 747 }, 0, 35);
-  check('ordinateur (photo pleine hauteur) : la pastille se pose sur le haut de la photo',
-    r.top >= r.hautPhoto && r.top - r.hautPhoto <= 20, `pastille à ${r.top} px, photo à ${Math.round(r.hautPhoto)} px`);
+  const r = placePct({ top: 0, h: 752, w: 1120 }, { w: 1120, h: 747 }, 0);
+  check('ordinateur : 14 px sous le bord haut de la photo',
+    r.top - Math.round(r.hautPhoto) === 14, (r.top - Math.round(r.hautPhoto)) + ' px');
+  check('ordinateur : même règle que sur téléphone (un seul calcul)', r.top === 17, r.top + ' px');
 }
 
 console.log('\nRésultat : ' + pass + ' réussites, ' + fail + ' échec(s)');

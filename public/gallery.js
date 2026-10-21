@@ -1213,11 +1213,11 @@
     }
     // Bord haut de la photo réellement peinte, exprimé dans la scène.
     var hautPhoto = r.top - s.top + (r.height - zoneH) / 2;
-    // La pastille se pose AU-DESSUS de la photo (dans la bande noire), pas
-    // par-dessus l'image : même endroit que la version d'avant, mais en haut.
-    var pillH = el.offsetHeight || 30;
-    var top = Math.round(hautPhoto - pillH - 10);
-    if (top < 8) top = Math.round(hautPhoto + 12);   // pas de place au-dessus : on se pose sur la photo
+    // La pastille se pose SUR LE HAUT DE LA PHOTO, à 14 px de son bord :
+    // c'est le pendant exact de la version du bas (bottom: 14px). Elle est
+    // donc visible dès la vignette, juste avant que la photo nette n'arrive.
+    var top = Math.round(hautPhoto) + 14;
+    if (top < 8) top = 8;
     el.style.top = top + 'px';
   }
 

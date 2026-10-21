@@ -243,8 +243,8 @@
   #lb.loading .lb-loadbar { opacity: 0.9; }
   #lb.lb-indet .lb-loadbar { animation: lb-loadbar 1.1s ease-in-out infinite; }
   @keyframes lb-loadbar { from { left: -40%; width: 40%; } to { left: 100%; width: 40%; } }
-  /* Pastille « 42 % » : un vrai chiffre. Elle se place AU-DESSUS de la photo,
-     dans la bande noire (voir placeLoadPct dans gallery.js) ; sa position est
+  /* Pastille « 42 % » : un vrai chiffre. Elle se pose sur le haut de la photo,
+     à 14 px de son bord (voir placeLoadPct dans gallery.js) ; sa position est
      ajustée à chaque photo, la valeur par défaut n'est qu'un repli. */
   .lb-pct {
     position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
