@@ -326,12 +326,23 @@ function isUnlocked(req, slug) {
   return payload.slugs[slug] > Date.now();
 }
 
+/* Attribut `Secure` : le cookie ne doit voyager qu'en HTTPS. On ne l'ajoute
+ * que si la requête est réellement sécurisée, sinon l'admin local en http://
+ * ne pourrait plus se connecter. (Ni cookie de suivi, ni bandeau de
+ * consentement : ces cookies sont strictement nécessaires, donc exemptés.) */
+function cookieSecure(req) {
+  if (!req) return '';
+  if (req.secure) return '; Secure';
+  const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  return proto === 'https' ? '; Secure' : '';
+}
+
 function setUnlocked(req, res, slug) {
   const existing = sec.unsign(cookiesOf(req)[UNLOCK_COOKIE], secret()) || { slugs: {} };
   existing.slugs = { ...existing.slugs, [slug]: Date.now() + UNLOCK_MAX_AGE };
   // EMBED_MODE=1 : le site est intégré dans une iframe sur un autre domaine
   // (ex. page Showit) → le cookie doit être SameSite=None; Secure (HTTPS requis).
-  const sameSite = process.env.EMBED_MODE === '1' ? 'None; Secure' : 'Lax';
+  const sameSite = process.env.EMBED_MODE === '1' ? 'None; Secure' : 'Lax' + cookieSecure(req);
   res.setHeader('Set-Cookie', `${UNLOCK_COOKIE}=${sec.sign(existing, secret())}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${UNLOCK_MAX_AGE / 1000}`);
 }
 
@@ -1754,7 +1765,7 @@ app.post('/api/admin/login', (req, res) => {
   if (sec.verifyPassword(req.body.password || '', cfg.adminPasswordHash)) {
     loginLimiter.reset(ip);            // réussite : le compteur repart de zéro
     const token = sec.sign({ role: 'admin', iat: Date.now() }, secret());
-    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE / 1000}`);
+    res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax${cookieSecure(req)}; Max-Age=${SESSION_MAX_AGE / 1000}`);
     return res.json({ ok: true });
   }
   res.status(403).json({ error: 'Mot de passe incorrect.' });
