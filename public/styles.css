@@ -364,8 +364,17 @@ label.check input { accent-color: var(--accent); width: 16px; height: 16px; }
 }
 .g-item { container-type: inline-size; }
 .g-item .wm span { font-size: 2cqw; }
-#lb-stage { container-type: inline-size; }
+/* Visionneuse : le filigrane se mesure sur la fenêtre (aucun conteneur
+   déclaré sur la scène) — c'est la taille d'origine sur ordinateur. */
 #lb-wm span { font-size: 1.2cqw; }
+
+/* Téléphone : filigrane deux fois plus grand. Sur 390 px de large, 1,2 cqw
+   donnait des lettres de 4 px — illisibles, donc inutiles comme protection. */
+@media (max-width: 720px) {
+  .g-item .wm span { font-size: 4cqw; }
+  #lb-wm span { font-size: 2.4cqw; }
+  .wm { gap: 0.85em; }
+}
 
 /* --- Protections anti-copie des images ---------------------- */
 .g-item, .g-item * { user-select: none; -webkit-user-select: none; }

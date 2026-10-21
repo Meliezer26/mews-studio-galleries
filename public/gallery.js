@@ -1188,6 +1188,65 @@
     if (bar) bar.style.width = pct + '%';
   }
 
+  /* La photo ne remplit pas toujours la scène (bandes noires en haut et en bas
+     sur un téléphone) : la pastille se cale sur le bord HAUT DE LA PHOTO, pas
+     sur celui de la scène. On mesure l'élément image : sa boîte épouse le
+     rapport de la photo (largeur/hauteur automatiques). */
+  function placeLoadPct() {
+    var el = $('lb-pct');
+    var st = document.querySelector('.lb-stage');
+    if (!el || !st) return;
+    var img = $('lb-img');
+    var pre = $('lb-pre');
+    /* La boîte de l'image remplit la scène (object-fit: contain) : la photo
+       peinte peut être plus courte, centrée verticalement. On reconstituе la
+       zone réellement peinte à partir du rapport de la photo. */
+    var ref = (img && img.naturalWidth) ? img : pre;
+    if (!ref || !ref.getBoundingClientRect) return;
+    var r = ref.getBoundingClientRect();
+    var s = st.getBoundingClientRect();
+    if (!r.height) return;
+    var zoneH = r.height;
+    if (ref.naturalWidth && ref.naturalHeight) {
+      var ratio = ref.naturalHeight / ref.naturalWidth;
+      zoneH = Math.min(r.height, r.width * ratio);
+    }
+    // Bord haut de la photo réellement peinte, exprimé dans la scène.
+    var hautPhoto = r.top - s.top + (r.height - zoneH) / 2;
+    // La pastille se pose AU-DESSUS de la photo (dans la bande noire), pas
+    // par-dessus l'image : même endroit que la version d'avant, mais en haut.
+    var pillH = el.offsetHeight || 30;
+    var top = Math.round(hautPhoto - pillH - 10);
+    if (top < 8) top = Math.round(hautPhoto + 12);   // pas de place au-dessus : on se pose sur la photo
+    el.style.top = top + 'px';
+  }
+
+  /* La scène et l'image changent de taille (rotation, barre d'adresse du
+     téléphone, photo portrait/paysage) : on replace la pastille à chaque
+     changement plutôt qu'une seule fois au chargement. */
+  var pctObserver = null;
+  function watchPct() {
+    if (pctObserver || typeof ResizeObserver === 'undefined') return;
+    var st = document.querySelector('.lb-stage');
+    var img = $('lb-img');
+    pctObserver = new ResizeObserver(function () { placeLoadPct(); });
+    if (st) pctObserver.observe(st);
+    if (img) pctObserver.observe(img);
+  }
+
+  /* Replace la pastille maintenant, puis pendant que la mise en page se pose :
+     la visionneuse continue de bouger les premières secondes (photo qui
+     arrive, barre du navigateur, clavier). Un dernier passage à 1,6 s garantit
+     un placement juste une fois tout stabilisé. */
+  var pctTimers = [];
+  function schedulePct() {
+    placeLoadPct();
+    pctTimers.forEach(clearTimeout);
+    pctTimers = [0, 60, 140, 240, 400, 700, 1100, 1600].map(function (ms) {
+      return setTimeout(placeLoadPct, ms);
+    });
+  }
+
   function clearLoadPct() {
     var el = $('lb-pct');
     var bar = $('lb-loadbar');
@@ -1272,9 +1331,11 @@
     lb.classList.add('loading');
     lb.classList.remove('lb-ready', 'lb-indet');
     clearLoadPct();
+    pre.onload = function () { if (token === fullToken) schedulePct(); };
     pre.src = photoUrl(p, 'thumb');
     img.onload = function () {
       if (token !== fullToken) return;      // photo déjà quittée (glissement rapide)
+      schedulePct();
       lb.classList.remove('loading', 'lb-indet');
       lb.classList.add('lb-ready');
       clearLoadPct();
@@ -1286,6 +1347,7 @@
       clearLoadPct();
     };
     loadFullPhoto(img, photoUrl(p, 'thumb') + '?size=' + displaySize('full'));
+    schedulePct();
     preloadNeighbors();
 
     /* Bouton album dans la visionneuse (mode albums) */
@@ -1624,6 +1686,9 @@
       if (e.target === $('lb') || e.target === $('lb-img')) closeLightbox();
     });
     initLightboxSwipe();
+    watchPct();
+    window.addEventListener('resize', function () { placeLoadPct(); });
+    window.addEventListener('orientationchange', function () { setTimeout(placeLoadPct, 250); });
     $('lb-dl').addEventListener('click', function () {
       var p = state.lbList[state.lbIndex];
       if (p) triggerDownload(p);
