@@ -1154,6 +1154,8 @@
     state.lbList = list;
     state.lbIndex = index;
     var lb = $('lb');
+    var st = lbStage();
+    if (st) { st.classList.remove('lb-slide', 'lb-dragging'); st.style.setProperty('--lb-dx', '0px'); }
     lb.classList.add('open');
     document.body.style.overflow = 'hidden';
     updateLightbox();
@@ -1228,6 +1230,132 @@
     state.lbIndex = (state.lbIndex + dir + n) % n;
     updateLightbox();
   }
+
+  /* --- Glissement au doigt (visionneuse) --------------------- *
+   * Sur téléphone, on fait défiler les photos en glissant le pouce.
+   * La photo suit le doigt, puis sort du côté où on l'a poussée et la
+   * voisine arrive de l'autre côté. Un geste court mais rapide (une
+   * « chiquenaude ») suffit, comme dans une galerie système.
+   * Le clic de fermeture est neutralisé juste après un glissement. */
+  var SWIPE = { on: false, id: null, x0: 0, y0: 0, dx: 0, axe: null, t0: 0, fini: 0 };
+
+  function lbStage() { return document.querySelector('.lb-stage'); }
+
+  function lbDx(px) {
+    var st = lbStage();
+    if (st) st.style.setProperty('--lb-dx', px + 'px');
+  }
+
+  /* La photo glisse hors de l'écran, la suivante entre par l'autre bord. */
+  function lbGlisser(dir) {
+    var st = lbStage();
+    if (!st) { lbStep(dir); return; }
+    var w = st.clientWidth || window.innerWidth || 360;
+    var sortie = dir > 0 ? -w : w;     // dir > 0 = photo suivante (doigt vers la gauche)
+    st.classList.remove('lb-dragging');
+    st.classList.add('lb-slide');
+    lbDx(sortie);
+    setTimeout(function () {
+      lbStep(dir);                      // nouvelle photo dans les deux couches
+      st.classList.remove('lb-slide');  // placement instantané de l'autre côté
+      lbDx(-sortie);
+      void st.offsetWidth;              // force le recalcul avant l'animation
+      st.classList.add('lb-slide');
+      lbDx(0);
+      setTimeout(function () { st.classList.remove('lb-slide'); }, 220);
+    }, 185);
+  }
+
+  function lbRetour() {
+    var st = lbStage();
+    if (!st) return;
+    st.classList.remove('lb-dragging');
+    st.classList.add('lb-slide');
+    lbDx(0);
+    setTimeout(function () { st.classList.remove('lb-slide'); }, 190);
+  }
+
+  function lbCacherIndication() {
+    var h = $('lb-hint');
+    if (h) h.classList.add('off');
+    try { localStorage.setItem('mews-swipe-vu', '1'); } catch (e) { /* silencieux */ }
+  }
+
+  function initLightboxSwipe() {
+    var st = lbStage();
+    if (!st) return;
+    // L'indication de glissement ne s'affiche qu'une fois, au tout début.
+    try {
+      if (localStorage.getItem('mews-swipe-vu')) { var h = $('lb-hint'); if (h) h.classList.add('off'); }
+    } catch (e) { /* silencieux */ }
+
+    st.addEventListener('pointerdown', function (e) {
+      if (state.lbList.length < 2) return;
+      if (Date.now() - SWIPE.fini < 240) return;                 // glissement en cours
+      if (e.pointerType === 'mouse' && e.button !== 0) return;   // clic droit : rien
+      // Un bouton posé sur la photo (flèches, par exemple) garde son clic :
+      // on ne surveille le geste que sur l'image elle-même.
+      if (e.target && e.target.closest && e.target.closest('button, a')) return;
+      SWIPE.on = true; SWIPE.id = e.pointerId;
+      SWIPE.x0 = e.clientX; SWIPE.y0 = e.clientY;
+      SWIPE.dx = 0; SWIPE.axe = null; SWIPE.t0 = Date.now();
+    });
+
+    st.addEventListener('pointermove', function (e) {
+      if (!SWIPE.on || e.pointerId !== SWIPE.id) return;
+      var dx = e.clientX - SWIPE.x0;
+      var dy = e.clientY - SWIPE.y0;
+      if (!SWIPE.axe) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;        // geste pas encore décidé
+        SWIPE.axe = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (SWIPE.axe === 'y') { SWIPE.on = false; return; }      // geste vertical : on laisse
+        st.classList.add('lb-dragging');
+        // Le doigt peut sortir de la scène : on garde le geste. (La capture
+        // n'est demandée qu'une fois le geste horizontal confirmé, sinon elle
+        // détournerait le clic des boutons posés sur la photo.)
+        try { st.setPointerCapture(e.pointerId); } catch (err) { /* silencieux */ }
+      }
+      SWIPE.dx = dx;
+      // Résistance aux extrémités (on revient en boucle, mais le geste
+      // « tient » un peu : cela évite les sauts involontaires).
+      lbDx(dx);
+    });
+
+    function fin(e) {
+      if (!SWIPE.on || (e && e.pointerId !== SWIPE.id)) return;
+      SWIPE.on = false;
+      var st2 = lbStage();
+      if (st2) st2.classList.remove('lb-dragging');
+      var w = (st2 && st2.clientWidth) || window.innerWidth || 360;
+      var dir = lbSwipeDir(SWIPE.dx, Date.now() - SWIPE.t0, w);
+      if (SWIPE.axe === 'x' && dir !== 0) {
+        SWIPE.fini = Date.now();
+        lbCacherIndication();
+        lbGlisser(dir);            // vers la gauche (dx < 0) = photo suivante
+      } else if (SWIPE.axe === 'x') {
+        lbRetour();
+      }
+      SWIPE.axe = null;
+    }
+    st.addEventListener('pointerup', fin);
+    st.addEventListener('pointercancel', fin);
+    st.addEventListener('pointerleave', fin);
+  }
+
+  /* Décision : ce geste fait-il défiler la galerie ?
+     dx = déplacement horizontal (px), dt = durée (ms), w = largeur de l'écran.
+     Retourne 1 (photo suivante), -1 (photo précédente) ou 0 (on ne bouge pas).
+     Deux façons de valider : un geste ample (16 % de la largeur, au moins
+     46 px) ou une « chiquenaude » courte mais rapide. */
+  function lbSwipeDir(dx, dt, w) {
+    var seuil = Math.max(46, (w || 360) * 0.16);
+    var rapide = Math.abs(dx) > 28 && dt < 320;
+    if (Math.abs(dx) >= seuil || rapide) return dx < 0 ? 1 : -1;
+    return 0;
+  }
+
+  /* Le clic de fermeture ne doit pas se déclencher après un glissement. */
+  function lbClicIgnore() { return Date.now() - SWIPE.fini < 400; }
 
   /* --- Téléchargements --------------------------------------- */
   var downloading = false;
@@ -1353,7 +1481,11 @@
     $('lb-close').addEventListener('click', closeLightbox);
     $('lb-prev').addEventListener('click', function () { lbStep(-1); });
     $('lb-next').addEventListener('click', function () { lbStep(1); });
-    $('lb').addEventListener('click', function (e) { if (e.target === $('lb') || e.target === $('lb-img')) closeLightbox(); });
+    $('lb').addEventListener('click', function (e) {
+      if (lbClicIgnore()) return;   // on vient de faire glisser la photo
+      if (e.target === $('lb') || e.target === $('lb-img')) closeLightbox();
+    });
+    initLightboxSwipe();
     $('lb-dl').addEventListener('click', function () {
       var p = state.lbList[state.lbIndex];
       if (p) triggerDownload(p);
