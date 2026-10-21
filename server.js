@@ -1323,6 +1323,58 @@ app.get('/api/g/:slug/cover', async (req, res) => {
   res.end(t.buf);
 });
 
+/* --- Préchauffage mémoire ---------------------------------------------
+ * Une grande photo nette n'est JAMAIS demandée seule : le client ouvre la
+ * photo A, puis fait défiler vers B, C… Le temps perdu à chaque geste est
+ * l'attente que Google met à fabriquer la taille demandée (~0,2 s) plus le
+ * trajet jusqu'à Drive.
+ *
+ * Dès qu'une grande photo est servie, on prépare donc, EN MÉMOIRE seulement
+ * (aucun stockage, aucun octet de plus envoyé au client), la taille « plein
+ * écran » de ses deux voisines : glisser devient instantané.
+ *
+ * Garde-fous : 2 photos à la fois au maximum, jamais la même deux fois en
+ * 10 minutes, et rien au-delà de PRECHAUFFE_MAX octets dans le cache déjà
+ * en place (150 Mo). En cas d'échec, silence total.
+ * -------------------------------------------------------------------- */
+const PRECHAUFFE_MAX = 100 * 1024 * 1024;   // plafond des octets pré-chauffés
+let prechauffeBytes = 0;
+const prechauffeAt = new Map();             // clé -> date
+const prechauffeEnCours = new Set();
+
+function prechauffer(g, rec, size) {
+  if (!g || !rec || rec.storage !== 'drive') return;
+  if (size < 900) return;                    // seules les grandes vues comptent
+  const i = g.files.findIndex((f) => f.id === rec.id);
+  if (i < 0) return;
+  const cibles = [1, -1, 2]
+    .map((d) => g.files[(i + d + g.files.length) % g.files.length])
+    .filter((f) => f && f.id !== rec.id && f.thumb);
+  for (const c of cibles) {
+    const cle = c.id + ':t' + size;
+    if (prechauffeAt.has(cle)) continue;
+    if (prechauffeEnCours.has(cle)) continue;
+    if (prechauffeEnCours.size >= 2) break;
+    if (prechauffeBytes >= PRECHAUFFE_MAX) break;
+    prechauffeEnCours.add(cle);
+    prechauffeAt.set(cle, Date.now());
+    thumbBytes(c, size)
+      .then((t) => {
+        if (t && t.ok && t.buf) {
+          prechauffeBytes += t.buf.length;
+          prechauffeAt.set(cle, Date.now());
+        }
+      })
+      .catch(() => { /* pré-chauffage : jamais d'erreur visible */ })
+      .then(() => { prechauffeEnCours.delete(cle); });
+  }
+  // Oubli des traces anciennes (le cache mémoire, lui, s'auto-nettoie).
+  if (prechauffeAt.size > 400) {
+    const trop = Date.now() - 10 * 60 * 1000;
+    for (const [k, v] of prechauffeAt) if (v < trop) prechauffeAt.delete(k);
+  }
+}
+
 app.get('/api/g/:slug/photo/:fid/thumb', async (req, res) => {
   const g = findGallery(req.params.slug);
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
@@ -1335,6 +1387,7 @@ app.get('/api/g/:slug/photo/:fid/thumb', async (req, res) => {
 
   if (rec.storage === 'drive') {
     const size = Math.min(Math.max(parseInt(req.query.size || '400', 10) || 400, 80), 2000);
+    res.on('finish', () => prechauffer(g, rec, size));
     return sendDriveThumb(res, rec, size);
   }
   const p = demoFilePath(g, rec);
