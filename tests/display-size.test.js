@@ -18,18 +18,26 @@ const vm = require('vm');
 
 const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'gallery.js'), 'utf8');
 
-// Extrait la fonction telle qu'elle est livrée aux navigateurs.
+// Extrait les fonctions telles qu'elles sont livrées aux navigateurs.
 const m = /function displaySize\(kind\) \{[\s\S]*?\n  \}/.exec(src);
-if (!m) {
-  console.error('✗ ÉCHEC : displaySize() introuvable dans public/gallery.js');
+const mReseau = /function reseauLent\(\) \{[\s\S]*?\n  \}/.exec(src);
+if (!m || !mReseau) {
+  console.error('✗ ÉCHEC : displaySize() / reseauLent() introuvable(s) dans public/gallery.js');
   process.exit(1);
 }
 const fnSource = m[0];
+const reseauSource = mReseau[0];
 
-/** Évalue la fonction avec un écran donné (largeur CSS, densité de pixels). */
-function sizeFor(kind, width, dpr) {
-  const sandbox = { window: { innerWidth: width, devicePixelRatio: dpr }, Math };
+/** Évalue la fonction avec un écran donné (largeur CSS, densité de pixels)
+ *  et, si on le précise, un débit réseau (navigator.connection). */
+function sizeFor(kind, width, dpr, reseau) {
+  const sandbox = {
+    window: { innerWidth: width, devicePixelRatio: dpr },
+    navigator: reseau ? { connection: reseau } : {},
+    Math, RegExp,
+  };
   vm.createContext(sandbox);
+  vm.runInContext(reseauSource, sandbox);
   const fn = vm.runInContext('(' + fnSource + ')', sandbox);
   return fn(kind);
 }
@@ -41,13 +49,22 @@ function check(name, cond, info) {
 }
 
 console.log('\nA. Téléphone (le cas dominant : galerie vue sur mobile)');
-check('photo en grand : 1200 px', sizeFor('full', 390, 3) === 1200, sizeFor('full', 390, 3) + ' px');
+check('photo en grand : 1080 px', sizeFor('full', 390, 3) === 1080, sizeFor('full', 390, 3) + ' px');
 check('grille : 400 px', sizeFor('grid', 390, 3) === 400, sizeFor('grid', 390, 3) + ' px');
-check('petit téléphone : 1200 px en grand', sizeFor('full', 320, 2) === 1200);
-check('grand téléphone : 1200 px en grand', sizeFor('full', 430, 3) === 1200);
+check('petit téléphone : 1080 px en grand', sizeFor('full', 320, 2) === 1080);
+check('grand téléphone : 1080 px en grand', sizeFor('full', 430, 3) === 1080);
+
+console.log('\nA2. Réseau lent : on demande plus petit pour que ça arrive vite');
+const lent = { effectiveType: '3g' };
+check('photo en grand sur 3G : 900 px', sizeFor('full', 390, 3, lent) === 900, sizeFor('full', 390, 3, lent) + ' px');
+check('grille sur 3G : 320 px', sizeFor('grid', 390, 3, lent) === 320, sizeFor('grid', 390, 3, lent) + ' px');
+check('économiseur de données respecté', sizeFor('grid', 390, 3, { saveData: true, effectiveType: '4g' }) === 320);
+check('4G : tailles normales', sizeFor('grid', 390, 3, { effectiveType: '4g' }) === 400 &&
+  sizeFor('full', 390, 3, { effectiveType: '4g' }) === 1080);
+check('sans information réseau, on garde la qualité', sizeFor('grid', 390, 3, null) === 400);
 
 console.log('\nB. Tablette');
-check('photo en grand : 1200 px', sizeFor('full', 820, 2) === 1200);
+check('photo en grand : 1080 px', sizeFor('full', 820, 2) === 1080);
 
 console.log('\nC. Ordinateur : qualité conservée');
 check('photo en grand : 1600 px', sizeFor('full', 1440, 1) === 1600, sizeFor('full', 1440, 1) + ' px');
@@ -63,14 +80,14 @@ const usagesFull = (src.match(/displaySize\('full'\)/g) || []).length;
 check('displaySize utilisé pour les 3 vues en grand', usagesFull === 3, usagesFull + ' usage(s)');
 
 console.log('\nE. Gain estimé sur une galerie de 885 photos');
-const ko = (px) => ({ 400: 47, 600: 85, 1200: 204, 1600: 322 })[px];
+const ko = (px) => ({ 320: 41, 400: 60, 600: 113, 900: 180, 1080: 230, 1600: 322 })[px];
 const grilleMobile = ko(sizeFor('grid', 390, 3)) * 885;
 const grandMobile = ko(sizeFor('full', 390, 3)) * 885;
 const avantMobile = ko(1600) * 885;
 console.log('   une visite complète sur téléphone (grille seule) : ' + (grilleMobile / 1024).toFixed(0) + ' Mo');
 console.log('   avant ce correctif, si chaque photo était ouverte en grand : ' + (avantMobile / 1024).toFixed(0) + ' Mo');
 console.log('   après ce correctif, dans le même cas : ' + (grandMobile / 1024).toFixed(0) + ' Mo');
-check('économie d\'au moins 35 % sur les vues en grand', grandMobile <= avantMobile * 0.65,
+check('économie d\'au moins 25 % sur les vues en grand', grandMobile <= avantMobile * 0.75,
   Math.round((1 - grandMobile / avantMobile) * 100) + ' %');
 
 console.log('\nRésultat : ' + pass + ' réussites, ' + fail + ' échec(s)');

@@ -270,18 +270,32 @@
    * Une photo de 1600 px s'affiche sur un téléphone (~390 px de large)
    * sans aucun bénéfice visible : 1200 px y est déjà plus que suffisant.
    * Sur ordinateur, on conserve 1600 px (grands écrans, zoom). */
+  /* Le débit réel du client : sur un réseau lent (3G ou « économiseur de
+     données »), on demande des images plus petites pour qu'elles arrivent
+     VITE. Mesures sur une photo réelle : 320 px = 41 Ko, 400 = 60 Ko,
+     600 = 113 Ko, 1080 = 230 Ko, 1200 = 271 Ko. */
+  function reseauLent() {
+    var c = navigator.connection;
+    if (!c) return false;
+    if (c.saveData) return true;
+    return /^(slow-2g|2g|3g)$/.test(c.effectiveType || '');
+  }
+
   function displaySize(kind) {
     var w = window.innerWidth || 1024;
     var dpr = window.devicePixelRatio || 1;
     if (kind === 'full') {
-      if (w < 900) return 1200;              // téléphone / petite tablette
-      return dpr >= 2 ? 1600 : 1600;         // ordinateur : qualité conservée
+      // Téléphone : la photo est affichée sur ~400 px de large ; 1080 px de
+      // côté image suffit même sur un écran dense (et pèse 40 Ko de moins
+      // qu'un 1200 px). Sur réseau lent, on descend encore : 900 px.
+      if (w < 900) return reseauLent() ? 900 : 1080;
+      return 1600;                           // ordinateur : qualité conservée
     }
     // Grille : tuile d'environ 260 px sur ordinateur, ~177 px sur téléphone
     // (colonnes de 140 px minimum). 400 px suffit pour une tuile de cette
     // taille, même sur un écran dense : 600 px n'apportait rien de visible
     // et coûtait 45 % de plus (85 Ko contre 47 Ko par photo).
-    if (w < 900) return 400;
+    if (w < 900) return reseauLent() ? 320 : 400;
     return dpr >= 2 ? 600 : 400;
   }
 
@@ -662,14 +676,21 @@
       return;
     }
 
-    vis.forEach(function (p) {
+    /* Une tuile. `rang` sert à prioriser la première rangée (elle doit
+       s'afficher tout de suite, le reste peut attendre le défilement). */
+    var GRID_TAILLE = displaySize('grid');
+    function creerTuile(p, rang) {
       var tile = document.createElement('figure');
       tile.className = 'g-item' + (state.selected.has(p.id) ? ' selected' : '');
       tile.dataset.id = p.id;
 
       var img = document.createElement('img');
-      img.src = photoUrl(p, 'thumb');
-      img.loading = 'lazy';
+      /* La taille demandée manquait ici : la tuile réclamait l'original
+         (283 Ko pour une vignette de 177 px au lieu de 60 Ko). */
+      img.src = photoUrl(p, 'thumb') + '?size=' + GRID_TAILLE;
+      img.loading = rang < 8 ? 'eager' : 'lazy';
+      if (rang < 8) { try { img.fetchPriority = 'high'; } catch (e) { /* */ } }
+      img.decoding = 'async';
       img.alt = p.name;
       tile.appendChild(img);
 
@@ -755,7 +776,25 @@
       });
 
       grid.appendChild(tile);
-    });
+    }
+
+    /* Construction par tranches de ~14 ms : sur une galerie de 1 200 photos,
+       créer les 1 200 tuiles d'un coup figeait le téléphone plusieurs
+       secondes. Ici la première rangée apparaît immédiatement et le reste se
+       complète sans que la page ne se bloque. */
+    var rang = 0;
+    function tranche() {
+      var fin = Date.now() + 14;
+      while (rang < vis.length && Date.now() < fin) {
+        creerTuile(vis[rang], rang);
+        rang += 1;
+      }
+      if (rang < vis.length) {
+        if (window.requestAnimationFrame) window.requestAnimationFrame(tranche);
+        else setTimeout(tranche, 16);
+      }
+    }
+    tranche();
   }
 
   /* --- Mode albums -------------------------------------------- */
@@ -1211,6 +1250,10 @@
   function setLoadPct(pct) {
     var el = $('lb-pct');
     var bar = $('lb-loadbar');
+    var lb = $('lb');
+    // Pendant le chargement, la place est au pourcentage : l'indication de
+    // glissement s'efface (elle revient avec la photo nette).
+    if (lb) lb.classList.add('pct-on');
     if (pct === null) {
       if (el) { el.textContent = 'Chargement…'; el.classList.add('on'); }
       if (bar) bar.style.width = '';
@@ -1220,68 +1263,11 @@
     if (bar) bar.style.width = pct + '%';
   }
 
-  /* La photo ne remplit pas toujours la scène (bandes noires en haut et en bas
-     sur un téléphone) : la pastille se cale sur le bord HAUT DE LA PHOTO, pas
-     sur celui de la scène. On mesure l'élément image : sa boîte épouse le
-     rapport de la photo (largeur/hauteur automatiques). */
-  function placeLoadPct() {
-    var el = $('lb-pct');
-    var st = document.querySelector('.lb-stage');
-    if (!el || !st) return;
-    var img = $('lb-img');
-    var pre = $('lb-pre');
-    /* La boîte de l'image remplit la scène (object-fit: contain) : la photo
-       peinte peut être plus courte, centrée verticalement. On reconstituе la
-       zone réellement peinte à partir du rapport de la photo. */
-    var ref = (img && img.naturalWidth) ? img : pre;
-    if (!ref || !ref.getBoundingClientRect) return;
-    var r = ref.getBoundingClientRect();
-    var s = st.getBoundingClientRect();
-    if (!r.height) return;
-    var zoneH = r.height;
-    if (ref.naturalWidth && ref.naturalHeight) {
-      var ratio = ref.naturalHeight / ref.naturalWidth;
-      zoneH = Math.min(r.height, r.width * ratio);
-    }
-    // Bord haut de la photo réellement peinte, exprimé dans la scène.
-    var hautPhoto = r.top - s.top + (r.height - zoneH) / 2;
-    // La pastille se pose SUR LE HAUT DE LA PHOTO, à 14 px de son bord :
-    // c'est le pendant exact de la version du bas (bottom: 14px). Elle est
-    // donc visible dès la vignette, juste avant que la photo nette n'arrive.
-    var top = Math.round(hautPhoto) + 14;
-    if (top < 8) top = 8;
-    el.style.top = top + 'px';
-  }
-
-  /* La scène et l'image changent de taille (rotation, barre d'adresse du
-     téléphone, photo portrait/paysage) : on replace la pastille à chaque
-     changement plutôt qu'une seule fois au chargement. */
-  var pctObserver = null;
-  function watchPct() {
-    if (pctObserver || typeof ResizeObserver === 'undefined') return;
-    var st = document.querySelector('.lb-stage');
-    var img = $('lb-img');
-    pctObserver = new ResizeObserver(function () { placeLoadPct(); });
-    if (st) pctObserver.observe(st);
-    if (img) pctObserver.observe(img);
-  }
-
-  /* Replace la pastille maintenant, puis pendant que la mise en page se pose :
-     la visionneuse continue de bouger les premières secondes (photo qui
-     arrive, barre du navigateur, clavier). Un dernier passage à 1,6 s garantit
-     un placement juste une fois tout stabilisé. */
-  var pctTimers = [];
-  function schedulePct() {
-    placeLoadPct();
-    pctTimers.forEach(clearTimeout);
-    pctTimers = [0, 60, 140, 240, 400, 700, 1100, 1600].map(function (ms) {
-      return setTimeout(placeLoadPct, ms);
-    });
-  }
-
   function clearLoadPct() {
     var el = $('lb-pct');
     var bar = $('lb-loadbar');
+    var lb = $('lb');
+    if (lb) lb.classList.remove('pct-on');
     if (el) { el.classList.remove('on'); el.textContent = ''; }
     if (bar) bar.style.width = '0%';
   }
@@ -1363,11 +1349,9 @@
     lb.classList.add('loading');
     lb.classList.remove('lb-ready', 'lb-indet');
     clearLoadPct();
-    pre.onload = function () { if (token === fullToken) schedulePct(); };
     pre.src = photoUrl(p, 'thumb');
     img.onload = function () {
       if (token !== fullToken) return;      // photo déjà quittée (glissement rapide)
-      schedulePct();
       lb.classList.remove('loading', 'lb-indet');
       lb.classList.add('lb-ready');
       clearLoadPct();
@@ -1379,7 +1363,6 @@
       clearLoadPct();
     };
     loadFullPhoto(img, photoUrl(p, 'thumb') + '?size=' + displaySize('full'));
-    schedulePct();
     preloadNeighbors();
 
     /* Bouton album dans la visionneuse (mode albums) */
@@ -1718,9 +1701,6 @@
       if (e.target === $('lb') || e.target === $('lb-img')) closeLightbox();
     });
     initLightboxSwipe();
-    watchPct();
-    window.addEventListener('resize', function () { placeLoadPct(); });
-    window.addEventListener('orientationchange', function () { setTimeout(placeLoadPct, 250); });
     $('lb-dl').addEventListener('click', function () {
       var p = state.lbList[state.lbIndex];
       if (p) triggerDownload(p);

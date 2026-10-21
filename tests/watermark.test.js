@@ -82,54 +82,24 @@ check('l’écartement des lignes du filigrane est resserré sur téléphone',
 check('le filigrane reste au centre de la photo',
   /\.wm \{[^}]*top: 50%/.test(css) && /\.wm \{[^}]*transform: translate\(-50%, -50%\)/.test(css));
 
-console.log('\nB. Pourcentage : en haut de la photo');
-check('la pastille est ancrée en haut (position calculée ensuite par le script)',
-  /\.lb-pct \{[^}]*top: 16px/.test(html));
-check('elle n’est plus ancrée en bas', !/\.lb-pct \{[^}]*bottom:/.test(html));
-check('elle est centrée horizontalement', /\.lb-pct \{[^}]*left: 50%/.test(html) && /\.lb-pct \{[^}]*translateX\(-50%\)/.test(html));
-check('le placement tient compte du rapport de la photo (bandes noires)',
-  /function placeLoadPct\(\)/.test(js) && /naturalHeight \/ ref\.naturalWidth/.test(js));
-check('la pastille est replacée à chaque photo affichée',
-  /pre\.onload = function \(\) \{ if \(token === fullToken\) schedulePct\(\); \}/.test(js));
-check('elle est replacée quand la photo nette arrive',
-  /img\.onload = function \(\) \{\s*if \(token !== fullToken\) return;[\s\S]{0,300}schedulePct\(\)/.test(js));
-check('elle suit la rotation du téléphone', /orientationchange/.test(js) && /resize/.test(js));
-check('posée sur le haut de la photo', /var top = Math.round\(hautPhoto\) \+ 14;/.test(js));
-check('jamais hors de l’écran', /if \(top < 8\) top = 8;/.test(js));
-check('aucune bande ajoutée à la visionneuse (la photo garde toute la place)',
-  /padding: 0 60px 20px;/.test(html) && !/padding: 3[0-9]px 60px/.test(html));
-check('replacée à chaque changement de taille (rotation, photo portrait/paysage)',
-  /ResizeObserver/.test(js) && /function watchPct\(\)/.test(js));
-check('elle ne capte pas le doigt', /\.lb-pct \{[^}]*pointer-events: none/.test(html));
+console.log('\nB. Pourcentage : dans la barre du haut, au-dessus de la photo');
+check('la pastille est dans la barre du haut de la visionneuse',
+  /<div class="lb-top">[\s\S]{0,400}id="lb-pct"/.test(html));
+check('elle n’est plus posée sur la photo',
+  !/<div class="lb-loadbar" id="lb-loadbar"><\/div>\s*<div class="lb-pct"/.test(html));
+check('elle suit le numéro de la photo', /<span class="lb-count" id="lb-count"><\/span>\s*<span class="lb-pct"/.test(html));
+check('elle se cache par défaut', /\.lb-pct \{[^}]*display: none/.test(html));
+check('elle redevient visible quand elle a un contenu', /\.lb-pct\.on \{ display: inline-block; \}/.test(html));
+check('aucun positionnement sur la photo n’est plus calculé',
+  !/function placeLoadPct/.test(js) && !/schedulePct/.test(js));
+check('elle ne capte aucun clic ni geste', /\.lb-pct \{[^}]*pointer-events: none/.test(html));
+check('la barre fine de progression reste sur la photo, pilotée par le pourcentage',
+  /\.lb-loadbar \{[^}]*width: 0;/.test(html) && /#lb\.lb-indet \.lb-loadbar \{ animation/.test(html));
 
-console.log('\nC. Placement : sur le haut de la photo, comme la version du bas');
-/* Reproduction de la formule livrée : bord haut de la photo peinte + 14 px —
-   exactement le pendant du « bottom: 14px » d'avant. */
-function placePct(boite, natif, sceneTop) {
-  const zoneH = natif.h && natif.w ? Math.min(boite.h, boite.w * (natif.h / natif.w)) : boite.h;
-  const hautPhoto = boite.top - sceneTop + (boite.h - zoneH) / 2;
-  let top = Math.round(hautPhoto) + 14;
-  if (top < 8) top = 8;
-  return { top, hautPhoto };
-}
-// Téléphone, mesure réelle : scène de 632 px, photo paysage peinte sur 262 px
-// (185 px de bande noire au-dessus et en dessous).
-{
-  const r = placePct({ top: 0, h: 632, w: 390 }, { w: 390, h: 262 }, 0);
-  check('téléphone : la pastille se pose sur la photo',
-    r.top > Math.round(r.hautPhoto), `pastille à ${r.top} px, photo à ${Math.round(r.hautPhoto)} px`);
-  check('téléphone : 14 px sous le bord haut de la photo',
-    r.top - Math.round(r.hautPhoto) === 14, (r.top - Math.round(r.hautPhoto)) + ' px');
-  check('téléphone : pastille entièrement dans la zone peinte (photo de 262 px)',
-    r.top + 35 <= 262 + Math.round(r.hautPhoto), 'bas de pastille ' + (r.top + 35) + ' px');
-}
-// Ordinateur : la photo occupe toute la hauteur
-{
-  const r = placePct({ top: 0, h: 752, w: 1120 }, { w: 1120, h: 747 }, 0);
-  check('ordinateur : 14 px sous le bord haut de la photo',
-    r.top - Math.round(r.hautPhoto) === 14, (r.top - Math.round(r.hautPhoto)) + ' px');
-  check('ordinateur : même règle que sur téléphone (un seul calcul)', r.top === 17, r.top + ' px');
-}
+console.log('\nC. Aucune place retirée à la photo');
+check('la scène garde toute la hauteur (aucune bande réservée)',
+  /padding: 0 60px 20px;/.test(html) && !/padding: 3[0-9]px 60px/.test(html));
+check('sur téléphone non plus', /padding: 0 14px 14px;/.test(html));
 
 console.log('\nD. Texte d’accueil : police lisible, nom du studio jamais coupé');
 /* Le style de la couverture est dans gallery.html (bloc <style>), pas dans

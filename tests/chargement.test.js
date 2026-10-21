@@ -174,10 +174,12 @@ function tick(ms = 0) { return new Promise((r) => setTimeout(r, ms)); }
   console.log('\nG. Présence à l’écran');
   check('la pastille existe dans la page', /id="lb-pct"/.test(html));
   check('la pastille se cache par défaut', /\.lb-pct \{[^}]*display: none/.test(html));
-  check('elle redevient visible quand elle a un contenu', /\.lb-pct\.on \{ display: block; \}/.test(html));
+  check('elle redevient visible quand elle a un contenu', /\.lb-pct\.on \{ display: inline-block; \}/.test(html));
   check('la barre démarre à zéro (plus d’animation perpétuelle par défaut)',
     /\.lb-loadbar \{[^}]*width: 0;/.test(html) && /#lb\.lb-indet \.lb-loadbar \{ animation/.test(html));
   check('la pastille est au-dessus de la photo, sans bloquer le doigt', /\.lb-pct \{[^}]*pointer-events: none/.test(html));
+check('elle est dans la barre du haut de la visionneuse', /<div class="lb-top">[\s\S]{0,300}id="lb-pct"/.test(html));
+check('l’indication de glissement s’efface pendant le chargement', /#lb\.pct-on \.lb-hint \{ display: none; \}/.test(html));
 
   console.log('\nRésultat : ' + pass + ' réussites, ' + fail + ' échec(s)');
   process.exit(fail ? 1 : 0);
