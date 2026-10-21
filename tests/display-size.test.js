@@ -77,7 +77,10 @@ const fixes = (src.match(/\?size=1600|\?size=600/g) || []);
 check('plus aucune taille codée en dur', fixes.length === 0, fixes.length + ' occurrence(s)');
 check('displaySize utilisé pour la grille', /displaySize\('grid'\)/.test(src));
 const usagesFull = (src.match(/displaySize\('full'\)/g) || []).length;
-check('displaySize utilisé pour les 3 vues en grand', usagesFull === 3, usagesFull + ' usage(s)');
+check('displaySize utilisé partout où une grande photo est demandée (au moins 3)',
+  usagesFull >= 3, usagesFull + ' usage(s)');
+const usagesGrid = (src.match(/displaySize\('grid'\)/g) || []).length;
+check('aucune vignette demandée sans taille', usagesGrid >= 3, usagesGrid + ' usage(s)');
 
 console.log('\nE. Gain estimé sur une galerie de 885 photos');
 const ko = (px) => ({ 320: 41, 400: 60, 600: 113, 900: 180, 1080: 230, 1600: 322 })[px];

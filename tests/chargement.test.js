@@ -171,7 +171,19 @@ function tick(ms = 0) { return new Promise((r) => setTimeout(r, ms)); }
     check('les images sorties de la mémoire sont libérées', env.calls.revoques.length >= 3, env.calls.revoques.length + ' libérée(s)');
   }
 
-  console.log('\nG. Présence à l’écran');
+  console.log('\nF2. Passage vignette → photo : instantané');
+check('l’aperçu de la visionneuse réutilise l’image de la grille (même taille)',
+  /pre\.src = photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('grid'\);/.test(js));
+check('la tuile de la grille demande la même taille', /img\.src = photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('grid'\);/.test(js));
+check('les photos voisines sont préparées en mémoire (pas seulement en cache HTTP)',
+  /function prefetchFull\(url\)/.test(js) && /preloadNeighbors\(\)? \{[\s\S]{0,600}prefetchFull\(/.test(js));
+check('un préchargement en double est évité', /if \(!url \|\| FULL_CACHE\[url\] \|\| prefetchEnCours\[url\]\) return;/.test(js));
+check('les deux premières photos sont préparées pendant que le client regarde la grille',
+  /requestIdleCallback\(prechargerDebut/.test(js) && /vis\.slice\(0, 2\)/.test(js));
+check('ce préchargement reste silencieux en cas d’échec',
+  /catch\(function \(\) \{ \/\* silencieux : ce n'était qu'une avance \*\/ \}\)/.test(js));
+
+console.log('\nG. Présence à l’écran');
   check('la pastille existe dans la page', /id="lb-pct"/.test(html));
   check('la pastille se cache par défaut', /\.lb-pct \{[^}]*display: none/.test(html));
   check('elle redevient visible quand elle a un contenu', /\.lb-pct\.on \{ display: inline-block; \}/.test(html));

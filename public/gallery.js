@@ -778,6 +778,18 @@
       grid.appendChild(tile);
     }
 
+    /* Les deux premières photos en grand, téléchargées en douce pendant que
+       le client regarde la grille : ouvrir la première photo devient alors
+       instantané (c'est le geste le plus fréquent). Deux images seulement,
+       pour ne pas gaspiller la bande passante. */
+    var prechargerDebut = function () {
+      vis.slice(0, 2).forEach(function (q) {
+        prefetchFull(photoUrl(q, 'thumb') + '?size=' + displaySize('full'));
+      });
+    };
+    if (window.requestIdleCallback) window.requestIdleCallback(prechargerDebut, { timeout: 3000 });
+    else setTimeout(prechargerDebut, 1500);
+
     /* Construction par tranches de ~14 ms : sur une galerie de 1 200 photos,
        créer les 1 200 tuiles d'un coup figeait le téléphone plusieurs
        secondes. Ici la première rangée apparaît immédiatement et le reste se
@@ -1349,7 +1361,10 @@
     lb.classList.add('loading');
     lb.classList.remove('lb-ready', 'lb-indet');
     clearLoadPct();
-    pre.src = photoUrl(p, 'thumb');
+    /* Même adresse que la tuile de la grille (même taille) : l'aperçu est donc
+       déjà dans le cache du navigateur et s'affiche INSTANTANÉMENT. Avant, il
+       repartait en téléchargement (une requête Drive de plus, ~1 s). */
+    pre.src = photoUrl(p, 'thumb') + '?size=' + displaySize('grid');
     img.onload = function () {
       if (token !== fullToken) return;      // photo déjà quittée (glissement rapide)
       lb.classList.remove('loading', 'lb-indet');
@@ -1402,9 +1417,27 @@
       var q = state.lbList[(i + n) % n];
       if (!q || seen[q.id]) return;
       seen[q.id] = 1;
-      var im = new Image();
-      im.src = photoUrl(q, 'thumb') + '?size=' + displaySize('full');
+      prefetchFull(photoUrl(q, 'thumb') + '?size=' + displaySize('full'));
     });
+  }
+
+  /* Télécharge une photo en arrière-plan et la garde en mémoire : quand le
+     client glissera dessus, elle s'affiche aussitôt, sans réseau. */
+  var prefetchEnCours = Object.create(null);
+  function prefetchFull(url) {
+    if (!url || FULL_CACHE[url] || prefetchEnCours[url]) return;
+    prefetchEnCours[url] = 1;
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('http ' + res.status);
+        return res.blob();
+      })
+      .then(function (blob) {
+        if (!blob || !blob.size) return;
+        fullCachePut(url, URL.createObjectURL(blob));
+      })
+      .catch(function () { /* silencieux : ce n'était qu'une avance */ })
+      .then(function () { delete prefetchEnCours[url]; });
   }
   function lbStep(dir) {
     var n = state.lbList.length;
