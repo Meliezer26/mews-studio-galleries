@@ -206,6 +206,11 @@ check('la taille demandée à Google suit l’écran', /replace\(\/=s\\d\+\/, '=
 check('repli automatique sur notre serveur si Google échoue',
   /img\.src = essai === 0 && direct \? direct : secours \+ '&r=' \+ \(essai \+ 1\);/.test(js));
 
+check('la grande photo vient aussi de Google quand c’est possible',
+  /var directFull = p\.t \? String\(p\.t\)\.replace/.test(js) && /img\.src = directFull;/.test(js));
+check('repli sur notre serveur si la grande photo Google échoue',
+  /if \(!img\.dataset\.replis && img\.dataset\.direct\)/.test(js));
+
 console.log('\nG. Présence à l’écran');
   check('la pastille existe dans la page', /id="lb-pct"/.test(html));
   check('la pastille se cache par défaut', /\.lb-pct \{[^}]*display: none/.test(html));
