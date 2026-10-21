@@ -128,6 +128,15 @@
     var bg = $('lock-cover-bg');
     var img = new Image();
     img.onload = function () { bg.classList.add('ready'); };
+    // Couverture indisponible (photo retirée du dossier Drive, aperçu
+    // impossible) : on revient à l'écran de verrouillage classique plutôt
+    // que d'afficher un cadre noir.
+    img.onerror = function () {
+      $('lock-cover').classList.remove('on');
+      var card = $('lock').querySelector('.lock-card');
+      if (card) card.classList.remove('hidden');
+      setTimeout(function () { $('lock-pass').focus(); }, 60);
+    };
     img.src = '/api/g/' + slug + '/cover?size=' + coverSize();
     bg.style.backgroundImage = "url('" + img.src + "')";
   }

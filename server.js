@@ -28,6 +28,17 @@ const demo = require('./lib/demo');
 const sec = require('./lib/security');
 const mailer = require('./lib/mailer');
 const backup = require('./lib/backup');
+/* Filet de sécurité : aucune erreur asynchrone ne doit arrêter le site.
+ * Le 21/10/2026, des redémarrages inexpliqués ont coupé le service et fait
+ * perdre un choix de couverture fait quelques minutes plus tôt. On
+ * journalise bruyamment, mais le service reste en ligne. */
+process.on('unhandledRejection', (e) => {
+  console.warn('[processus] promesse rejetée non gérée :', (e && e.message) || e);
+});
+process.on('uncaughtException', (e) => {
+  console.error('[processus] exception non rattrapée :', (e && e.stack) || e);
+});
+
 const healthcheck = require('./lib/healthcheck');
 const bandwidthGuard = require('./lib/bandwidth-guard');
 const cover = require('./lib/cover');
@@ -1083,7 +1094,7 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
 
 /* --- Proxys photo (vignette / téléchargement) --------------- */
 
-async function sendDriveThumb(res, rec, size) {
+async function sendDriveThumb(res, rec, size, opts = {}) {
   // Les photos ne changent jamais (id Drive stable) → cache navigateur 7 jours.
   const key = rec.id + ':t' + size;
   try {
@@ -1102,6 +1113,11 @@ async function sendDriveThumb(res, rec, size) {
     res.setHeader('Cache-Control', 'public, max-age=604800');
     res.end(buf);
   } catch {
+    // Couverture : il faut une VRAIE photo. Ni cartouche d'attente, ni
+    // original de plusieurs mégaoctets (cela faisait ramer la page d'accueil
+    // et gonflait la mémoire de l'instance). 404 → le client revient
+    // simplement à l'écran de verrouillage classique.
+    if (opts.coverOnly) return res.status(404).end();
     // Pas de vignette disponible (format sans aperçu, ex. RAW).
     // Pour ne pas gaspiller la bande passante, on ne proxifie l'original
     // QUE s'il est léger ; sinon on affiche un cartouche d'attente et le
@@ -1165,7 +1181,7 @@ app.get('/api/g/:slug/cover', async (req, res) => {
   const asked = parseInt(req.query.size || '0', 10);
   const size = asked ? Math.min(Math.max(asked, 320), 2000) : undefined;
   res.setHeader('Cache-Control', 'public, max-age=604800');
-  if (rec.storage === 'drive') return sendDriveThumb(res, rec, size || 1600);
+  if (rec.storage === 'drive') return sendDriveThumb(res, rec, size || 1600, { coverOnly: true });
   const p = demoFilePath(g, rec);
   if (!p) return res.status(404).end();
   res.sendFile(p);
@@ -2126,7 +2142,7 @@ app.get('/api/admin/galleries/:id', requireAdmin, async (req, res) => {
 
 /* Choisir la photo de couverture (celle vue avant le mot de passe).
  * fileId vide = revenir à l'écran de verrouillage classique. */
-app.post('/api/admin/galleries/:id/cover', requireAdmin, (req, res) => {
+app.post('/api/admin/galleries/:id/cover', requireAdmin, async (req, res) => {
   const fileId = String((req.body && req.body.fileId) || '').trim();
   let problem = null;
   // Écriture atomique : on relit l'état frais, on modifie, on réécrit.
@@ -2141,7 +2157,18 @@ app.post('/api/admin/galleries/:id/cover', requireAdmin, (req, res) => {
   });
   if (problem === 'introuvable') return res.status(404).json({ error: 'Galerie introuvable.' });
   if (problem === 'photo') return res.status(400).json({ error: 'Cette photo n\u2019appartient pas à la galerie.' });
-  res.json({ ok: true, coverId: fileId || null, total: all.length });
+  // Le disque de Render est effacé à chaque redémarrage : sans sauvegarde
+  // immédiate en ligne, un redémarrage survenu dans les minutes suivantes
+  // annulait le choix (incident du 21/10/2026 — deux couvertures perdues).
+  // On force donc l'écriture tout de suite et on rend compte du résultat.
+  let saved = false;
+  try {
+    const r = await backup.now();
+    saved = !!(r && r.ok);
+  } catch (e) {
+    console.warn('[cover] sauvegarde immédiate impossible :', e.message);
+  }
+  res.json({ ok: true, coverId: fileId || null, total: all.length, saved });
 });
 
 app.post('/api/admin/galleries/:id/update', requireAdmin, (req, res) => {

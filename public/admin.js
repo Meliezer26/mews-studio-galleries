@@ -738,8 +738,12 @@
      C'est la SEULE image visible sans mot de passe. */
   function setCover(g, fileId) {
     window.api('/api/admin/galleries/' + g.id + '/cover', { method: 'POST', body: { fileId: fileId || '' } })
-      .then(function () {
-        window.toast(fileId ? 'Couverture enregistrée ✓' : 'Couverture retirée', 'ok');
+      .then(function (r) {
+        var enLigne = r && r.saved;
+        window.toast(
+          (fileId ? 'Couverture enregistrée' : 'Couverture retirée') +
+            (enLigne ? ' et sauvegardée en ligne ✓' : ' (sauvegarde en ligne au prochain cycle)'),
+          enLigne ? 'ok' : 'warn');
         loadPhotosGrid(g.id);
         if (window.loadGalleries) window.loadGalleries();
       })
