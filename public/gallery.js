@@ -152,24 +152,54 @@
       petit.src = urlPetit;
     }
 
-    // 2) la vraie image, en fondu par-dessus
+    // 2) la vraie image, en fondu par-dessus. Plusieurs tailles sont tentées :
+    // une vignette Google peut échouer à une taille et pas à une autre.
+    var essais = coverFallbacks(urlGrand);
+    var i = 0;
     var img = new Image();
     img.onload = function () {
-      bg.style.backgroundImage = "url('" + urlGrand + "')";
+      bg.style.backgroundImage = "url('" + img.src + "')";
       bg.classList.add('ready', 'fini');
       bg.classList.remove('apercu');
     };
-    // Couverture indisponible (photo retirée du dossier Drive, aperçu
-    // impossible) : on revient à l'écran de verrouillage classique plutôt
-    // que d'afficher un cadre noir.
     img.onerror = function () {
-      if (bg.classList.contains('apercu') || bg.classList.contains('fini')) return;   // l'aperçu suffit
-      $('lock-cover').classList.remove('on');
-      if (card) { card.classList.remove('hidden'); card.style.display = ''; }
-      setTimeout(function () { $('lock-pass').focus(); }, 60);
+      if (bg.classList.contains('fini')) return;
+      i += 1;
+      if (i < essais.length) { img.src = essais[i]; return; }
+      // Aucune taille n'a répondu : la photo n'est pas disponible (retirée du
+      // dossier, lien expiré…). On revient à l'écran de verrouillage classique.
+      // Sans cela, l'aperçu flou restait affiché indéfiniment (levy-jammot).
+      couvertureIndisponible(bg, card);
     };
     if (img.complete && img.naturalWidth) img.onload();
-    img.src = urlGrand;
+    img.src = essais[0];
+
+    // Filet de sécurité : si rien n'est arrivé au bout de 12 s (réseau très
+    // lent mis à part), on ne laisse pas le client devant une photo floue.
+    setTimeout(function () {
+      if (bg.classList.contains('fini') || bg.classList.contains('apercu')) return;
+      couvertureIndisponible(bg, card);
+    }, 12000);
+  }
+
+  /* Tailles essayées pour la couverture : la taille de l'écran d'abord, puis
+     des tailles de repli. On ne réessaie jamais deux fois la même adresse. */
+  function coverFallbacks(url) {
+    var out = [url];
+    [1600, 1200, 640].forEach(function (s) {
+      var u = String(url).replace(/([?&]size=)\d+/, '$1' + s);
+      if (out.indexOf(u) === -1) out.push(u);
+    });
+    return out;
+  }
+
+  /* Couverture réellement indisponible : on rend la main au client avec
+     l'écran de verrouillage classique (champ + bouton). */
+  function couvertureIndisponible(bg, card) {
+    $('lock-cover').classList.remove('on');
+    if (card) { card.classList.remove('hidden'); card.style.display = ''; }
+    if (bg) { bg.classList.remove('apercu'); bg.style.backgroundImage = ''; }
+    setTimeout(function () { $('lock-pass').focus(); }, 60);
   }
 
   function showLock(meta) {

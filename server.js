@@ -626,6 +626,9 @@ async function buildCoverPreview(g) {
 }
 
 const coverPreviewBusy = new Set();
+/* Anti-rafale : relire un dossier de 1 188 photos coûte cher. Après un échec
+ * de couverture, on ne relance la synchronisation que toutes les 2 minutes. */
+const coverResyncAt = new Map();
 
 /* Fabrique l'aperçu manquant en tâche de fond (jamais dans le chemin
  * critique de la page : si ça échoue, on retombe simplement sur la vignette
@@ -1193,24 +1196,31 @@ app.post('/api/g/:slug/client/selection', async (req, res) => {
 
 /* --- Proxys photo (vignette / téléchargement) --------------- */
 
+/* Octets d'une vignette Drive (avec le cache mémoire).
+   Renvoie { ok, buf, ctype } ou { ok: false } : l'appelant décide quoi faire
+   d'un échec — c'est ce qui permet à la couverture de réessayer après avoir
+   rafraîchi ses liens. */
+async function thumbBytes(rec, size) {
+  const key = rec.id + ':t' + size;
+  const hit = mediaCacheGet(key);
+  if (hit) return { ok: true, buf: hit.buf, ctype: hit.ctype };
+  const up = await drive.fetchThumbnail(rec.thumb || '', size);
+  if (!up.ok) return { ok: false, status: up.status };
+  const ctype = up.headers.get('content-type') || 'image/jpeg';
+  const buf = Buffer.from(await up.arrayBuffer());
+  if (!buf.length) return { ok: false, status: 'vide' };
+  mediaCachePut(key, buf, ctype);
+  return { ok: true, buf, ctype };
+}
+
 async function sendDriveThumb(res, rec, size, opts = {}) {
   // Les photos ne changent jamais (id Drive stable) → cache navigateur 7 jours.
-  const key = rec.id + ':t' + size;
   try {
-    const hit = mediaCacheGet(key);
-    if (hit) {
-      res.setHeader('Content-Type', hit.ctype);
-      res.setHeader('Cache-Control', 'public, max-age=604800');
-      return res.end(hit.buf);
-    }
-    const up = await drive.fetchThumbnail(rec.thumb || '', size);
-    if (!up.ok) throw new Error('thumb ' + up.status);
-    const ctype = up.headers.get('content-type') || 'image/jpeg';
-    const buf = Buffer.from(await up.arrayBuffer());
-    mediaCachePut(key, buf, ctype);
-    res.setHeader('Content-Type', ctype);
+    const t = await thumbBytes(rec, size);
+    if (!t.ok) throw new Error('thumb ' + t.status);
+    res.setHeader('Content-Type', t.ctype);
     res.setHeader('Cache-Control', 'public, max-age=604800');
-    res.end(buf);
+    res.end(t.buf);
   } catch {
     // Couverture : il faut une VRAIE photo. Ni cartouche d'attente, ni
     // original de plusieurs mégaoctets (cela faisait ramer la page d'accueil
@@ -1270,20 +1280,47 @@ async function sendDriveMedia(res, rec, asAttachment = false) {
  * choisie, ou si la galerie est désactivée / expirée, cette route ne renvoie
  * rien (404) et l'écran de verrouillage garde son apparence habituelle. */
 app.get('/api/g/:slug/cover', async (req, res) => {
+  // Un échec ne doit JAMAIS être mis en cache : sinon le navigateur garde un
+  // 404 sept jours et la couverture reste floue même après réparation.
+  const fail = () => { res.setHeader('Cache-Control', 'no-store'); res.status(404).end(); };
   const g = findGallery(req.params.slug);
-  if (!g) return res.status(404).end();
-  if (!cover.coverVisible(g, { expired: isExpired(g) })) return res.status(404).end();
+  if (!g) return fail();
+  if (!cover.coverVisible(g, { expired: isExpired(g) })) return fail();
   const fid = cover.coverId(g);
-  const rec = fileRecord(g, fid);
-  if (!rec) return res.status(404).end();
+  let rec = fileRecord(g, fid);
+  if (!rec) return fail();
   // Taille adaptée à l'écran : la couverture est un fond plein cadre.
   const asked = parseInt(req.query.size || '0', 10);
-  const size = asked ? Math.min(Math.max(asked, 320), 2000) : undefined;
+  const size = asked ? Math.min(Math.max(asked, 320), 2000) : 1080;
+  if (rec.storage !== 'drive') {
+    const p = demoFilePath(g, rec);
+    if (!p) return fail();
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    return res.sendFile(p);
+  }
+  let t = null;
+  try { t = await thumbBytes(rec, size); } catch (e) { t = null; }
+  if (!t || !t.ok) {
+    // Lien de vignette Google périmé (il expire) : on relit le dossier Drive
+    // pour récupérer des liens frais, puis on réessaie une fois. C'est ce qui
+    // répare une couverture qui restait floue (cas levy-jammot, 21/10).
+    const last = coverResyncAt.get(g.id) || 0;
+    if (Date.now() - last > 120000) {
+      coverResyncAt.set(g.id, Date.now());
+      try { await syncGallery(g, true); } catch (e) { /* on tentera quand même */ }
+    }
+    rec = fileRecord(g, fid);
+    if (rec && rec.thumb) {
+      try { t = await thumbBytes(rec, size); } catch (e) { t = null; }
+    }
+    if (!t || !t.ok) {
+      console.warn('[cover] image indisponible :', g.slug, size, (t && t.status) || '?');
+      return fail();
+    }
+  }
+  res.setHeader('Content-Type', t.ctype);
   res.setHeader('Cache-Control', 'public, max-age=604800');
-  if (rec.storage === 'drive') return sendDriveThumb(res, rec, size || 1600, { coverOnly: true });
-  const p = demoFilePath(g, rec);
-  if (!p) return res.status(404).end();
-  res.sendFile(p);
+  res.end(t.buf);
 });
 
 app.get('/api/g/:slug/photo/:fid/thumb', async (req, res) => {
