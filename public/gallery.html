@@ -3,6 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="mews-cover-base" content="__COVER_BASE__">
+<meta name="mews-cover-preview" content="__COVER_PREVIEW_FLAG__">
+<script>
+/* Couverture : on lance le téléchargement de l'image TOUT DE SUITE, avant les
+   feuilles de style et avant app.js / gallery.js (un script placé après une
+   feuille de style attend qu'elle soit chargée : d'où ce bloc tout en haut).
+   Les adresses sont identiques à celles utilisées plus loin pour l'affichage :
+   le navigateur sert donc depuis son propre cache, sans second téléchargement.
+   - le fond flou est déjà dans la page (aperçu de quelques centaines d'octets
+     glissé par le serveur) : il s'affiche avec la page elle-même ;
+   - la vraie image (1080 / 1280 / 1600 px) se pose ensuite en fondu ;
+   - galerie ancienne sans aperçu : on demande alors la vignette de 160 px
+     (~6 Ko) pour que le fond ne reste pas noir. */
+(function () {
+  var m = document.querySelector('meta[name="mews-cover-base"]');
+  if (!m) return;
+  var base = m.getAttribute('content');
+  if (!base || base.indexOf('/cover') === -1) return;   // pas de couverture
+  var w = window.innerWidth || 1280;
+  var dpr = window.devicePixelRatio || 1;
+  var size = w < 900 ? 1080 : (dpr >= 2 ? 1600 : 1280);
+  // Si le serveur a déjà glissé l'aperçu minuscule dans la page, le fond est
+  // déjà là : plus besoin de demander la vignette de 160 px (une requête et
+  // quelques kilo-octets de moins sur le réseau du client).
+  var pm = document.querySelector('meta[name="mews-cover-preview"]');
+  var hasPreview = !!(pm && pm.getAttribute('content') === '1');
+  var petit = null;
+  if (!hasPreview) { petit = new Image(); petit.src = base + '&size=160'; }
+  var grand = new Image();
+  grand.src = base + '&size=' + size;
+  window.__mewsCover = { base: base, size: size, hasPreview: hasPreview,
+                         petit: petit, grand: grand,
+                         urlPetit: petit ? petit.src : null, urlGrand: grand.src };
+})();
+</script>
 <meta name="robots" content="noindex,nofollow">
 <title>Galerie privée — Mews Studio Galleries</title>
 <link rel="icon" type="image/png" href="/favicon.png">
@@ -120,6 +155,9 @@
     opacity: 0; transition: opacity .5s ease; transform: scale(1.02);
   }
   .lock-cover-bg.ready { opacity: 1; }
+  /* Aperçu flou : affiché dès les premiers octets reçus. */
+  .lock-cover-bg.apercu { opacity: 1; filter: blur(22px); transform: scale(1.1); transition: none; }
+  .lock-cover-bg.fini { filter: none; transform: scale(1.02); transition: opacity .45s ease, filter .35s ease; }
   .lock-cover::after {
     content: ''; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.22) 38%, rgba(0,0,0,.74) 100%);
@@ -257,6 +295,23 @@
     <!-- Couverture plein cadre (si le photographe en a choisi une) -->
     <div class="lock-cover" id="lock-cover">
       <div class="lock-cover-bg" id="lock-cover-bg"></div>
+      <script>
+      /* Galerie dont l'aperçu minuscule n'a pas encore été fabriqué : on peint
+         la vignette de 160 px dès qu'elle arrive, sans attendre gallery.js. */
+      (function () {
+        var p = window.__mewsCover && window.__mewsCover.petit;
+        if (!p) return;
+        var bg = document.getElementById('lock-cover-bg');
+        if (!bg) return;
+        function paint() {
+          if (bg.classList.contains('fini')) return;
+          if (/url\(/.test(bg.style.backgroundImage || '')) return;
+          bg.style.backgroundImage = "url('" + p.src + "')";
+          bg.classList.add('apercu', 'ready');
+        }
+        if (p.complete && p.naturalWidth) paint(); else p.onload = paint;
+      })();
+      </script>
       <div class="lock-cover-inner">
         <h1 class="lock-cover-name" id="lc-name">Galerie privée</h1>
         <p class="lock-cover-tag">Galerie privée</p>

@@ -579,6 +579,7 @@ function publicMeta(g) {
     // La couverture est publique par nature (elle s'affiche avant le mot de
     // passe). On n'expose que son existence : ni nom de fichier, ni identifiant.
     hasCover: cover.coverVisible(g, { expired: false }),
+    coverV: cover.coverVersion(g),
   };
 }
 
@@ -595,8 +596,106 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+/* Page de galerie : le gabarit est lu une fois en mémoire. Quand la galerie a
+ * une couverture, on y injecte l'adresse de l'image (balise meta) pour que le
+ * navigateur commence à la télécharger avant même d'exécuter les scripts.
+ * C'est ce qui fait la différence sur l'écran de verrouillage. */
+const GALLERY_TEMPLATE = fs.readFileSync(path.join(__dirname, 'public', 'gallery.html'), 'utf8');
+const galleryHtmlCache = new Map();   // couverture + aperçu → HTML prêt à envoyer
+
+/* --- Aperçu minuscule de la couverture ---------------------- *
+ * Un JPEG de 56 px, encodé en base64 (≈ 2 Ko), glissé DANS la page.
+ * Le fond flou est donc peint avec le premier rendu de la page : sur un
+ * téléphone en 3G, la couverture est là avant même la fin du chargement.
+ * Il est fabriqué une seule fois puis gardé avec la galerie (et sauvegardé),
+ * donc il ne coûte rien les fois suivantes. */
+const COVER_PREVIEW_SIZE = 56;
+
+async function buildCoverPreview(g) {
+  const fid = cover.coverId(g);
+  if (!fid) return null;
+  const rec = fileRecord(g, fid);
+  if (!rec || rec.storage !== 'drive' || !rec.thumb) return null;
+  const up = await drive.fetchThumbnail(rec.thumb, COVER_PREVIEW_SIZE);
+  if (!up.ok) return null;
+  const ctype = up.headers.get('content-type') || 'image/jpeg';
+  if (!/^image\//.test(ctype)) return null;
+  const buf = Buffer.from(await up.arrayBuffer());
+  if (!buf.length || buf.length > 8000) return null;
+  return 'data:' + ctype + ';base64,' + buf.toString('base64');
+}
+
+const coverPreviewBusy = new Set();
+
+/* Fabrique l'aperçu manquant en tâche de fond (jamais dans le chemin
+ * critique de la page : si ça échoue, on retombe simplement sur la vignette
+ * de 160 px chargée par le script). */
+async function ensureCoverPreview(slug) {
+  const g = findGallery(slug);
+  if (!g || !cover.coverVisible(g, { expired: isExpired(g) })) return null;
+  if (cover.coverPreview(g)) return g.coverPreview;
+  if (!drive.isConnected() || coverPreviewBusy.has(g.id)) return null;
+  coverPreviewBusy.add(g.id);
+  try {
+    const wanted = cover.coverId(g);
+    const data = await buildCoverPreview(g);
+    if (!data) return null;
+    store.updateGalleries((list) => {
+      const cur = list.find((x) => x.id === g.id);
+      if (!cur || cover.coverId(cur) !== wanted) return false;   // choix changé entre-temps
+      cur.coverPreview = data;
+      cur.coverPreviewV = cover.coverVersion(cur);
+      return true;
+    });
+    return data;
+  } catch (e) {
+    console.warn('[cover] aperçu impossible :', e.message);
+    return null;
+  } finally {
+    coverPreviewBusy.delete(g.id);
+  }
+}
+
+function galleryHtml(key, g, base) {
+  let html = galleryHtmlCache.get(key);
+  if (html) return html;
+  const preview = base ? cover.coverPreview(g) : null;
+  const name = g && g.name ? String(g.name).replace(/[&<>"]/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) : '';
+  html = GALLERY_TEMPLATE
+    .replace('content="__COVER_BASE__"', 'content="' + (base || '') + '"')
+    .replace('content="__COVER_PREVIEW_FLAG__"', 'content="' + (preview ? '1' : '') + '"');
+  if (base) {
+    // La couverture est rendue par le serveur lui-même : elle est visible au
+    // tout premier affichage, sans attendre un seul script ni une réponse API.
+    html = html
+      .replace('<div class="lock-cover" id="lock-cover">', '<div class="lock-cover on" id="lock-cover">')
+      .replace('<div class="lock-card">', '<div class="lock-card hidden">');
+    if (preview) {
+      html = html
+        .replace('<div class="lock-cover-bg" id="lock-cover-bg"></div>',
+          '<div class="lock-cover-bg apercu" id="lock-cover-bg" style="background-image:url(\'' + preview + '\')"></div>')
+        .replace('<h1 class="lock-cover-name" id="lc-name">Galerie privée</h1>',
+          '<h1 class="lock-cover-name" id="lc-name">' + name + '</h1>');
+    }
+  }
+  if (galleryHtmlCache.size > 60) galleryHtmlCache.clear();
+  galleryHtmlCache.set(key, html);
+  return html;
+}
+
 app.get('/g/:slug', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'gallery.html'));
+  res.setHeader('Cache-Control', 'no-cache');
+  res.type('html');
+  const g = findGallery(req.params.slug);
+  const base = g && !isUnlocked(req, g.slug) && cover.coverVisible(g, { expired: isExpired(g) })
+    ? cover.coverBase(g)
+    : null;
+  // Galerie ancienne : l'aperçu n'existe pas encore. On le fabrique pour la
+  // prochaine visite, sans faire attendre le client.
+  if (base && g && !cover.coverPreview(g)) ensureCoverPreview(g.slug).catch(() => {});
+  const key = (base || '-') + '|' + (base ? 1 : 0) + (base && g && cover.coverPreview(g) ? 'p' : '') + '|' + (g ? g.name : '');
+  res.send(galleryHtml(key, g, base));
 });
 
 app.get('/admin', (req, res) => {
@@ -2157,6 +2256,35 @@ app.post('/api/admin/galleries/:id/cover', requireAdmin, async (req, res) => {
   });
   if (problem === 'introuvable') return res.status(404).json({ error: 'Galerie introuvable.' });
   if (problem === 'photo') return res.status(400).json({ error: 'Cette photo n\u2019appartient pas à la galerie.' });
+  // Aperçu minuscule (≈ 2 Ko) de la nouvelle couverture : il part avec la page
+  // de la galerie, ce qui rend l'arrivée du client instantanée. On le garde
+  // avant la sauvegarde pour qu'il soit enregistré en même temps que le choix.
+  const fresh = store.galleries().find((x) => x.id === req.params.id);
+  if (fresh && !cover.coverId(fresh)) {
+    // Couverture retirée : l'aperçu n'a plus lieu d'être.
+    store.updateGalleries((list) => {
+      const cur = list.find((x) => x.id === req.params.id);
+      if (!cur || !cur.coverPreview) return false;
+      delete cur.coverPreview; delete cur.coverPreviewV;
+      return true;
+    });
+  }
+  if (fresh && cover.coverId(fresh)) {
+    try {
+      const data = await buildCoverPreview(fresh);
+      store.updateGalleries((list) => {
+        const cur = list.find((x) => x.id === req.params.id);
+        if (!cur) return false;
+        if (!data) { delete cur.coverPreview; delete cur.coverPreviewV; return true; }
+        if (cover.coverId(cur) !== cover.coverId(fresh)) return false;
+        cur.coverPreview = data;
+        cur.coverPreviewV = cover.coverVersion(cur);
+        return true;
+      });
+    } catch (e) {
+      console.warn('[cover] aperçu impossible :', e.message);
+    }
+  }
   // Le disque de Render est effacé à chaque redémarrage : sans sauvegarde
   // immédiate en ligne, un redémarrage survenu dans les minutes suivantes
   // annulait le choix (incident du 21/10/2026 — deux couvertures perdues).
@@ -2340,4 +2468,21 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('Mode :', drive.isConfigured() ? 'Google Drive (réel)' : 'démo (photos locales)');
   console.log('Démo  : /g/demo  (mot de passe : demo123)');
   console.log('Admin : /admin   (mot de passe : ' + (process.env.ADMIN_PASSWORD ? 'celui du .env' : 'admin123') + ')');
+  // Aperçus manquants des couvertures déjà en place : on les fabrique une
+  // fois, tranquillement (quelques centaines d'octets par galerie), pour que
+  // TOUS les clients aient l'arrivée instantanée dès la première visite.
+  setTimeout(() => {
+    const todo = store.galleries().filter((g) => cover.coverVisible(g, { expired: isExpired(g) }) && !cover.coverPreview(g));
+    if (!todo.length) return;
+    (async () => {
+      let made = 0;
+      for (const g of todo) {
+        try { if (await ensureCoverPreview(g.slug)) made += 1; } catch (e) { /* silencieux */ }
+      }
+      if (made) {
+        console.log('[cover] aperçus fabriqués :', made + '/' + todo.length);
+        try { await backup.now(); } catch (e) { console.warn('[cover] sauvegarde des aperçus impossible :', e.message); }
+      }
+    })();
+  }, 25000);
 });

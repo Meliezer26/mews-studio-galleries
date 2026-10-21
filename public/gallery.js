@@ -108,15 +108,19 @@
   }
 
   /* Taille demandée pour la couverture : un fond plein cadre, jamais plus
-     que nécessaire (1920 sur ordinateur, 1080 sur téléphone). */
+     que nécessaire (1280 sur ordinateur, 1080 sur téléphone, 1600 sur écran
+     très défini). Doit rester alignée sur lib/cover.js pour que l'image déjà
+     lancée par le <head> soit servie depuis le cache du navigateur. */
   function coverSize() {
     var w = window.innerWidth || 1280;
     if (w < 900) return 1080;
-    return (window.devicePixelRatio || 1) >= 2 ? 1920 : 1600;
+    return (window.devicePixelRatio || 1) >= 2 ? 1600 : 1280;
   }
 
   /* La couverture, quand le photographe en a choisi une : une seule photo
-     en plein écran, un seul bouton, puis le champ du mot de passe. */
+     en plein écran, un seul bouton, puis le champ du mot de passe.
+     Le serveur a déjà rendu la couverture et son aperçu flou dans la page :
+     ici on ne fait qu'apporter la photo nette, par-dessus, en fondu. */
   function showCover(meta) {
     $('lc-name').textContent = meta.name || 'Galerie privée';
     $('lc-error').textContent = '';
@@ -125,26 +129,55 @@
     $('lc-open').style.display = '';
     $('lock-cover').classList.add('on');
     $('lock').classList.remove('hidden');
+    var card = $('lock').querySelector('.lock-card');
+    if (card) { card.classList.add('hidden'); card.style.display = 'none'; }
+
     var bg = $('lock-cover-bg');
+    // Le préchargement lancé dans le <head> connaît déjà les bonnes adresses :
+    // on les réutilise telles quelles (donc servies par le cache navigateur).
+    var pre = window.__mewsCover;
+    var vq = (meta && meta.coverV) ? '&v=' + encodeURIComponent(meta.coverV) : '';
+    var urlPetit = (pre && pre.urlPetit) || ('/api/g/' + slug + '/cover?size=160' + vq);
+    var urlGrand = (pre && pre.urlGrand) || ('/api/g/' + slug + '/cover?size=' + coverSize() + vq);
+
+    // 1) l'aperçu flou, seulement s'il n'est pas déjà peint par le serveur
+    var dejaPaint = bg.classList.contains('apercu') || /url\(/.test(bg.style.backgroundImage || '');
+    if (!dejaPaint) {
+      var petit = new Image();
+      petit.onload = function () {
+        if (bg.classList.contains('fini')) return;   // la photo nette est déjà là
+        bg.classList.add('apercu');
+        bg.style.backgroundImage = "url('" + urlPetit + "')";
+      };
+      petit.src = urlPetit;
+    }
+
+    // 2) la vraie image, en fondu par-dessus
     var img = new Image();
-    img.onload = function () { bg.classList.add('ready'); };
+    img.onload = function () {
+      bg.style.backgroundImage = "url('" + urlGrand + "')";
+      bg.classList.add('ready', 'fini');
+      bg.classList.remove('apercu');
+    };
     // Couverture indisponible (photo retirée du dossier Drive, aperçu
     // impossible) : on revient à l'écran de verrouillage classique plutôt
     // que d'afficher un cadre noir.
     img.onerror = function () {
+      if (bg.classList.contains('apercu') || bg.classList.contains('fini')) return;   // l'aperçu suffit
       $('lock-cover').classList.remove('on');
-      var card = $('lock').querySelector('.lock-card');
-      if (card) card.classList.remove('hidden');
+      if (card) { card.classList.remove('hidden'); card.style.display = ''; }
       setTimeout(function () { $('lock-pass').focus(); }, 60);
     };
-    img.src = '/api/g/' + slug + '/cover?size=' + coverSize();
-    bg.style.backgroundImage = "url('" + img.src + "')";
+    if (img.complete && img.naturalWidth) img.onload();
+    img.src = urlGrand;
   }
 
   function showLock(meta) {
     var hasCover = meta && meta.hasCover;
     $('lock-cover').classList.toggle('on', !!hasCover);
-    $('lock').querySelector('.lock-card').classList.toggle('hidden', !!hasCover);
+    var card = $('lock').querySelector('.lock-card');
+    card.classList.toggle('hidden', !!hasCover);
+    card.style.display = hasCover ? 'none' : '';
     $('lock-name').textContent = meta.name;
     $('lock-sub').textContent = 'Bienvenue dans votre espace privé. Veuillez entrer votre mot de passe communiqué par Mew\'s Studio.';
     $('lock-contact').classList.add('hidden');

@@ -48,17 +48,43 @@ check('galerie expirée : rien', cover.coverVisible(gal({ coverId: 'b.jpg' }), {
 check('galerie inexistante : rien', cover.coverVisible(null) === false);
 
 console.log('\nE. Taille demandée : juste ce qu\'il faut');
+// La couverture est un fond assombri, recouvert d'un voile et de texte :
+// inutile de payer la pleine définition (mesures : 1600 px ≈ 320 Ko).
 check('téléphone : 1080 px', cover.coverSize(390, 3) === 1080);
 check('tablette : 1080 px', cover.coverSize(820, 2) === 1080);
-check('ordinateur : 1600 px', cover.coverSize(1440, 1) === 1600);
-check('écran dense : 1920 px', cover.coverSize(1440, 2) === 1920);
-check('valeur aberrante manageable', cover.coverSize(0, 1) === 1600 && cover.coverSize(undefined, 1) === 1600);
-check('jamais au-delà de 1920 px', cover.coverSize(3840, 3) === 1920);
+check('ordinateur : 1280 px', cover.coverSize(1440, 1) === 1280);
+check('écran dense : 1600 px', cover.coverSize(1440, 2) === 1600);
+check('valeur aberrante manageable', cover.coverSize(0, 1) === 1280 && cover.coverSize(undefined, 1) === 1280);
+check('jamais au-delà de 1600 px', cover.coverSize(3840, 3) === 1600);
+check('le script du <head> et le serveur demandent la même taille',
+  cover.coverSize(390, 3) === 1080 && cover.coverSize(1280, 2) === 1600 && cover.coverSize(1280, 1) === 1280);
+
+console.log('\nE2. Aperçu minuscule glissé dans la page (arrivée instantanée)');
+const apGallery = {
+  id: 'g1', slug: 'demo', enabled: true,
+  coverId: 'fileA',
+  files: [{ id: 'fileA', name: 'photo.jpg', storage: 'drive' }],
+  coverPreview: 'data:image/jpeg;base64,AAAA',
+};
+apGallery.coverPreviewV = cover.coverVersion(apGallery);
+check('aperçu livré quand il correspond à la photo choisie',
+  cover.coverPreview(apGallery) === 'data:image/jpeg;base64,AAAA');
+check('aucun aperçu sans photo de couverture',
+  cover.coverPreview({ id: 'g2', coverPreview: 'data:image/jpeg;base64,AAAA' }) === null);
+const apPerime = Object.assign({}, apGallery, { coverPreviewV: 'ancienne-v' });
+check('aperçu abandonné si le photographe a changé de photo', cover.coverPreview(apPerime) === null);
+check('aperçu abandonné si ce n\'est pas une image',
+  cover.coverPreview(Object.assign({}, apGallery, { coverPreview: 'javascript:alert(1)' })) === null);
+check('aperçu abandonné s\'il est anormalement gros',
+  cover.coverPreview(Object.assign({}, apGallery, { coverPreview: 'data:image/jpeg;base64,' + 'A'.repeat(20000) })) === null);
+check('l\'adresse de l\'aperçu ne contient pas l\'identifiant Drive',
+  !/fileA/.test(JSON.stringify(apGallery.coverPreview)) && /^[0-9a-f]{10}$/.test(apGallery.coverPreviewV));
 
 console.log('\nF. Poids estimé de la couverture');
-// Une couverture de 1600 px pèse ~250 Ko, mise en cache 7 jours côté navigateur.
-console.log('   couverture 1600 px ≈ 250 Ko, une seule fois par visite (cache 7 jours)');
-check('reste légère face au quota mensuel', 250 / 1024 < 0.3, (250 / 1024).toFixed(2) + ' Mo par première visite');
+// 1080 px ≈ 150 Ko sur téléphone, mise en cache 7 jours côté navigateur,
+// plus l'aperçu flou (≈ 2 Ko) qui voyage dans la page.
+console.log('   couverture 1080 px ≈ 150 Ko + aperçu ≈ 2 Ko, une seule fois par visite (cache 7 jours)');
+check('reste légère face au quota mensuel', 152 / 1024 < 0.3, (152 / 1024).toFixed(2) + ' Mo par première visite');
 
 console.log('\nRésultat : ' + pass + ' réussites, ' + fail + ' échec(s)');
 process.exit(fail ? 1 : 0);
