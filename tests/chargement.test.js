@@ -175,7 +175,7 @@ function tick(ms = 0) { return new Promise((r) => setTimeout(r, ms)); }
 check('l’aperçu de la visionneuse réutilise l’image de la grille (même taille)',
   /pre\.src = photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('grid'\);/.test(js));
 check('la tuile vise la même taille que l’aperçu (400 px par défaut)',
-  /var taille = displaySize\('grid'\);/.test(js) &&
+  /var secours = photoUrl\(p, 'thumb'\) \+ '\?size=' \+ GRID_TAILLE;/.test(js) &&
   /pre\.src = photoUrl\(p, 'thumb'\) \+ '\?size=' \+ displaySize\('grid'\);/.test(js));
 check('les photos voisines sont préparées en mémoire (pas seulement en cache HTTP)',
   /function prefetchFull\(url\)/.test(js) && /preloadNeighbors\(\)? \{[\s\S]{0,600}prefetchFull\(/.test(js));
@@ -202,7 +202,7 @@ check('une vignette en échec est réessayée deux fois',
 console.log('\nF4. Vignettes servies par Google en direct');
 check('la liste fournit l’adresse Google de chaque vignette', /t: f\.thumb \|\| null,/.test(srv));
 check('le navigateur l’utilise en priorité', /img\.src = direct \|\| secours;/.test(js));
-check('la taille demandée à Google suit l’écran', /replace\(\/=s\\d\+\/, '=s' \+ taille\)/.test(js));
+check('la taille demandée à Google suit l’écran', /replace\(\/=s\\d\+\/, '=s' \+ GRID_TAILLE\)/.test(js));
 check('repli automatique sur notre serveur si Google échoue',
   /img\.src = essai === 0 && direct \? direct : secours \+ '&r=' \+ \(essai \+ 1\);/.test(js));
 

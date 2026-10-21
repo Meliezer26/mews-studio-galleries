@@ -475,25 +475,7 @@
       img.loading = 'lazy';
       // 600 px (au lieu de 400) : la couverture se choisit à l'œil,
       // l'image doit être lisible — surtout sur mobile.
-      /* Deux adresses possibles pour la même vignette :
-     *  1. Google en direct (lh3…), mesuré 5 à 20 fois plus rapide que notre
-     *     serveur et sans consommer la bande passante Render ;
-     *  2. notre serveur, en secours si l'adresse Google a expiré ou échoue.
-     * C'est la même image, aux mêmes dimensions. */
-    var taille = displaySize('grid');
-    var direct = p.t ? String(p.t).replace(/=s\d+/, '=s' + taille) : null;
-    var secours = photoUrl(p, 'thumb') + '?size=' + taille;
-    img.src = direct || secours;
-    /* Réseau capricieux : une image qui échoue restait VIDE pour toujours.
-       Premier réessai sur la même adresse, puis repli sur notre serveur. */
-    img.addEventListener('error', function () {
-      var essai = Number(img.getAttribute('data-essai') || 0);
-      if (essai >= 2) return;
-      img.setAttribute('data-essai', essai + 1);
-      setTimeout(function () {
-        img.src = essai === 0 && direct ? direct : secours + '&r=' + (essai + 1);
-      }, 400 * (essai + 1));
-    });
+      img.src = photoUrl(p, 'thumb') + '?size=' + displaySize('grid');
       var badge = document.createElement('span');
       badge.className = 'cov-orient';
       badge.textContent = '…';
@@ -705,7 +687,23 @@
       var img = document.createElement('img');
       /* La taille demandée manquait ici : la tuile réclamait l'original
          (283 Ko pour une vignette de 177 px au lieu de 60 Ko). */
-      img.src = photoUrl(p, 'thumb') + '?size=' + GRID_TAILLE;
+      var secours = photoUrl(p, 'thumb') + '?size=' + GRID_TAILLE;
+      /* Deux adresses pour la même image, aux mêmes dimensions :
+       *  1. Google en direct (lh3…), mesuré 120-330 ms contre 1-6 s via
+       *     notre serveur, et sans consommer la bande passante Render ;
+       *  2. notre serveur, en secours si l'adresse a expiré ou échoue. */
+      var direct = p.t ? String(p.t).replace(/=s\d+/, '=s' + GRID_TAILLE) : null;
+      img.src = direct || secours;
+      /* Réseau capricieux : une image qui échoue restait VIDE pour toujours.
+         Premier réessai sur la même adresse, puis repli sur notre serveur. */
+      img.addEventListener('error', function () {
+        var essai = Number(img.getAttribute('data-essai') || 0);
+        if (essai >= 2) return;
+        img.setAttribute('data-essai', essai + 1);
+        setTimeout(function () {
+          img.src = essai === 0 && direct ? direct : secours + '&r=' + (essai + 1);
+        }, 400 * (essai + 1));
+      });
       img.loading = rang < 8 ? 'eager' : 'lazy';
       if (rang < 8) { try { img.fetchPriority = 'high'; } catch (e) { /* */ } }
       img.decoding = 'async';
