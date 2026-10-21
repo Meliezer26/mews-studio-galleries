@@ -168,8 +168,11 @@
       if (w < 900) return 1200;              // téléphone / petite tablette
       return dpr >= 2 ? 1600 : 1600;         // ordinateur : qualité conservée
     }
-    // Grille : tuile d'environ 260 px sur ordinateur, ~180 px sur téléphone.
-    if (w < 900) return 600;
+    // Grille : tuile d'environ 260 px sur ordinateur, ~177 px sur téléphone
+    // (colonnes de 140 px minimum). 400 px suffit pour une tuile de cette
+    // taille, même sur un écran dense : 600 px n'apportait rien de visible
+    // et coûtait 45 % de plus (85 Ko contre 47 Ko par photo).
+    if (w < 900) return 400;
     return dpr >= 2 ? 600 : 400;
   }
 

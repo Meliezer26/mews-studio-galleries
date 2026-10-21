@@ -42,7 +42,7 @@ function check(name, cond, info) {
 
 console.log('\nA. Téléphone (le cas dominant : galerie vue sur mobile)');
 check('photo en grand : 1200 px', sizeFor('full', 390, 3) === 1200, sizeFor('full', 390, 3) + ' px');
-check('grille : 600 px', sizeFor('grid', 390, 3) === 600, sizeFor('grid', 390, 3) + ' px');
+check('grille : 400 px', sizeFor('grid', 390, 3) === 400, sizeFor('grid', 390, 3) + ' px');
 check('petit téléphone : 1200 px en grand', sizeFor('full', 320, 2) === 1200);
 check('grand téléphone : 1200 px en grand', sizeFor('full', 430, 3) === 1200);
 

@@ -29,6 +29,7 @@ const sec = require('./lib/security');
 const mailer = require('./lib/mailer');
 const backup = require('./lib/backup');
 const healthcheck = require('./lib/healthcheck');
+const bandwidthGuard = require('./lib/bandwidth-guard');
 const driveSort = require('./lib/drive-sort');
 const { PACKAGE_DEFS, packageCapacity, packageLabel, sanitizePackages } = require('./lib/packages');
 const { ALBUM_TYPES } = demo;
@@ -187,6 +188,9 @@ store.ensureDirs();
   backup.startPeriodicBackup();
   backup.now(); // sauvegarde immédiate au démarrage
   healthcheck.start(); // bilan de santé : lundi 08:00 (rapport) + alertes quotidiennes
+  // Alerte bande passante : prévient à 3,5 Go puis 4,5 Go des 5 Go inclus,
+  // pour ne jamais revivre la suspension du 21/10/2026.
+  bandwidthGuard.start();
   // Tâches quotidiennes : nettoyage des dossiers triés trop anciens +
   // vérification que la connexion Google du photographe tient toujours
   // (un jeton d'application « Testing » expire après 7 jours → alerte e-mail).
