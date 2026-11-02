@@ -5,15 +5,18 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/backup-guard.test.js && node tests/tokens-backup.test.js && node tests/token-key-rotation.test.js && node tests/network-resilience.test.js && node tests/bandwidth.test.js && node tests/display-size.test.js && node tests/bandwidth-guard.test.js && node tests/cover-lock.test.js && node tests/rate-limit.test.js && node tests/swipe.test.js && node tests/chargement.test.js && node tests/watermark.test.js && node tests/cover-resilience.test.js && node tests/prechauffe.test.js && node tests/cookies.test.js"
+    "test": "node tests/backup-guard.test.js && node tests/tokens-backup.test.js && node tests/token-key-rotation.test.js && node tests/network-resilience.test.js && node tests/bandwidth.test.js && node tests/display-size.test.js && node tests/bandwidth-guard.test.js && node tests/cover-lock.test.js && node tests/rate-limit.test.js && node tests/swipe.test.js && node tests/chargement.test.js && node tests/watermark.test.js && node tests/cover-resilience.test.js && node tests/prechauffe.test.js && node tests/cookies.test.js && node tests/dependances.test.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.23.4"
   },
   "dependencies": {
     "compression": "^1.8.2",
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^9.0.6"
+    "nodemailer": "^10.3.1"
+  },
+  "overrides": {
+    "qs": "^6.17.1"
   }
 }
