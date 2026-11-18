@@ -412,7 +412,12 @@
 
   /* --- Modales ----------------------------------------------- */
   function openModal(id) { $(id).classList.remove('hidden'); }
-  function closeModal(id) { $(id).classList.add('hidden'); }
+  function closeModal(id) {
+    $(id).classList.add('hidden');
+    /* Fenêtre Photos fermée : on arrête tout. Sans cela, le remplissage
+       continuait de demander des vignettes pour une grille invisible. */
+    if (id === 'm-photos' && typeof window.__pmFermer === 'function') window.__pmFermer();
+  }
 
   /* --- Galeries : liste -------------------------------------- */
   function loadGalleries() {
@@ -804,52 +809,205 @@
       .catch(function (err) { window.toast(err.message, 'err'); });
   }
 
+  /* --- Affichage progressif des photos -------------------------------
+   *
+   * Incident du 18/11/2026 : sur une galerie de 945 photos, « Photos » restait
+   * très longtemps sur l'attente puis l'affichage cassait vers la 30-40e photo.
+   * Cause : la grille créait 945 balises <img> d'un coup. Le navigateur
+   * demandait alors 945 vignettes en parallèle, le serveur gratuit (0,1 vCPU)
+   * saturait, les requêtes expiraient et le navigateur abandonnait les images
+   * restantes — d'où la « suite cassée ».
+   *
+   * Désormais : la grille se remplit par paquets (grignotage), les images sont
+   * chargées une par une avec un plafond de requêtes simultanées, et les
+   * vignettes inutiles sont libérées quand elles sortent de l'écran.
+   */
+  var PM_PAQUET = 90;            // photos ajoutées à la grille par paquet
+  var PM_CONCURRENCE = 5;        // vignettes demandées en même temps
+  var pmEtat = null;             // état de la fenêtre Photos ouverte
+
+  function chargerVignettes(fileList, depuis, total) {
+    var modele = pmEtat && pmEtat.modele;
+    if (!modele) return;
+    var enCours = 0, prochain = depuis, fini = 0;
+    var debut = depuis;
+    (function pomper() {
+      if (!pmEtat || pmEtat.modele !== modele) return;   // fenêtre fermée
+      while (enCours < PM_CONCURRENCE && prochain < fileList.length) {
+        var img = modele[prochain];
+        prochain++;
+        if (!img || !img.dataset.src) { fini++; continue; }
+        enCours++;
+        (function (el) {
+          el.onload = el.onerror = function () {
+            el.onload = el.onerror = null;
+            enCours--; fini++;
+            majProgression(depuis, fini, total);
+            pomper();
+          };
+          el.src = el.dataset.src;
+          delete el.dataset.src;
+        })(img);
+      }
+      majProgression(debut, fini, total);
+    })();
+  }
+
+  function majProgression(depuis, faits, total) {
+    var lab = $('pm-progress-label');
+    var bar = $('pm-progress-bar');
+    var montees = pmEtat ? pmEtat.parPaquet : depuis + faits;
+    var chargees = depuis + faits;
+    if (lab) {
+      lab.textContent = chargees + ' chargée(s) · ' + montees + ' sur ' + total;
+    }
+    if (bar) bar.style.width = (total ? Math.min(100, Math.round((chargees / total) * 100)) : 0) + '%';
+    var suite = Math.max(0, total - montees);
+    var btn = $('pm-more');
+    if (btn) {
+      btn.classList.toggle('hidden', suite <= 0);
+      btn.textContent = 'Afficher la suite (' + suite + ')';
+    }
+  }
+
+  function libererHorsEcran() {
+    if (!pmEtat) return;
+    var zone = $('pm-scroll');
+    if (!zone) return;
+    var r = zone.getBoundingClientRect();
+    pmEtat.modele.forEach(function (img) {
+      if (img.dataset.src) return;              // pas encore demandée : rien à faire
+      var b = img.getBoundingClientRect();
+      var visible = b.bottom > r.top - 900 && b.top < r.bottom + 900;
+      if (!visible && img.src) {
+        /* Hors écran : on garde l'adresse pour la restituer au retour, et on
+           libère la mémoire de l'image. Sur 945 photos, cela fait la
+           différence entre un navigateur fluide et un onglet qui rame. */
+        img.dataset.src = img.src;
+        img.removeAttribute('src');
+      } else if (visible && !img.src && img.dataset.src) {
+        img.src = img.dataset.src;
+        delete img.dataset.src;
+      }
+    });
+  }
+
+  var pmLibereTimer = null;
+  function surDefilementPhotos() {
+    if (pmLibereTimer) return;
+    pmLibereTimer = setTimeout(function () {
+      pmLibereTimer = null;
+      libererHorsEcran();
+      /* Arrivé près du bas : on monte le paquet suivant tout seul, plutôt que
+         d'obliger à viser un bouton. Le débit reste bridé par PM_CONCURRENCE. */
+      var zone = $('pm-scroll');
+      if (zone && pmEtat && pmEtat.ouvert) {
+        var reste = zone.scrollHeight - zone.scrollTop - zone.clientHeight;
+        if (reste < 400) ajouterPaquetPhotos();
+      }
+    }, 140);
+  }
+
+  function monterPaquet(files, depuis, total) {
+    var grid = $('pm-grid');
+    var g = pmEtat.galerie;
+    var frag = document.createDocumentFragment();
+    var nouveaux = [];
+    for (var i = depuis; i < Math.min(files.length, depuis + PM_PAQUET); i++) {
+      var f = files[i];
+      var item = document.createElement('div');
+      item.className = 'pm-item' + (g.coverId === f.id ? ' is-cover' : '');
+
+      var img = document.createElement('img');
+      /* Adresse préparée mais PAS chargée : chargerVignettes() la demandera au
+         compte-gouttes, à 5 requêtes simultanées au maximum. Taille 150 px :
+         très légère à télécharger et à décoder (avant : 240 px). */
+      img.dataset.src = '/api/admin/galleries/' + g.id + '/photo/' + encodeURIComponent(f.id) + '/thumb?size=150';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.alt = f.name || '';
+
+      var cov = document.createElement('button');
+      cov.className = 'pm-cover';
+      cov.title = g.coverId === f.id
+        ? "C'est la couverture actuelle — cliquer pour la retirer"
+        : 'Choisir cette photo comme couverture';
+      cov.textContent = g.coverId === f.id ? '★ Couverture' : 'Couverture';
+      cov.addEventListener('click', function (fileId, estCouverture) {
+        return function () { setCover(g, estCouverture ? null : fileId); };
+      }(f.id, g.coverId === f.id));
+
+      var del = document.createElement('button');
+      del.className = 'pm-del';
+      del.title = 'Retirer cette photo';
+      del.textContent = '✕';
+      del.addEventListener('click', function (file) {
+        return function () { deletePhoto(g, file); };
+      }(f));
+
+      item.appendChild(img);
+      item.appendChild(cov);
+      item.appendChild(del);
+      frag.appendChild(item);
+      nouveaux.push(img);
+    }
+    grid.appendChild(frag);
+    return nouveaux;
+  }
+
   function loadPhotosGrid(id) {
     var grid = $('pm-grid');
+    var zone = $('pm-scroll');
     grid.innerHTML = '<div class="spinner" style="grid-column:1/-1"></div>';
     $('pm-sel').innerHTML = '';
+    $('pm-progress-label').textContent = 'Chargement de la liste…';
+    if (pmEtat) { pmEtat.ouvert = false; }
+    if (zone) {
+      zone.removeEventListener('scroll', surDefilementPhotos);
+      zone.addEventListener('scroll', surDefilementPhotos, { passive: true });
+    }
     /* frais=1 : on affiche la liste déjà connue du serveur. Rouvrir la
        fenêtre Photos ne relance donc pas un listing complet de Drive. */
     window.api('/api/admin/galleries/' + id + '?frais=1')
       .then(function (data) {
         var g = data.gallery;
-        $('pm-count').textContent = g.files.length + ' photo(s)';
-        grid.innerHTML = '';
-        if (!g.files.length) {
+        var files = g.files || [];
+        $('pm-count').textContent = files.length + ' photo(s)';
+        if (!files.length) {
+          grid.innerHTML = '';
           var e = document.createElement('div');
           e.className = 'empty';
           e.style.gridColumn = '1 / -1';
           e.innerHTML = '<b>Aucune photo</b><span>Ajoutez des images ci-dessus' + (g.mode === 'drive' ? ', ou déposez-les directement dans le dossier Drive.' : '.') + '</span>';
           grid.appendChild(e);
-        } else {
-          g.files.forEach(function (f) {
-            var item = document.createElement('div');
-            item.className = 'pm-item' + (g.coverId === f.id ? ' is-cover' : '');
-            var img = document.createElement('img');
-            img.src = '/api/admin/galleries/' + g.id + '/photo/' + encodeURIComponent(f.id) + '/thumb?size=240';
-            img.loading = 'lazy';
-            // Couverture : cette photo sera vue AVANT le mot de passe.
-            var cov = document.createElement('button');
-            cov.className = 'pm-cover';
-            cov.title = g.coverId === f.id
-              ? 'C\'est la couverture actuelle — cliquer pour la retirer'
-              : 'Choisir cette photo comme couverture';
-            cov.textContent = g.coverId === f.id ? '★ Couverture' : 'Couverture';
-            cov.addEventListener('click', function () { setCover(g, g.coverId === f.id ? null : f.id); });
-            var del = document.createElement('button');
-            del.className = 'pm-del';
-            del.title = 'Retirer cette photo';
-            del.textContent = '✕';
-            del.addEventListener('click', function () { deletePhoto(g, f); });
-            item.appendChild(img);
-            item.appendChild(cov);
-            item.appendChild(del);
-            grid.appendChild(item);
-          });
+          $('pm-progress-label').textContent = '0 photo';
+          $('pm-progress-bar').style.width = '0';
+          $('pm-more').classList.add('hidden');
+          renderSelections(g);
+          return;
         }
+        grid.innerHTML = '';
+        pmEtat = { galerie: g, modele: [], parPaquet: 0, total: files.length, ouvert: true };
+        ajouterPaquetPhotos();
         renderSelections(g);
       })
       .catch(function (err) { window.toast(err.message, 'err'); });
+  }
+
+  /* Arrêt propre quand la fenêtre Photos se ferme. */
+  window.__pmFermer = function () {
+    if (pmEtat) pmEtat.ouvert = false;
+  };
+
+  function ajouterPaquetPhotos() {
+    if (!pmEtat || !pmEtat.ouvert) return;
+    var files = pmEtat.galerie.files || [];
+    var depuis = pmEtat.parPaquet;
+    if (depuis >= files.length) { majProgression(depuis, 0, pmEtat.total); return; }
+    var nouveaux = monterPaquet(files, depuis, pmEtat.total);
+    pmEtat.modele = pmEtat.modele.concat(nouveaux);
+    pmEtat.parPaquet = depuis + nouveaux.length;
+    chargerVignettes(nouveaux, depuis, pmEtat.total);
   }
 
   /* --- Sélections d'albums envoyées par les clients ------------- */
@@ -1233,6 +1391,8 @@
     $('pm-drop').addEventListener('drop', function (e) {
       uploadPhotos(e.dataTransfer.files);
     });
+    var pmMore = $('pm-more');
+    if (pmMore) pmMore.addEventListener('click', function () { ajouterPaquetPhotos(); });
     $('pm-sync').addEventListener('click', function () {
       var id = state.currentGalleryId;
       window.api('/api/admin/galleries/' + id + '/sync', { method: 'POST' })

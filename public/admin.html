@@ -94,7 +94,16 @@
   .g-link span { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
 
   /* Grille photos dans la modale */
-  .pm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  /* Fenêtre Photos — affichage progressif.
+     Avant : toutes les vignettes étaient demandées d'un coup par le navigateur
+     (945 à 1 188 requêtes), le serveur gratuit saturait et l'affichage cassait
+     vers la 30-40e photo. Maintenant : marge de manœuvre sous la grille,
+     miniatures de 150 px, et chargement par paquets de 90. */
+  .pm-scroll { max-height: 60vh; overflow-y: auto; overflow-x: hidden; padding: 4px; margin-bottom: 6px; }
+  .pm-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 8px; }
+  .pm-bar .pm-progress { flex: 1; min-width: 140px; height: 6px; border-radius: 99px; background: var(--bg-2); overflow: hidden; }
+  .pm-bar .pm-progress i { display: block; height: 100%; width: 0; background: var(--accent, #c8a35a); transition: width .18s linear; }
+  .pm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 7px; }
   /* Bouton « couverture » sur chaque vignette de la modale Photos */
   .pm-item { position: relative; }
   .pm-cover {
@@ -604,7 +613,14 @@
       <button class="btn btn--soft btn--sm" id="pm-sync">↻ Synchroniser avec Drive</button>
       <span class="small muted center" id="pm-count" style="display:inline-flex;align-items:center">—</span>
     </div>
-    <div class="pm-grid" id="pm-grid"></div>
+    <div class="pm-bar">
+      <span class="small muted" id="pm-progress-label">—</span>
+      <span class="pm-progress"><i id="pm-progress-bar"></i></span>
+      <button class="btn btn--soft btn--sm hidden" id="pm-more">Afficher la suite</button>
+    </div>
+    <div class="pm-scroll" id="pm-scroll">
+      <div class="pm-grid" id="pm-grid"></div>
+    </div>
 
     <div class="hidden mt-40" id="pm-sel-wrap">
       <h3 class="display-3" style="margin-bottom:14px">Sélections d'albums envoyées par les clients</h3>
@@ -614,6 +630,6 @@
 </div>
 
 <script src="/app.js"></script>
-<script src="/admin.js?v=20260915x"></script>
+<script src="/admin.js?v=20261118a"></script>
 </body>
 </html>
