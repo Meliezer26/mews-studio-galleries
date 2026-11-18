@@ -1884,6 +1884,9 @@ app.post('/api/admin/login', (req, res) => {
      photographe l'a mise en place, et se retire en effaçant la variable. */
   if (sec.verifyPassword(motDePasse, cfg.adminPasswordHash) ||
       (cfgRecoveryHash && sec.verifyPassword(motDePasse, cfgRecoveryHash))) {
+    if (cfgRecoveryHash && !sec.verifyPassword(motDePasse, cfg.adminPasswordHash)) {
+      console.log('[auth] Connexion admin par la cle de secours.');
+    }
     loginLimiter.reset(ip);            // réussite : le compteur repart de zéro
     const token = sec.sign({ role: 'admin', iat: Date.now() }, secret());
     res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax${cookieSecure(req)}; Max-Age=${SESSION_MAX_AGE / 1000}`);
