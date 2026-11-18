@@ -2515,8 +2515,6 @@ function sanitizeFilesForAdmin(g) {
   g.files = g.files.map((f) => ({
     id: f.id,
     name: f.name,
-    size: f.size || 0,
-    mime: f.mime || null,
     storage: f.storage || null,
     t: f.storage === 'drive' ? (f.thumb || null) : null,
   }));
