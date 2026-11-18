@@ -1015,6 +1015,13 @@
       pmEtat.parPaquet = depuis + nombre;
       pmEtat.enCours = false;
       majProgression(pmEtat.parPaquet, 0, pmEtat.total);
+      /* Si la grille ne remplit pas encore l'écran, on enchaîne tout seul : pas
+         de barre de défilement, donc rien pour déclencher la suite. */
+      var zone = $('pm-scroll');
+      if (zone && pmEtat.ouvert && pmEtat.parPaquet < pmEtat.total &&
+          zone.scrollHeight <= zone.clientHeight + 200) {
+        ajouterPaquetPhotos();
+      }
     });
   }
 

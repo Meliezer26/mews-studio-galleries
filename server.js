@@ -2626,7 +2626,7 @@ app.get('/api/admin/galleries/:id/thumbs', requireAdmin, async (req, res) => {
       } catch (e) { /* vignette laissée vide : le navigateur retombera sur l'image simple */ }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(8, fichiers.length) }, ouvrier));
+  await Promise.all(Array.from({ length: Math.min(12, fichiers.length) }, ouvrier));
   res.setHeader('Cache-Control', 'no-store');
   res.json({ from, thumbs: resultat });
   /* Le texte base64 ne sert plus une fois la réponse partie : on le retire du

@@ -26,7 +26,7 @@ const check = (nom, cond, detail) => {
 
 console.log('\nA. Remplissage par paquets');
 check('un paquet est défini (PM_PAQUET)', /var PM_PAQUET = \d+;/.test(admin));
-check('la concurrence est plafonnée côté serveur', /Array\.from\(\{ length: Math\.min\(8/.test(
+check('la concurrence est plafonnée côté serveur', /Array\.from\(\{ length: Math\.min\(\d+/.test(
   fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8')));
 check('les images sont montées dans un fragment', /createDocumentFragment\(\)/.test(admin));
 check('la suite se charge au défilement', /reste < 400/.test(admin));
@@ -36,7 +36,7 @@ console.log('\nB. Les vignettes arrivent par paquets, pas une par une');
 const srvSrc = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 check('le serveur sert les vignettes par paquets', /app\.get\('\/api\/admin\/galleries\/:id\/thumbs'/.test(srvSrc));
 check('le paquet est plafonné (60 au maximum)', /Math\.min\(Math\.max\(parseInt\(req\.query\.n \|\| '30'/.test(srvSrc));
-check('le serveur interroge Google en parallèle', /Array\.from\(\{ length: Math\.min\(8/.test(srvSrc));
+check('le serveur interroge Google en parallèle', /Array\.from\(\{ length: Math\.min\(\d+/.test(srvSrc));
 check('le navigateur demande le paquet en une fois', /galleries\/' \+ g\.id \+ '\/thumbs\?from=/.test(admin));
 check('un repli image par image reste prévu', /dataset\.secours/.test(admin));
 
