@@ -822,7 +822,8 @@
    * chargées une par une avec un plafond de requêtes simultanées, et les
    * vignettes inutiles sont libérées quand elles sortent de l'écran.
    */
-  var PM_PAQUET = 30;            // photos montées à chaque paquet
+  var PM_PREMIER = 12;           // premier paquet : petit, pour voir des photos vite
+  var PM_PAQUET = 40;            // paquets suivants
   var pmEtat = null;             // état de la fenêtre Photos ouverte
 
   /* Charge un paquet de vignettes en UNE requête.
@@ -918,7 +919,8 @@
     var g = pmEtat.galerie;
     var frag = document.createDocumentFragment();
     var nouveaux = [];
-    for (var i = depuis; i < Math.min(files.length, depuis + PM_PAQUET); i++) {
+    var taille = depuis === 0 ? PM_PREMIER : PM_PAQUET;
+    for (var i = depuis; i < Math.min(files.length, depuis + taille); i++) {
       var f = files[i];
       var item = document.createElement('div');
       item.className = 'pm-item' + (g.coverId === f.id ? ' is-cover' : '');
@@ -975,7 +977,7 @@
     /* Les vignettes du premier paquet partent MAINTENANT, en même temps que la
        demande de la fiche : elles ne dépendent que du numéro des photos, pas de
        leur contenu. Gain mesuré : environ 2 secondes sur l'affichage initial. */
-    var premierPaquet = window.api('/api/admin/galleries/' + id + '/thumbs?from=0&n=' + PM_PAQUET + '&size=150')
+    var premierPaquet = window.api('/api/admin/galleries/' + id + '/thumbs?from=0&n=' + PM_PREMIER + '&size=150')
       .catch(function () { return null; });
     /* frais=1 : on affiche la liste déjà connue du serveur. Rouvrir la
        fenêtre Photos ne relance donc pas un listing complet de Drive. */
