@@ -29,7 +29,12 @@ check('un paquet est défini (PM_PAQUET)', /var PM_PAQUET = \d+;/.test(admin));
 check('la concurrence est plafonnée côté serveur', /Array\.from\(\{ length: Math\.min\(\d+/.test(
   fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8')));
 check('les images sont montées dans un fragment', /createDocumentFragment\(\)/.test(admin));
-check('la suite se charge au défilement', /reste < 400/.test(admin));
+/* L'ancienne règle (défilement seul) laissait l'affichage bloqué à 52 photos en
+   production. On vérifie désormais une règle qui ne dépend d'aucun événement. */
+check('la suite se décide sur la position du dernier élément monté',
+  /function verifierRemplissage/.test(admin) && /dernier\.getBoundingClientRect/.test(admin));
+check('la vérification est répétée périodiquement', /setInterval\(verifierRemplissage, 900\)/.test(admin));
+check('la répétition s’arrête à la fermeture', /arreterVeille\(\)/.test(admin));
 check('le bouton « Afficher la suite » reste disponible', /pm-more/.test(admin) && /pm-more/.test(html));
 
 console.log('\nB. Les vignettes arrivent par paquets, pas une par une');
