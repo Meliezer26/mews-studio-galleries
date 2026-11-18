@@ -2578,6 +2578,43 @@ function sanitizeFilesForAdmin(g) {
 
 /* Choisir la photo de couverture (celle vue avant le mot de passe).
  * fileId vide = revenir à l'écran de verrouillage classique. */
+/* Vignettes de l'admin, par paquets.
+ *
+ * POURQUOI : Google refuse désormais ses adresses de vignettes au navigateur
+ * (403 constaté le 18/11/2026) — elles exigent un jeton que seul le serveur
+ * possède. Chaque vignette devait donc passer par nous, une requête à la fois :
+ * sur 945 photos, c'était plusieurs minutes d'attente et des dizaines de
+ * connexions simultanées.
+ *
+ * Ici, un seul appel rend jusqu'à 60 vignettes, déjà encodées, en interrogeant
+ * Google 8 fois en parallèle. Le navigateur reçoit tout d'un coup au lieu de
+ * demander 60 images, et les vignettes déjà vues sortent du cache mémoire.
+ */
+app.get('/api/admin/galleries/:id/thumbs', requireAdmin, async (req, res) => {
+  const g = store.galleries().find((x) => x.id === req.params.id);
+  if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
+  const from = Math.max(0, parseInt(req.query.from || '0', 10) || 0);
+  const n = Math.min(Math.max(parseInt(req.query.n || '30', 10) || 30, 1), 60);
+  const size = Math.min(Math.max(parseInt(req.query.size || '150', 10) || 150, 80), 400);
+  const fichiers = (g.files || []).slice(from, from + n);
+  const resultat = new Array(fichiers.length).fill(null);
+  let suivant = 0;
+  async function ouvrier() {
+    while (suivant < fichiers.length) {
+      const k = suivant++;
+      const rec = fileRecord(g, fichiers[k].id);
+      if (!rec || rec.storage !== 'drive') continue;   // stockage local : le navigateur s'en charge
+      try {
+        const t = await thumbBytes(rec, size);
+        if (t.ok) resultat[k] = 'data:' + t.ctype + ';base64,' + t.buf.toString('base64');
+      } catch (e) { /* vignette laissée vide : le navigateur retombera sur l'image simple */ }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(8, fichiers.length) }, ouvrier));
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ from, thumbs: resultat });
+});
+
 app.post('/api/admin/galleries/:id/cover', requireAdmin, async (req, res) => {
   const fileId = String((req.body && req.body.fileId) || '').trim();
   let problem = null;

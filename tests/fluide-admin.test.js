@@ -26,21 +26,23 @@ const check = (nom, cond, detail) => {
 
 console.log('\nA. Remplissage par paquets');
 check('un paquet est défini (PM_PAQUET)', /var PM_PAQUET = \d+;/.test(admin));
-check('un plafond de requêtes simultanées existe', /var PM_CONCURRENCE = \d+;/.test(admin));
+check('la concurrence est plafonnée côté serveur', /Array\.from\(\{ length: Math\.min\(8/.test(
+  fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8')));
 check('les images sont montées dans un fragment', /createDocumentFragment\(\)/.test(admin));
 check('la suite se charge au défilement', /reste < 400/.test(admin));
 check('le bouton « Afficher la suite » reste disponible', /pm-more/.test(admin) && /pm-more/.test(html));
 
-console.log('\nB. Aucune image demandée d’un coup');
-check('l’adresse est posée en data-src, pas en src',
-  /img\.dataset\.src = [^\n]+;\n/.test(admin) && !/img\.src = locale/.test(admin));
-check('le chargement passe par chargerVignettes()', /function chargerVignettes\(/.test(admin));
-check('une image n’est demandée que si son tour arrive',
-  /while \(enCours < PM_CONCURRENCE && prochain < fileList\.length\)/.test(admin));
+console.log('\nB. Les vignettes arrivent par paquets, pas une par une');
+const srvSrc = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+check('le serveur sert les vignettes par paquets', /app\.get\('\/api\/admin\/galleries\/:id\/thumbs'/.test(srvSrc));
+check('le paquet est plafonné (60 au maximum)', /Math\.min\(Math\.max\(parseInt\(req\.query\.n \|\| '30'/.test(srvSrc));
+check('le serveur interroge Google en parallèle', /Array\.from\(\{ length: Math\.min\(8/.test(srvSrc));
+check('le navigateur demande le paquet en une fois', /galleries\/' \+ g\.id \+ '\/thumbs\?from=/.test(admin));
+check('un repli image par image reste prévu', /dataset\.secours/.test(admin));
 
-console.log('\nC. Vignettes plus légères');
-check('l’admin demande des vignettes de 150 px', /thumb\?size=150/.test(admin));
-check('il ne reste plus de demande à 240 px', !/thumb\?size=240/.test(admin));
+console.log('\nC. Vignettes légères');
+check('l’admin demande des vignettes de 150 px', /size=150/.test(admin));
+check('le serveur applique la taille demandée', /req\.query\.size \|\| '150'/.test(srvSrc));
 
 console.log('\nD. Mémoire maîtrisée');
 check('les images hors écran sont libérées', /function libererHorsEcran\(/.test(admin));
@@ -55,18 +57,14 @@ console.log('\nF. Zone de défilement présente dans la page');
 check('la grille est dans .pm-scroll', /class="pm-scroll" id="pm-scroll"/.test(html));
 check('la barre de progression existe', /id="pm-progress-bar"/.test(html));
 
-console.log('\nG. Les vignettes ne passent plus toutes par le serveur');
-check('l’adresse Google signée est utilisée quand elle existe',
-  /img\.dataset\.src = f\.t \?/.test(admin));
-check('la taille demandée à Google est ramenée à 150 px',
-  /=s150\$1/.test(admin));
-check('un repli vers le serveur est prévu', /dataset\.secours/.test(admin));
-check('le repli n’est tenté qu’une fois', /if \(el\.dataset\.secours && el\.src !== el\.dataset\.secours\)/.test(admin));
-check('le serveur transmet le champ `t` à l’admin',
-  /t: f\.storage === 'drive' \? \(f\.thumb \|\| null\) : null/.test(
-    require('fs').readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8')));
-check('les champs inutiles de Drive sont retirés',
-  /function sanitizeFilesForAdmin/.test(require('fs').readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8')));
+console.log('\nG. Les vignettes ne sont plus demandées une par une au navigateur');
+check('le champ `t` reste transmis (utile au diagnostic)', /t: f\.storage === 'drive'/.test(srvSrc));
+check('les champs inutiles de Drive sont retirés', /function sanitizeFilesForAdmin/.test(srvSrc));
+/* Tentative abandonnée le 18/11/2026 : faire charger les vignettes directement
+   chez Google depuis la page admin. Google répond 403 (adresse signée exigeant
+   un jeton que seul le serveur possède). Ne pas réessayer sans revérifier. */
+check('aucune tentative de chargement direct chez Google dans la grille',
+  !/img\.dataset\.src = f\.t/.test(admin), 'google refuse ces adresses (403)');
 
 console.log('\nH. Mémoire de l’instance protégée');
 const srv = require('fs').readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');

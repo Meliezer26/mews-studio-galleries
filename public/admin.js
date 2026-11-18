@@ -822,67 +822,48 @@
    * chargées une par une avec un plafond de requêtes simultanées, et les
    * vignettes inutiles sont libérées quand elles sortent de l'écran.
    */
-  var PM_PAQUET = 90;            // photos ajoutées à la grille par paquet
-  var PM_CONCURRENCE = 5;        // vignettes demandées en même temps
+  var PM_PAQUET = 30;            // photos montées à chaque paquet
   var pmEtat = null;             // état de la fenêtre Photos ouverte
 
-  function chargerVignettes(fileList, depuis, total) {
+  /* Charge un paquet de vignettes en UNE requête.
+   *
+   * Google refuse ses adresses de vignettes au navigateur (403 constaté le
+   * 18/11/2026) : elles exigent un jeton que seul le serveur détient. Demander
+   * les images une par une donnait donc 945 requêtes lentes, et l'affichage
+   * cassait. Le serveur renvoie maintenant 30 vignettes déjà encodées d'un seul
+   * coup (il interroge Google 8 fois en parallèle de son côté). */
+  function chargerPaquetVignettes(debut, nombre, total) {
     var modele = pmEtat && pmEtat.modele;
-    if (!modele) return;
-    var enCours = 0, prochain = depuis, fini = 0;
-    var debut = depuis;
-    (function pomper() {
-      if (!pmEtat || pmEtat.modele !== modele) return;   // fenêtre fermée
-      while (enCours < PM_CONCURRENCE && prochain < fileList.length) {
-        var img = modele[prochain];
-        prochain++;
-        if (!img || !img.dataset.src) { fini++; continue; }
-        enCours++;
-        (function (el) {
-          el.onload = function () {
-            el.onload = el.onerror = null;
-            enCours--; fini++;
-            majProgression(depuis, fini, total);
-            pomper();
-          };
-          el.onerror = function () {
-            /* Adresse Google expirée ou refusée : on repasse une fois par notre
-               serveur, sans bloquer le reste de la file. */
-            if (el.dataset.secours && el.src !== el.dataset.secours) {
-              var secours = el.dataset.secours;
-              delete el.dataset.secours;
-              el.onerror = function () {
-                el.onload = el.onerror = null;
-                enCours--; fini++;
-                majProgression(depuis, fini, total);
-                pomper();
-              };
-              el.src = secours;
-              return;
-            }
-            el.onload = el.onerror = null;
-            enCours--; fini++;
-            majProgression(depuis, fini, total);
-            pomper();
-          };
-          el.src = el.dataset.src;
-          delete el.dataset.src;
-        })(img);
-      }
-      majProgression(debut, fini, total);
-    })();
+    if (!modele || !modele.length) return Promise.resolve();
+    var g = pmEtat.galerie;
+    var url = '/api/admin/galleries/' + g.id + '/thumbs?from=' + debut + '&n=' + nombre + '&size=150';
+    return window.api(url)
+      .then(function (r) {
+        (r.thumbs || []).forEach(function (dataUrl, i) {
+          var img = modele[debut + i];
+          if (img && dataUrl) { img.src = dataUrl; delete img.dataset.secours; }
+          else if (img && img.dataset.secours) { img.src = img.dataset.secours; delete img.dataset.secours; }
+        });
+        majProgression(debut, nombre, total);
+      })
+      .catch(function () {
+        /* Réseau capricieux : on retombe sur les adresses individuelles, qui
+           fonctionnent aussi, simplement plus lentement. */
+        for (var i = 0; i < nombre; i++) {
+          var img = modele[debut + i];
+          if (img && img.dataset.secours) { img.src = img.dataset.secours; delete img.dataset.secours; }
+        }
+        majProgression(debut, nombre, total);
+      });
   }
 
   function majProgression(depuis, faits, total) {
     var lab = $('pm-progress-label');
     var bar = $('pm-progress-bar');
-    var montees = pmEtat ? pmEtat.parPaquet : depuis + faits;
-    var chargees = depuis + faits;
-    if (lab) {
-      lab.textContent = chargees + ' chargée(s) · ' + montees + ' sur ' + total;
-    }
-    if (bar) bar.style.width = (total ? Math.min(100, Math.round((chargees / total) * 100)) : 0) + '%';
-    var suite = Math.max(0, total - montees);
+    var affichees = depuis + (faits || 0);
+    if (lab) lab.textContent = affichees + ' sur ' + total + ' affichée(s)';
+    if (bar) bar.style.width = (total ? Math.min(100, Math.round((affichees / total) * 100)) : 0) + '%';
+    var suite = Math.max(0, total - affichees);
     var btn = $('pm-more');
     if (btn) {
       btn.classList.toggle('hidden', suite <= 0);
@@ -939,20 +920,14 @@
       item.className = 'pm-item' + (g.coverId === f.id ? ' is-cover' : '');
 
       var img = document.createElement('img');
-      /* Vignette chargée EN DIRECT chez Google quand c'est possible (champ `t`,
-         l'adresse signée que la galerie du client utilise déjà). Sinon, repli
-         sur notre serveur. Pourquoi : avant, chaque vignette de l'admin faisait
-         un aller-retour Google + un relais par notre serveur ; ouvrir 945
-         photos saturait l'instance (redémarrages du 18/11). Ce chemin direct
-         n'utilise ni processeur ni mémoire de Render.
-         Adresse préparée mais PAS chargée ici : chargerVignettes() la demandera
-         au compte-gouttes, 5 requêtes simultanées au maximum. */
-      var locale = '/api/admin/galleries/' + g.id + '/photo/' + encodeURIComponent(f.id) + '/thumb?size=150';
-      img.dataset.src = f.t ? String(f.t).replace(/=s\d+(-c)?$/, '=s150$1') : locale;
-      img.dataset.secours = locale;
+      /* Pas encore d'image : elle arrivera avec le paquet renvoyé par le serveur
+         (voir chargerPaquetVignettes). On garde seulement l'adresse de secours,
+         au cas où l'appel groupé échouerait. */
+      img.dataset.secours = '/api/admin/galleries/' + g.id + '/photo/' + encodeURIComponent(f.id) + '/thumb?size=150';
       img.loading = 'lazy';
       img.decoding = 'async';
       img.alt = f.name || '';
+      img.style.background = 'var(--bg-2)';   // évite un trou blanc en attendant
 
       var cov = document.createElement('button');
       cov.className = 'pm-cover';
@@ -1027,14 +1002,20 @@
   };
 
   function ajouterPaquetPhotos() {
-    if (!pmEtat || !pmEtat.ouvert) return;
+    if (!pmEtat || !pmEtat.ouvert || pmEtat.enCours) return;
     var files = pmEtat.galerie.files || [];
     var depuis = pmEtat.parPaquet;
     if (depuis >= files.length) { majProgression(depuis, 0, pmEtat.total); return; }
+    pmEtat.enCours = true;
     var nouveaux = monterPaquet(files, depuis, pmEtat.total);
     pmEtat.modele = pmEtat.modele.concat(nouveaux);
-    pmEtat.parPaquet = depuis + nouveaux.length;
-    chargerVignettes(nouveaux, depuis, pmEtat.total);
+    var nombre = nouveaux.length;
+    chargerPaquetVignettes(depuis, nombre, pmEtat.total).then(function () {
+      if (!pmEtat) return;
+      pmEtat.parPaquet = depuis + nombre;
+      pmEtat.enCours = false;
+      majProgression(pmEtat.parPaquet, 0, pmEtat.total);
+    });
   }
 
   /* --- Sélections d'albums envoyées par les clients ------------- */
