@@ -66,5 +66,14 @@ check('le plan du site ne contient que des adresses canoniques',
   !/\.html|\/connexion\/|politique-de-confidentialite/.test(sitemap));
 check('le plan du site est daté du jour de la correction', /2026-11-02/.test(sitemap));
 
+console.log('\nD. Découvrabilité (Search Console : « Découverte, actuellement non indexée »)');
+const accueil = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+check('l’accueil mène à l’espace clients', /<a href="\/connexion"/.test(accueil));
+check('et depuis le pied de page aussi', (accueil.match(/href="\/connexion"/g) || []).length >= 2,
+  (accueil.match(/href="\/connexion"/g) || []).length + ' lien(s)');
+check('l’accueil mène à la page de confidentialité', /href="\/confidentialite"/.test(accueil));
+check('aucune adresse de galerie n’est liée comme page indexable (robots.txt la bloque)',
+  /Disallow: \/g\//.test(fs.readFileSync(path.join(__dirname, '..', 'public', 'robots.txt'), 'utf8')));
+
 console.log('\nRésultat : ' + ok + ' réussites, ' + ko + ' échec(s)');
 process.exit(ko ? 1 : 0);
