@@ -109,7 +109,7 @@ const MEDIA_CACHE = new Map(); // clé -> { buf, ctype }
  * réponse), cela laissait très peu de marge et provoquait des redémarrages par
  * manque de mémoire pendant l'affichage d'un dossier de photos (18/11/2026).
  * 64 Mo suffisent : au-delà, les vignettes sont simplement reprises chez Google. */
-const MEDIA_CACHE_MAX_BYTES = 64 * 1024 * 1024;
+const MEDIA_CACHE_MAX_BYTES = 24 * 1024 * 1024;
 let mediaCacheBytes = 0;
 
 /* --- Garde-fou mémoire ------------------------------------------------
@@ -122,11 +122,15 @@ let mediaCacheBytes = 0;
  * les réponses mises en cache sont jetés, puis reconstruits à la demande.
  * Personne ne s'en aperçoit, et le processus ne meurt pas.
  */
-const SEUIL_MEMOIRE_OCTETS = 400 * 1024 * 1024;
+const SEUIL_MEMOIRE_OCTETS = 330 * 1024 * 1024;   // marge avant la limite Render
 
 function veillerSurLaMemoire() {
   const m = process.memoryUsage();
   if (m.rss <= SEUIL_MEMOIRE_OCTETS) return;
+  /* Les chaînes base64 des vignettes en cours d'envoi pèsent lourd (deux copies :
+     binaire + texte). On les jette d'abord : elles sont reconstruites à la
+     demande au prochain affichage. */
+  if (typeof viderVignettesEnAttente === 'function') viderVignettesEnAttente();
   MEDIA_CACHE.clear();
   mediaCacheBytes = 0;
   if (typeof photosCache !== 'undefined' && photosCache && photosCache.clear) photosCache.clear();
@@ -305,7 +309,7 @@ app.get('/healthz', (req, res) => {
 
 /* Surveillance mémoire : toutes les 2 minutes, sans jamais empêcher le
    processus de s'arrêter proprement. */
-const veilleMemoire = setInterval(veillerSurLaMemoire, 2 * 60 * 1000);
+const veilleMemoire = setInterval(veillerSurLaMemoire, 20 * 1000);
 if (veilleMemoire.unref) veilleMemoire.unref();
 
 const CANONICAL_HOST = process.env.CANONICAL_HOST || 'galeries.mewstudio.com';
@@ -2578,6 +2582,12 @@ function sanitizeFilesForAdmin(g) {
 
 /* Choisir la photo de couverture (celle vue avant le mot de passe).
  * fileId vide = revenir à l'écran de verrouillage classique. */
+/* Encodages base64 en cours d'envoi. Une chaîne base64 occupe deux fois la
+   taille du binaire (le texte plus la chaîne d'origine) : c'est cette réserve
+   que la surveillance mémoire vide en priorité. */
+const vignettesEnAttente = new Set();
+function viderVignettesEnAttente() { vignettesEnAttente.clear(); }
+
 /* Vignettes de l'admin, par paquets.
  *
  * POURQUOI : Google refuse désormais ses adresses de vignettes au navigateur
@@ -2606,13 +2616,21 @@ app.get('/api/admin/galleries/:id/thumbs', requireAdmin, async (req, res) => {
       if (!rec || rec.storage !== 'drive') continue;   // stockage local : le navigateur s'en charge
       try {
         const t = await thumbBytes(rec, size);
-        if (t.ok) resultat[k] = 'data:' + t.ctype + ';base64,' + t.buf.toString('base64');
+        if (t.ok) {
+          const enc = 'data:' + t.ctype + ';base64,' + t.buf.toString('base64');
+          vignettesEnAttente.add(enc);
+          resultat[k] = enc;
+        }
       } catch (e) { /* vignette laissée vide : le navigateur retombera sur l'image simple */ }
     }
   }
   await Promise.all(Array.from({ length: Math.min(8, fichiers.length) }, ouvrier));
   res.setHeader('Cache-Control', 'no-store');
   res.json({ from, thumbs: resultat });
+  /* Le texte base64 ne sert plus une fois la réponse partie : on le retire du
+     registre pour que la mémoire redevienne disponible tout de suite. */
+  resultat.length = 0;
+  vignettesEnAttente.clear();
 });
 
 app.post('/api/admin/galleries/:id/cover', requireAdmin, async (req, res) => {

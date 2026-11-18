@@ -68,7 +68,7 @@ check('aucune tentative de chargement direct chez Google dans la grille',
 
 console.log('\nH. Mémoire de l’instance protégée');
 const srv = require('fs').readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
-check('le cache de vignettes est plafonné à 64 Mo', /MEDIA_CACHE_MAX_BYTES = 64 \* 1024 \* 1024/.test(srv));
+check('le cache de vignettes est plafonné à 24 Mo', /MEDIA_CACHE_MAX_BYTES = 24 \* 1024 \* 1024/.test(srv));
 check('un seul aperçu de couverture à la fois par galerie',
   /coverPreviewLocks/.test(srv) && /while \(coverPreviewLocks\.has/.test(srv));
 
