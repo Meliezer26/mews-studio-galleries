@@ -5,6 +5,60 @@
   var $ = function (id) { return document.getElementById(id); };
   var state = { galleries: [], currentGalleryId: null, filter: 'all', clientAccess: null };
 
+  /* --- Catalogue des packages : une seule source ---------------------
+   * Les cases à cocher sont construites à partir de /api/admin/packages
+   * (lui-même issu de lib/packages.js). Avant, la liste était recopiée à la
+   * main dans le HTML : un album ajouté côté serveur n'apparaissait pas dans
+   * l'admin, et les libellés pouvaient diverger.
+   * ------------------------------------------------------------------ */
+  var CATALOGUE_PK = null;
+
+  function libelleAvecPages(def) {
+    return def.pages ? def.label + '  ·  ' + def.pages + ' pages' : def.label;
+  }
+
+  function construireCasesPackages() {
+    if (!CATALOGUE_PK) return;
+    document.querySelectorAll('[data-pk-grid]').forEach(function (grille) {
+      grille.innerHTML = '';
+      CATALOGUE_PK.forEach(function (def) {
+        var lab = document.createElement('label');
+        if (def.print) {
+          lab.className = 'check pk-qty-row';
+          var span = document.createElement('span');
+          span.textContent = def.label + ' — quantité';
+          var inp = document.createElement('input');
+          inp.type = 'number';
+          inp.className = 'pk-qty';
+          inp.dataset.id = def.id;
+          inp.min = '0';
+          inp.max = '999';
+          inp.placeholder = '0';
+          lab.appendChild(span);
+          lab.appendChild(inp);
+        } else {
+          lab.className = 'check';
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'pk';
+          cb.dataset.id = def.id;
+          lab.appendChild(cb);
+          lab.appendChild(document.createTextNode(' ' + libelleAvecPages(def)));
+        }
+        grille.appendChild(lab);
+      });
+    });
+  }
+
+  function chargerCataloguePackages() {
+    return window.api('/api/admin/packages')
+      .then(function (r) {
+        CATALOGUE_PK = (r && r.packages) || [];
+        construireCasesPackages();
+      })
+      .catch(function () { /* le reste de l'admin reste utilisable */ });
+  }
+
   /* --- Session ---------------------------------------------- */
   function isLogged() {
     try { return document.cookie.split(';').some(function (c) { return c.trim().indexOf('mews_admin=') === 0; }); }
@@ -1014,6 +1068,7 @@
   function init() {
     if (isLogged()) {
       showShell(true);
+      chargerCataloguePackages();
       loadGalleries();
     } else {
       showShell(false);
@@ -1026,6 +1081,7 @@
         .then(function () {
           $('login-pass').value = '';
           showShell(true);
+          chargerCataloguePackages();
           loadGalleries();
         })
         .catch(function (err) { $('login-error').textContent = err.message; });

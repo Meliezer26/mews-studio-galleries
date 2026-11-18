@@ -2295,6 +2295,21 @@ app.get('/api/admin/galleries/:id/photo/:fid/thumb', requireAdmin, async (req, r
   res.sendFile(p);
 });
 
+/* Catalogue des packages vendus (source unique : lib/packages.js).
+ * L'admin construit ses cases à cocher avec cette liste : un album ajouté
+ * côté serveur apparaît donc immédiatement, sans recopie manuelle. */
+app.get('/api/admin/packages', requireAdmin, (req, res) => {
+  res.json({
+    packages: PACKAGE_DEFS.map((def) => ({
+      id: def.id,
+      label: def.label,
+      pages: def.pages || 0,
+      print: def.type !== 'check',
+      capacity: def.type === 'check' ? packageCapacity(def.id) : 0,
+    })),
+  });
+});
+
 app.get('/api/admin/galleries', requireAdmin, (req, res) => {
   const all = store.galleries().map((g) => ({
     id: g.id,

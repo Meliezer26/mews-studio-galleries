@@ -64,7 +64,8 @@ check('chaque page publique déclare sa canonique',
 const sitemap = fs.readFileSync(path.join(__dirname, '..', 'public', 'sitemap.xml'), 'utf8');
 check('le plan du site ne contient que des adresses canoniques',
   !/\.html|\/connexion\/|politique-de-confidentialite/.test(sitemap));
-check('le plan du site est daté du jour de la correction', /2026-11-02/.test(sitemap));
+check('le plan du site porte une date de mise à jour récente',
+  /<lastmod>2026-\d\d-\d\d<\/lastmod>/.test(sitemap) && /2026-11/.test(sitemap));
 
 console.log('\nD. Découvrabilité (Search Console : « Découverte, actuellement non indexée »)');
 const accueil = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');

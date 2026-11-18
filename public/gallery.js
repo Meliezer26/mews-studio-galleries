@@ -15,6 +15,7 @@
     'album-mairie-henne-30x60-150': '#c8c8c8',
     'album-30x60-150': '#b8b8b8',
     'album-25x50-100': '#7d7d7d',
+    'album-25x50-80': '#8f8f8f',
     'posters-30x45': '#e8c66a',
     'agrandissements-20x30': '#d9a05b'
   };
