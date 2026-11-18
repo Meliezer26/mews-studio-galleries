@@ -2447,6 +2447,15 @@ app.get('/api/admin/galleries', requireAdmin, (req, res) => {
       return out;
     })(),
     clientsCount: (g.clients || []).length,
+    coverId: g.coverId || null,
+    /* La liste des photos voyage AVEC le tableau des galeries : la fenêtre
+       Photos n'a plus besoin de redemander la fiche (jusqu'à 10 secondes sur
+       945 photos, et un listing Drive à chaque ouverture). */
+    fileList: (g.files || []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      storage: f.storage || null,
+    })),
     cover: (function () {
       const id = cover.coverId(g) || (g.files && g.files.length ? g.files[0].id : null);
       return id ? `/api/admin/galleries/${g.id}/photo/${encodeURIComponent(id)}/thumb?size=400` : null;
