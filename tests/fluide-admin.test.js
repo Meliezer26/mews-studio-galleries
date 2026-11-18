@@ -33,7 +33,7 @@ check('les images sont montées dans un fragment', /createDocumentFragment\(\)/.
    production. On vérifie désormais une règle qui ne dépend d'aucun événement. */
 check('la suite se décide sur la position du dernier élément monté',
   /function verifierRemplissage/.test(admin) && /dernier\.getBoundingClientRect/.test(admin));
-check('la vérification est répétée périodiquement', /setInterval\(verifierRemplissage, 900\)/.test(admin));
+check('la vérification est répétée périodiquement', /setInterval\(function \(\) \{\s*verifierRemplissage/.test(admin));
 check('la répétition s’arrête à la fermeture', /arreterVeille\(\)/.test(admin));
 check('le bouton « Afficher la suite » reste disponible', /pm-more/.test(admin) && /pm-more/.test(html));
 
