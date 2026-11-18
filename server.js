@@ -109,6 +109,30 @@ const MEDIA_CACHE = new Map(); // clé -> { buf, ctype }
 const MEDIA_CACHE_MAX_BYTES = 64 * 1024 * 1024;
 let mediaCacheBytes = 0;
 
+/* --- Garde-fou mémoire ------------------------------------------------
+ *
+ * L'instance gratuite dispose d'environ 512 Mo. Le 18/11/2026, elle a redémarré
+ * six fois en une heure, sans qu'aucune erreur n'apparaisse dans les journaux :
+ * un dépassement de mémoire ne laisse pas de trace applicative. Plutôt que de
+ * subir le redémarrage (le site devient injoignable une minute), on rend la
+ * mémoire nous-mêmes dès qu'elle approche du plafond : le cache de vignettes et
+ * les réponses mises en cache sont jetés, puis reconstruits à la demande.
+ * Personne ne s'en aperçoit, et le processus ne meurt pas.
+ */
+const SEUIL_MEMOIRE_OCTETS = 400 * 1024 * 1024;
+
+function veillerSurLaMemoire() {
+  const m = process.memoryUsage();
+  if (m.rss <= SEUIL_MEMOIRE_OCTETS) return;
+  MEDIA_CACHE.clear();
+  mediaCacheBytes = 0;
+  if (typeof photosCache !== 'undefined' && photosCache && photosCache.clear) photosCache.clear();
+  if (global.gc) { try { global.gc(); } catch (e) { /* sans --expose-gc : sans effet */ } }
+  const apres = process.memoryUsage();
+  console.warn('[memoire] plafond approché (' + Math.round(m.rss / 1048576) + ' Mo) : caches vidés, ' +
+    'mémoire ramenée à ' + Math.round(apres.rss / 1048576) + ' Mo');
+}
+
 function mediaCacheGet(key) {
   const e = MEDIA_CACHE.get(key);
   if (!e) return null;
@@ -260,6 +284,11 @@ app.get('/healthz', (req, res) => {
     cacheVignettesMo: mo(mediaCacheBytes),
   });
 });
+
+/* Surveillance mémoire : toutes les 2 minutes, sans jamais empêcher le
+   processus de s'arrêter proprement. */
+const veilleMemoire = setInterval(veillerSurLaMemoire, 2 * 60 * 1000);
+if (veilleMemoire.unref) veilleMemoire.unref();
 
 const CANONICAL_HOST = process.env.CANONICAL_HOST || 'galeries.mewstudio.com';
 /* Une seule adresse par page publique, et une seule.

@@ -74,5 +74,11 @@ check('le cache de vignettes est plafonné à 64 Mo', /MEDIA_CACHE_MAX_BYTES = 6
 check('un seul aperçu de couverture à la fois par galerie',
   /coverPreviewLocks/.test(srv) && /while \(coverPreviewLocks\.has/.test(srv));
 
+console.log('\nI. L’instance ne meurt plus en silence');
+check('un seuil mémoire est défini', /const SEUIL_MEMOIRE_OCTETS = \d+ \* 1024 \* 1024/.test(srv));
+check('les caches sont vidés avant la limite', /MEDIA_CACHE\.clear\(\)/.test(srv));
+check('la veille mémoire tourne périodiquement', /setInterval\(veillerSurLaMemoire/.test(srv));
+check('la veille n’empêche pas l’arrêt du processus', /veilleMemoire\.unref/.test(srv));
+
 console.log('\nRésultat : ' + ok + ' réussites, ' + ko + ' échec(s)');
 process.exit(ko ? 1 : 0);
