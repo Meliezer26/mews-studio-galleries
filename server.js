@@ -243,11 +243,40 @@ app.get('/healthz', (req, res) => {
 });
 
 const CANONICAL_HOST = process.env.CANONICAL_HOST || 'galeries.mewstudio.com';
-const HTML_ALIASES = { '/index.html': '/', '/connexion.html': '/connexion', '/confidentialite.html': '/confidentialite' };
+/* Une seule adresse par page publique, et une seule.
+ *
+ * Search Console (2/11/2026) : « Duplicate, Google chose different canonical
+ * than user ». Cause : la même page répondait en 200 sur plusieurs adresses
+ * (/connexion, /connexion/, /Connexion, /confidentialite.html,
+ * /politique-de-confidentialite…). Chacune déclarait bien la bonne canonique
+ * dans son <link>, mais Google préfère une redirection 301 : il n'y a alors
+ * plus qu'une seule adresse vivante.
+ *
+ * Le tableau ci-dessous dit, pour chaque variante, l'adresse unique retenue.
+ * La casse, la barre finale et l'extension .html sont neutralisées.
+ */
+const PAGES_CANONIQUES = {
+  '/': '/',
+  '/index': '/',
+  '/connexion': '/connexion',
+  '/confidentialite': '/confidentialite',
+  // Ancienne adresse encore citée ailleurs (site principal, courriels) :
+  // elle redirige au lieu de servir un doublon.
+  '/politique-de-confidentialite': '/confidentialite',
+};
+function pageCanonique(chemin) {
+  let p = String(chemin || '/').toLowerCase();
+  if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);   // sans barre finale
+  if (p.endsWith('.html')) p = p.slice(0, -5);               // sans extension
+  if (p === '' || p === '/index') p = '/';
+  return Object.prototype.hasOwnProperty.call(PAGES_CANONIQUES, p) ? PAGES_CANONIQUES[p] : null;
+}
 app.use((req, res, next) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-  const alias = HTML_ALIASES[req.path];
-  if (alias) return res.redirect(301, alias + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
+  const cible = pageCanonique(req.path);
+  if (cible && req.path !== cible) {
+    return res.redirect(301, cible + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
+  }
   const host = String(req.headers.host || '').toLowerCase();
   const isPublicPage = req.path === '/' || req.path === '/connexion' || /^\/(politique-de-)?confidentialit/i.test(req.path) || req.path === '/sitemap.xml' || req.path === '/robots.txt';
   const isMonitor = /cron-job\.org|UptimeRobot|Better ?Uptime|StatusCake|Pingdom/i.test(String(req.headers['user-agent'] || ''));
