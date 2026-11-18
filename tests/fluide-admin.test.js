@@ -51,6 +51,13 @@ check('le serveur applique la taille demandée', /req\.query\.size \|\| '150'/.t
 
 console.log('\nD. Mémoire maîtrisée');
 check('les images hors écran sont libérées', /function libererHorsEcran\(/.test(admin));
+/* Incident du 18/11/2026 (soir) : après avoir fait défiler puis être remonté,
+   les photos restaient vides — elles n'étaient jamais restituées. */
+const blocLibere = (admin.match(/function libererHorsEcran\(\)[\s\S]*?\n  \}/) || [''])[0];
+check('les images sont RESTITUÉES au retour à l’écran',
+  /if \(!img\.getAttribute\('src'\) && img\.dataset\.src\)/.test(blocLibere));
+check('l’adresse est conservée avant libération',
+  /img\.dataset\.src = img\.getAttribute\('src'\)/.test(blocLibere));
 check('le défilement est écouté sans bloquer (passive)', /\{ passive: true \}/.test(admin));
 
 console.log('\nE. Fermeture propre');

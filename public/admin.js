@@ -880,24 +880,35 @@
     }
   }
 
+  /* Libère la mémoire des photos sorties de l'écran, et les RESTITUE au retour.
+   *
+   * Incident du 18/11/2026 (soir) : en remontant après avoir fait défiler, les
+   * photos restaient vides — elles ne revenaient jamais. La version précédente
+   * effaçait bien l'image hors écran, mais la restitution était conditionnée à
+   * une valeur qui n'était plus lue : l'image n'était donc jamais remise. Une
+   * photo qui a déjà été chargée ne coûte plus rien à réafficher (elle est dans
+   * le cache du navigateur) : on garde son adresse dans `data-src` et on la
+   * remet dès qu'elle revient à l'écran.
+   */
   function libererHorsEcran() {
     if (!pmEtat) return;
     var zone = $('pm-scroll');
     if (!zone) return;
     var r = zone.getBoundingClientRect();
     pmEtat.modele.forEach(function (img) {
-      if (img.dataset.src) return;              // pas encore demandée : rien à faire
       var b = img.getBoundingClientRect();
-      var visible = b.bottom > r.top - 900 && b.top < r.bottom + 900;
-      if (!visible && img.src) {
-        /* Hors écran : on garde l'adresse pour la restituer au retour, et on
-           libère la mémoire de l'image. Sur 945 photos, cela fait la
-           différence entre un navigateur fluide et un onglet qui rame. */
-        img.dataset.src = img.src;
+      var visible = b.bottom > r.top - 1200 && b.top < r.bottom + 1200;
+      if (visible) {
+        /* De retour à l'écran : on remet l'image si elle avait été libérée. */
+        if (!img.getAttribute('src') && img.dataset.src) {
+          img.src = img.dataset.src;
+          delete img.dataset.src;
+        }
+      } else if (img.getAttribute('src') && !img.dataset.src) {
+        /* Sortie de l'écran : on garde l'adresse de côté et on libère le dessin.
+           Sur 945 photos, cela évite un onglet qui rame. */
+        img.dataset.src = img.getAttribute('src');
         img.removeAttribute('src');
-      } else if (visible && !img.src && img.dataset.src) {
-        img.src = img.dataset.src;
-        delete img.dataset.src;
       }
     });
   }
@@ -926,33 +937,23 @@
   var pmVeille = null;
   function demarrerVeille() {
     if (pmVeille) return;
-    pmVeille = setInterval(verifierRemplissage, 900);
+    pmVeille = setInterval(function () {
+      verifierRemplissage();
+      libererHorsEcran();
+    }, 900);
   }
   function arreterVeille() {
     if (pmVeille) { clearInterval(pmVeille); pmVeille = null; }
   }
 
-  function libererHorsEcran() {
-    if (!pmEtat) return;
-    var zone = $('pm-scroll');
-    if (!zone) return;
-    var r = zone.getBoundingClientRect();
-    pmEtat.modele.forEach(function (img) {
-      var b = img.getBoundingClientRect();
-      var visible = b.bottom > r.top - 900 && b.top < r.bottom + 900;
-      /* Hors écran : on garde l'image en mémoire mais on libère son dessin.
-         Sur 945 photos, cela fait la différence entre un onglet fluide et un
-         onglet qui rame. */
-      if (!visible && img.src && !img.dataset.secours) {
-        img.dataset.secours = img.src;
-        img.removeAttribute('src');
-      }
-    });
-  }
 
+  var pmLibereAt = 0;
   function surDefilementPhotos() {
     verifierRemplissage();
-    libererHorsEcran();
+    /* Libération au plus toutes les 400 ms : inutile de reparcourir 945
+       éléments à chaque pixel de défilement. */
+    var t = Date.now();
+    if (t - pmLibereAt > 400) { pmLibereAt = t; libererHorsEcran(); }
   }
 
   function monterPaquet(files, depuis, total) {
