@@ -32,7 +32,8 @@ const attendus = [
   ['album-mairie-henne-30x60-150', 'Album Mairie Henne — 30×60 — 150 photos', 150, 32],
   ['album-30x60-150', 'Album 30×60 — 150 photos', 150, 32],
   ['album-25x50-100', 'Album 25×50 — 100 photos', 100, 25],
-  ['album-25x50-80', 'Album 25×50 — 80 photos', 80, 20],
+  ['album-25x50-80', 'Album 1 — 25×50 — 80 photos', 80, 20],
+  ['album2-25x50-80', 'Album 2 — 25×50 — 80 photos', 80, 20],
 ];
 attendus.forEach(([id, label, photos, pages]) => {
   const d = parId(id);
@@ -42,7 +43,12 @@ attendus.forEach(([id, label, photos, pages]) => {
   check('  capacité ' + photos + ' photos', pk.packageCapacity(id) === photos, pk.packageCapacity(id));
   check('  ' + pages + ' pages', pk.packagePages(id) === pages, pk.packagePages(id));
 });
-check('aucun album oublié ni en trop', albums.length === 9, albums.length + ' album(s)');
+check('aucun album oublié ni en trop', albums.length === 10, albums.length + ' album(s)');
+check('les deux albums de 80 photos sont deux rubriques distinctes',
+  parId('album-25x50-80') && parId('album2-25x50-80') &&
+  parId('album-25x50-80').label !== parId('album2-25x50-80').label);
+check('chacun permet de choisir 80 photos',
+  pk.packageCapacity('album-25x50-80') === 80 && pk.packageCapacity('album2-25x50-80') === 80);
 
 console.log('\nB. Cohérence du catalogue');
 check('chaque libellé annonce le bon nombre de photos',
