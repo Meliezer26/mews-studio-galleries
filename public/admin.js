@@ -839,7 +839,27 @@
         if (!img || !img.dataset.src) { fini++; continue; }
         enCours++;
         (function (el) {
-          el.onload = el.onerror = function () {
+          el.onload = function () {
+            el.onload = el.onerror = null;
+            enCours--; fini++;
+            majProgression(depuis, fini, total);
+            pomper();
+          };
+          el.onerror = function () {
+            /* Adresse Google expirée ou refusée : on repasse une fois par notre
+               serveur, sans bloquer le reste de la file. */
+            if (el.dataset.secours && el.src !== el.dataset.secours) {
+              var secours = el.dataset.secours;
+              delete el.dataset.secours;
+              el.onerror = function () {
+                el.onload = el.onerror = null;
+                enCours--; fini++;
+                majProgression(depuis, fini, total);
+                pomper();
+              };
+              el.src = secours;
+              return;
+            }
             el.onload = el.onerror = null;
             enCours--; fini++;
             majProgression(depuis, fini, total);
@@ -919,10 +939,17 @@
       item.className = 'pm-item' + (g.coverId === f.id ? ' is-cover' : '');
 
       var img = document.createElement('img');
-      /* Adresse préparée mais PAS chargée : chargerVignettes() la demandera au
-         compte-gouttes, à 5 requêtes simultanées au maximum. Taille 150 px :
-         très légère à télécharger et à décoder (avant : 240 px). */
-      img.dataset.src = '/api/admin/galleries/' + g.id + '/photo/' + encodeURIComponent(f.id) + '/thumb?size=150';
+      /* Vignette chargée EN DIRECT chez Google quand c'est possible (champ `t`,
+         l'adresse signée que la galerie du client utilise déjà). Sinon, repli
+         sur notre serveur. Pourquoi : avant, chaque vignette de l'admin faisait
+         un aller-retour Google + un relais par notre serveur ; ouvrir 945
+         photos saturait l'instance (redémarrages du 18/11). Ce chemin direct
+         n'utilise ni processeur ni mémoire de Render.
+         Adresse préparée mais PAS chargée ici : chargerVignettes() la demandera
+         au compte-gouttes, 5 requêtes simultanées au maximum. */
+      var locale = '/api/admin/galleries/' + g.id + '/photo/' + encodeURIComponent(f.id) + '/thumb?size=150';
+      img.dataset.src = f.t ? String(f.t).replace(/=s\d+(-c)?$/, '=s150$1') : locale;
+      img.dataset.secours = locale;
       img.loading = 'lazy';
       img.decoding = 'async';
       img.alt = f.name || '';

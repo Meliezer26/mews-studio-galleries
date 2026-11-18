@@ -20,6 +20,7 @@ try {
 } catch { /* pas de fichier .env */ }
 
 const express = require('express');
+const v8 = require('v8');
 const compression = require('compression');
 const multer = require('multer');
 
@@ -100,7 +101,12 @@ const SYNC_TTL = 5 * 60 * 1000; // re-synchronisation Drive auto après 5 min
  *  mémoire une fois chargés (plafond 150 Mo, plus anciens évincés).
  * ============================================================ */
 const MEDIA_CACHE = new Map(); // clé -> { buf, ctype }
-const MEDIA_CACHE_MAX_BYTES = 150 * 1024 * 1024;
+/* Plafond du cache de vignettes en mémoire. Il était à 150 Mo : sur une
+ * instance gratuite (512 Mo, dont une grosse part pour Node, plus le tampon de
+ * réponse), cela laissait très peu de marge et provoquait des redémarrages par
+ * manque de mémoire pendant l'affichage d'un dossier de photos (18/11/2026).
+ * 64 Mo suffisent : au-delà, les vignettes sont simplement reprises chez Google. */
+const MEDIA_CACHE_MAX_BYTES = 64 * 1024 * 1024;
 let mediaCacheBytes = 0;
 
 function mediaCacheGet(key) {
@@ -230,6 +236,11 @@ app.set('trust proxy', 1);
  * hôtes, sans redirection, sans cache. */
 app.get('/healthz', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
+  /* Mémoire de l'instance : c'est elle qui manquait le 18/11/2026. Render a
+     redémarré deux fois sans qu'aucune erreur n'apparaisse dans les journaux —
+     un manque de mémoire ne laisse pas de trace applicative. Exposer ces
+     chiffres permet de constater la dérive AVANT le redémarrage. */
+  const mem = process.memoryUsage();
   // Les compteurs permettent au bilan de santé de repérer un site « en ligne
   // mais vide » (données perdues) — un simple 200 ne le verrait pas.
   let galleries = null;
@@ -239,7 +250,15 @@ app.get('/healthz', (req, res) => {
     galleries = all.length;
     photos = all.reduce((s, g) => s + ((g.files || []).length), 0);
   } catch (e) { /* compteurs facultatifs : ne jamais casser le point de vie */ }
-  res.json({ ok: true, at: new Date().toISOString(), galleries, photos });
+  const mo = (n) => Math.round((n / 1048576) * 10) / 10;
+  res.json({
+    ok: true,
+    at: new Date().toISOString(),
+    galleries,
+    photos,
+    memMo: { utilise: mo(mem.rss), plafond: mo(mem.heapTotal), plafondReel: mo(v8.getHeapStatistics().heap_size_limit) },
+    cacheVignettesMo: mo(mediaCacheBytes),
+  });
 });
 
 const CANONICAL_HOST = process.env.CANONICAL_HOST || 'galeries.mewstudio.com';
@@ -693,6 +712,7 @@ async function buildCoverPreview(g) {
 }
 
 const coverPreviewBusy = new Set();
+const coverPreviewLocks = new Set();   // un seul aperçu de couverture à la fois par galerie
 /* Anti-rafale : relire un dossier de 1 188 photos coûte cher. Après un échec
  * de couverture, on ne relance la synchronisation que toutes les 2 minutes. */
 const coverResyncAt = new Map();
@@ -2461,6 +2481,11 @@ app.get('/api/admin/galleries/:id', requireAdmin, async (req, res) => {
   if (Array.isArray(safeGallery.selections)) {
     safeGallery.selections = safeGallery.selections.map(enrichSel);
   }
+  /* Champs nécessaires à la grille de l'admin : de quoi demander la vignette
+     directement chez Google (comme le fait déjà la galerie du client) et de
+     savoir s'il faut tenter cette voie. Rien d'autre n'est transmis : les
+     données brutes de Drive (aperçus, tailles internes) n'ont pas à sortir. */
+  sanitizeFilesForAdmin(safeGallery);
   if (Array.isArray(safeGallery.clients)) {
     safeGallery.clients = safeGallery.clients.map((c) => {
       const { pinHash, ...rest } = c;
@@ -2470,6 +2495,33 @@ app.get('/api/admin/galleries/:id', requireAdmin, async (req, res) => {
   }
   res.json({ gallery: safeGallery });
 });
+
+/* Prépare la liste des photos pour l'admin.
+ *
+ * Le fichier Drive complet contient des champs inutiles ici (aperçus, tailles
+ * internes). On ne garde que ce dont la grille a besoin, plus `t` : l'adresse
+ * signée Google de la vignette.
+ *
+ * Pourquoi `t` : jusqu'ici la grille de l'admin demandait chaque vignette à
+ * NOTRE serveur, qui allait la chercher chez Google avant de la renvoyer.
+ * Ouvrir une galerie de 945 photos = 945 allers-retours Google + 945 relais,
+ * alors que la galerie côté client charge déjà les vignettes directement chez
+ * Google. C'est ce qui saturait l'instance (redémarrages des 18/11 07:04 et
+ * 07:06, alerte « health check failed »). L'admin emprunte désormais la même
+ * voie rapide, avec repli automatique sur le serveur si Google ne répond pas.
+ */
+function sanitizeFilesForAdmin(g) {
+  if (!g || !Array.isArray(g.files)) return g;
+  g.files = g.files.map((f) => ({
+    id: f.id,
+    name: f.name,
+    size: f.size || 0,
+    mime: f.mime || null,
+    storage: f.storage || null,
+    t: f.storage === 'drive' ? (f.thumb || null) : null,
+  }));
+  return g;
+}
 
 /* Choisir la photo de couverture (celle vue avant le mot de passe).
  * fileId vide = revenir à l'écran de verrouillage classique. */
@@ -2503,7 +2555,14 @@ app.post('/api/admin/galleries/:id/cover', requireAdmin, async (req, res) => {
   }
   if (fresh && cover.coverId(fresh)) {
     try {
+      /* Une seule fabrication d'aperçu à la fois par galerie : sans cela, des
+         clics répétés lançaient autant de téléchargements d'image que de clics. */
+      while (coverPreviewLocks.has(req.params.id)) {
+        await new Promise((r) => setTimeout(r, 60));
+      }
+      coverPreviewLocks.add(req.params.id);
       const data = await buildCoverPreview(fresh);
+      coverPreviewLocks.delete(req.params.id);
       store.updateGalleries((list) => {
         const cur = list.find((x) => x.id === req.params.id);
         if (!cur) return false;
@@ -2514,6 +2573,7 @@ app.post('/api/admin/galleries/:id/cover', requireAdmin, async (req, res) => {
         return true;
       });
     } catch (e) {
+      coverPreviewLocks.delete(req.params.id);
       console.warn('[cover] aperçu impossible :', e.message);
     }
   }

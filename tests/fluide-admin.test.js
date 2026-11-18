@@ -33,7 +33,7 @@ check('le bouton « Afficher la suite » reste disponible', /pm-more/.test(admin
 
 console.log('\nB. Aucune image demandée d’un coup');
 check('l’adresse est posée en data-src, pas en src',
-  /img\.dataset\.src = '\/api\/admin\/galleries\//.test(admin));
+  /img\.dataset\.src = [^\n]+;\n/.test(admin) && !/img\.src = locale/.test(admin));
 check('le chargement passe par chargerVignettes()', /function chargerVignettes\(/.test(admin));
 check('une image n’est demandée que si son tour arrive',
   /while \(enCours < PM_CONCURRENCE && prochain < fileList\.length\)/.test(admin));
@@ -54,6 +54,25 @@ check('la fermeture est branchée dans closeModal()',
 console.log('\nF. Zone de défilement présente dans la page');
 check('la grille est dans .pm-scroll', /class="pm-scroll" id="pm-scroll"/.test(html));
 check('la barre de progression existe', /id="pm-progress-bar"/.test(html));
+
+console.log('\nG. Les vignettes ne passent plus toutes par le serveur');
+check('l’adresse Google signée est utilisée quand elle existe',
+  /img\.dataset\.src = f\.t \?/.test(admin));
+check('la taille demandée à Google est ramenée à 150 px',
+  /=s150\$1/.test(admin));
+check('un repli vers le serveur est prévu', /dataset\.secours/.test(admin));
+check('le repli n’est tenté qu’une fois', /if \(el\.dataset\.secours && el\.src !== el\.dataset\.secours\)/.test(admin));
+check('le serveur transmet le champ `t` à l’admin',
+  /t: f\.storage === 'drive' \? \(f\.thumb \|\| null\) : null/.test(
+    require('fs').readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8')));
+check('les champs inutiles de Drive sont retirés',
+  /function sanitizeFilesForAdmin/.test(require('fs').readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8')));
+
+console.log('\nH. Mémoire de l’instance protégée');
+const srv = require('fs').readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+check('le cache de vignettes est plafonné à 64 Mo', /MEDIA_CACHE_MAX_BYTES = 64 \* 1024 \* 1024/.test(srv));
+check('un seul aperçu de couverture à la fois par galerie',
+  /coverPreviewLocks/.test(srv) && /while \(coverPreviewLocks\.has/.test(srv));
 
 console.log('\nRésultat : ' + ok + ' réussites, ' + ko + ' échec(s)');
 process.exit(ko ? 1 : 0);
