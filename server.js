@@ -20,6 +20,9 @@ try {
 } catch { /* pas de fichier .env */ }
 
 const express = require('express');
+/* Empreinte du mot de passe de secours (variable ADMIN_RECOVERY_PASSWORD).
+   Vide = aucune clé de secours. Voir le commentaire au démarrage. */
+let cfgRecoveryHash = null;
 const v8 = require('v8');
 const compression = require('compression');
 const multer = require('multer');
@@ -209,10 +212,25 @@ store.ensureDirs();
   } catch (err) {
     console.warn('[oauth] Ré-hydratation impossible :', err.message);
   }
-  // Auto-réparation : si la restauration a laissé une config sans mot de passe
-  // admin (config.json vide/incomplet), il est rétabli depuis l'env ADMIN_PASSWORD
-  // (source de vérité, même principe que les jetons Google).
+  // Rétablissement du mot de passe admin au démarrage.
+  //
+  // HISTORIQUE (important) : cette réparation ne s'appliquait qu'à une config
+  // SANS mot de passe. Or la restauration apporte le mot de passe de la
+  // sauvegarde, qui est PRIORITAIRE sur la variable d'environnement. Résultat,
+  // le 18/11/2026 : le mot de passe conservé par la sauvegarde n'était plus
+  // connu de personne, et ADMIN_PASSWORD n'avait aucun effet. Impossible de
+  // rentrer dans l'admin, donc impossible de le changer depuis l'interface.
+  //
+  // Nouvelle règle : s'il existe un mot de passe de secours dédié
+  // (ADMIN_RECOVERY_PASSWORD), il est TOUJOURS accepté en plus du mot de passe
+  // courant. On ne remplace jamais le mot de passe existant (aucune surprise
+  // pour le photographe), on ajoute simplement une clé de secours que l'on peut
+  // retirer à tout moment depuis Render.
   try {
+    if (process.env.ADMIN_RECOVERY_PASSWORD) {
+      cfgRecoveryHash = sec.hashPassword(process.env.ADMIN_RECOVERY_PASSWORD);
+      if (cfgRecoveryHash) console.log('[startup] Mot de passe de secours actif (ADMIN_RECOVERY_PASSWORD).');
+    }
     const cfgH = store.config();
     if (!cfgH.adminPasswordHash && process.env.ADMIN_PASSWORD) {
       cfgH.adminPasswordHash = sec.hashPassword(process.env.ADMIN_PASSWORD);
@@ -1860,7 +1878,12 @@ app.post('/api/admin/login', (req, res) => {
   const ip = req.ip || 'unknown';
   if (!loginLimiter(ip)) return res.status(429).json({ error: sec.tooManyMessage(loginLimiter.retryAfter(ip)) });
   const cfg = store.config();
-  if (sec.verifyPassword(req.body.password || '', cfg.adminPasswordHash)) {
+  const motDePasse = req.body.password || '';
+  /* Deux clés possibles : le mot de passe courant, et la clé de secours
+     éventuellement définie dans Render. La seconde n'existe que si le
+     photographe l'a mise en place, et se retire en effaçant la variable. */
+  if (sec.verifyPassword(motDePasse, cfg.adminPasswordHash) ||
+      (cfgRecoveryHash && sec.verifyPassword(motDePasse, cfgRecoveryHash))) {
     loginLimiter.reset(ip);            // réussite : le compteur repart de zéro
     const token = sec.sign({ role: 'admin', iat: Date.now() }, secret());
     res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax${cookieSecure(req)}; Max-Age=${SESSION_MAX_AGE / 1000}`);
