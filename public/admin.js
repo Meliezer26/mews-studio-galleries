@@ -808,7 +808,9 @@
     var grid = $('pm-grid');
     grid.innerHTML = '<div class="spinner" style="grid-column:1/-1"></div>';
     $('pm-sel').innerHTML = '';
-    window.api('/api/admin/galleries/' + id)
+    /* frais=1 : on affiche la liste déjà connue du serveur. Rouvrir la
+       fenêtre Photos ne relance donc pas un listing complet de Drive. */
+    window.api('/api/admin/galleries/' + id + '?frais=1')
       .then(function (data) {
         var g = data.gallery;
         $('pm-count').textContent = g.files.length + ' photo(s)';

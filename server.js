@@ -577,9 +577,29 @@ function demoFilePath(gallery, rec) {
   return null;
 }
 
+/* Un seul listage Drive à la fois par galerie.
+ *
+ * Pourquoi : la grille de l'admin demande la fiche de la galerie puis une
+ * vignette PAR PHOTO. Chaque route appelait syncGallery() ; sur une galerie de
+ * 945 photos, cela pouvait lancer des dizaines de listages simultanés du même
+ * dossier Drive, saturer l'unique processeur et faire échouer des requêtes —
+ * c'est le « 429 » vu en choisissant une couverture (18/11/2026).
+ * Les appelants suivants attendent le listage déjà en cours.
+ */
+const syncEnCours = new Map();   // id galerie -> promesse du listage en cours
+
 async function syncGallery(g, force) {
   if (g.mode !== 'drive' || !drive.isConnected()) return g;
   if (!force && g.syncedAt && Date.now() - g.syncedAt < SYNC_TTL) return g;
+  const deja = syncEnCours.get(g.id);
+  if (deja) { await deja; return findGallery(g.slug) || g; }
+  const p = listerDrive(g).finally(() => syncEnCours.delete(g.id));
+  syncEnCours.set(g.id, p);
+  await p;
+  return g;
+}
+
+async function listerDrive(g) {
   try {
     const driveFiles = (await drive.listImages(g.folderId)).slice().sort(
       (a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: 'base' })
@@ -2282,8 +2302,15 @@ app.get('/api/admin/galleries/:id/photo/:fid/thumb', requireAdmin, async (req, r
   const all = store.galleries();
   const g = all.find((x) => x.id === req.params.id);
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
-  await syncGallery(g);
-  const rec = fileRecord(g, decodeURIComponent(req.params.fid));
+  /* Pas de syncGallery() ici : une vignette ne justifie pas de relire le
+     dossier Drive. Relire 945 entrées pour afficher UNE vignette, répété
+     autant de fois qu'il y a de photos, saturait le serveur. On ne relit que
+     si le lien de vignette de cette photo manque réellement. */
+  let rec = fileRecord(g, decodeURIComponent(req.params.fid));
+  if (rec && rec.storage === 'drive' && !rec.thumb) {
+    await syncGallery(g, true);
+    rec = fileRecord(g, decodeURIComponent(req.params.fid));
+  }
   if (!rec) return res.status(404).json({ error: 'Photo introuvable.' });
   if (rec.storage === 'drive') {
     const size = Math.min(Math.max(parseInt(req.query.size || '400', 10) || 400, 80), 2000);
@@ -2420,7 +2447,11 @@ app.get('/api/admin/galleries/:id', requireAdmin, async (req, res) => {
   const all = store.galleries();
   const g = all.find((x) => x.id === req.params.id);
   if (!g) return res.status(404).json({ error: 'Galerie introuvable.' });
-  await syncGallery(g);
+  /* ?frais=1 : on fait confiance à la liste déjà connue (moins de 5 min).
+     Utilisé par la fenêtre Photos : rouvrir cette fenêtre ne doit pas
+     relancer un listing complet du dossier Drive. */
+  if (req.query.frais === '1') { /* pas de listage */ }
+  else await syncGallery(g);
   const { passwordHash, ...safeGallery } = g;
   // Descriptif exact de chaque album/impression des sélections (package ou
   // ancien format générique) — l'admin n'a plus à deviner le typeId.
