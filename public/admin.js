@@ -902,20 +902,57 @@
     });
   }
 
-  var pmLibereTimer = null;
-  function surDefilementPhotos() {
-    if (pmLibereTimer) return;
-    pmLibereTimer = setTimeout(function () {
-      pmLibereTimer = null;
-      libererHorsEcran();
-      /* Arrivé près du bas : on monte le paquet suivant tout seul, plutôt que
-         d'obliger à viser un bouton. Le débit reste bridé par PM_CONCURRENCE. */
-      var zone = $('pm-scroll');
-      if (zone && pmEtat && pmEtat.ouvert) {
-        var reste = zone.scrollHeight - zone.scrollTop - zone.clientHeight;
-        if (reste < 400) ajouterPaquetPhotos();
+  /* Décide s'il faut monter le paquet suivant.
+   *
+   * L'ancienne version écoutait seulement l'événement « défilement ». Quand la
+   * grille n'était pas assez haute pour défiler, l'événement ne se produisait
+   * jamais : l'affichage s'arrêtait net (constaté en production sur 945 photos,
+   * bloqué à 52). On regarde donc directement si le DERNIER élément monté est
+   * arrivé à portée de vue, et on revérifie régulièrement tant que la fenêtre
+   * est ouverte. Plus de dépendance à un événement qui peut ne pas venir.
+   */
+  function verifierRemplissage() {
+    if (!pmEtat || !pmEtat.ouvert || pmEtat.enCours) return;
+    if (pmEtat.parPaquet >= pmEtat.total) return;
+    var zone = $('pm-scroll');
+    var dernier = pmEtat.modele[pmEtat.modele.length - 1];
+    if (!zone || !dernier) return;
+    var rz = zone.getBoundingClientRect();
+    var rd = dernier.getBoundingClientRect();
+    /* Le dernier élément est visible (ou presque) : on peut en monter d'autres. */
+    if (rd.top < rz.bottom + 400) ajouterPaquetPhotos();
+  }
+
+  var pmVeille = null;
+  function demarrerVeille() {
+    if (pmVeille) return;
+    pmVeille = setInterval(verifierRemplissage, 900);
+  }
+  function arreterVeille() {
+    if (pmVeille) { clearInterval(pmVeille); pmVeille = null; }
+  }
+
+  function libererHorsEcran() {
+    if (!pmEtat) return;
+    var zone = $('pm-scroll');
+    if (!zone) return;
+    var r = zone.getBoundingClientRect();
+    pmEtat.modele.forEach(function (img) {
+      var b = img.getBoundingClientRect();
+      var visible = b.bottom > r.top - 900 && b.top < r.bottom + 900;
+      /* Hors écran : on garde l'image en mémoire mais on libère son dessin.
+         Sur 945 photos, cela fait la différence entre un onglet fluide et un
+         onglet qui rame. */
+      if (!visible && img.src && !img.dataset.secours) {
+        img.dataset.secours = img.src;
+        img.removeAttribute('src');
       }
-    }, 140);
+    });
+  }
+
+  function surDefilementPhotos() {
+    verifierRemplissage();
+    libererHorsEcran();
   }
 
   function monterPaquet(files, depuis, total) {
@@ -1013,6 +1050,7 @@
         grid.innerHTML = '';
         pmEtat = { galerie: g, modele: [], parPaquet: 0, total: files.length, ouvert: true, premierPaquet: premierPaquet };
         ajouterPaquetPhotos();
+        demarrerVeille();
         renderSelections(g);
       })
       .catch(function (err) { window.toast(err.message, 'err'); });
@@ -1021,6 +1059,7 @@
   /* Arrêt propre quand la fenêtre Photos se ferme. */
   window.__pmFermer = function () {
     if (pmEtat) pmEtat.ouvert = false;
+    arreterVeille();
   };
 
   function ajouterPaquetPhotos() {
@@ -1032,18 +1071,14 @@
     var nouveaux = monterPaquet(files, depuis, pmEtat.total);
     pmEtat.modele = pmEtat.modele.concat(nouveaux);
     var nombre = nouveaux.length;
+    /* Le compteur suit ce qui est MONTÉ, tout de suite : sinon l'étiquette
+       restait en retard d'un paquet sur la grille. */
+    pmEtat.parPaquet = depuis + nombre;
+    majProgression(pmEtat.parPaquet, 0, pmEtat.total);
     chargerPaquetVignettes(depuis, nombre, pmEtat.total).then(function () {
       if (!pmEtat) return;
-      pmEtat.parPaquet = depuis + nombre;
       pmEtat.enCours = false;
-      majProgression(pmEtat.parPaquet, 0, pmEtat.total);
-      /* Si la grille ne remplit pas encore l'écran, on enchaîne tout seul : pas
-         de barre de défilement, donc rien pour déclencher la suite. */
-      var zone = $('pm-scroll');
-      if (zone && pmEtat.ouvert && pmEtat.parPaquet < pmEtat.total &&
-          zone.scrollHeight <= zone.clientHeight + 200) {
-        ajouterPaquetPhotos();
-      }
+      verifierRemplissage();   // enchaîne si l'écran n'est pas encore rempli
     });
   }
 
