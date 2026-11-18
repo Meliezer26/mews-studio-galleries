@@ -1389,7 +1389,7 @@ async function thumbBytes(rec, size) {
   const key = rec.id + ':t' + size;
   const hit = mediaCacheGet(key);
   if (hit) return { ok: true, buf: hit.buf, ctype: hit.ctype };
-  const up = await drive.fetchThumbnail(rec.thumb || '', size);
+  const up = await drive.fetchThumbnail(rec.thumb || '', size, rec.id);
   if (!up.ok) return { ok: false, status: up.status };
   const ctype = up.headers.get('content-type') || 'image/jpeg';
   const buf = Buffer.from(await up.arrayBuffer());
@@ -1412,11 +1412,13 @@ async function sendDriveThumb(res, rec, size, opts = {}) {
     // et gonflait la mémoire de l'instance). 404 → le client revient
     // simplement à l'écran de verrouillage classique.
     if (opts.coverOnly) return res.status(404).end();
-    // Pas de vignette disponible (format sans aperçu, ex. RAW).
-    // Pour ne pas gaspiller la bande passante, on ne proxifie l'original
-    // QUE s'il est léger ; sinon on affiche un cartouche d'attente et le
-    // client récupère le fichier via le bouton Télécharger (lien direct).
-    if (!rec.size || Number(rec.size) <= 8 * 1024 * 1024) {
+    /* On ne renvoie JAMAIS la photo originale à la place d'une vignette.
+       Incident du 18/11/2026 : les adresses de vignettes expirées faisaient
+       tomber ici, et une grille de 945 photos téléchargeait 945 originaux de
+       7,5 Mo (plusieurs Go), saturant mémoire et processeur. Un cartouche
+       discret coûte 500 octets et laisse le bouton Télécharger faire son
+       travail. */
+    if (opts.allowOriginal && (!rec.size || Number(rec.size) <= 8 * 1024 * 1024)) {
       return sendDriveMedia(res, rec);
     }
     res.setHeader('Content-Type', 'image/svg+xml');
